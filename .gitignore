@@ -1,0 +1,7 @@
+settings.json
+__pycache__
+venv
+logs
+certs
+*.bkp
+*.dtmp
