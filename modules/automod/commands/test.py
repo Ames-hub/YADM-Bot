@@ -1,7 +1,9 @@
 from library.botapp import client
 import lightbulb
 
-@client.register
+loader = lightbulb.Loader()
+
+@loader.command
 class HelloWorld(
     lightbulb.SlashCommand,
     name="hello-world",
@@ -11,5 +13,3 @@ class HelloWorld(
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
         await ctx.respond("Hello World!")
-
-loader = lightbulb.Loader()

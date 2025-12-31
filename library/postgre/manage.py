@@ -74,9 +74,9 @@ def initialize():
     password = "".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(32))
     db_name = "localdb"
     port = "5433"
-    container_name = "local_postgres_auto"
+    container_name = "YADM_BOT_POSTGRE"
 
-    logging.info("DB PASSWORD GENERATED:", password)
+    logging.info(f"DB PASSWORD GENERATED: {password}")
 
     new_details = {
         "dbname": db_name,

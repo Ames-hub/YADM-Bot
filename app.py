@@ -1,5 +1,6 @@
 from library.settings import get, set
-import modules, essentials
+from library import datastore as ds
+import essentials
 import datetime
 import logging
 import asyncio
@@ -172,21 +173,34 @@ if not get.bot_name() and not prod_mode:
 
 # ----- BOT SETUP SECTION -----
 from library.botapp import botapp, client
+import importlib
 import hikari
 
 @botapp.listen(hikari.StartingEvent)
 async def on_starting(_: hikari.StartingEvent) -> None:
-    # Load any extensions
-    await client.load_extensions_from_package(modules)
+    modules_dir = "modules"
+
+    for root, dirs, files in os.walk(modules_dir):
+        if "__init__.py" not in files:
+            continue  # skip non-packages
+
+        # Convert file system path to Python package path
+        package_path = root.replace(os.path.sep, ".")
+        package = importlib.import_module(package_path)
+        await client.load_extensions_from_package(package)
+
+    # Load essentials separately
+    import essentials
     await client.load_extensions_from_package(essentials)
-    # Start the bot - make sure commands are synced properly
-    await client.start()
 
 @botapp.listen(hikari.ShardReadyEvent)
 async def on_shard_ready(event: hikari.ShardReadyEvent) -> None:
     msg = f"Shard {event.shard.id} is ready and connected to Discord!"
     print(msg)
     logging.info(msg)
+
+# ------- ds.d configuration ------- #
+ds.d["time_at_boot"] = datetime.datetime.now()
 
 try:
     if os.name != "nt":

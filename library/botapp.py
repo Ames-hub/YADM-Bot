@@ -1,3 +1,4 @@
+from hikari.intents import Intents as HKIntents
 from library.settings import get
 import lightbulb
 import datetime
@@ -24,7 +25,13 @@ else:
 DEBUG = os.getenv('DEBUG', 'false').lower() == 'true'
 BOT_TOKEN = get.bot_token()
 
+intents_list = [HKIntents.GUILD_MESSAGES, HKIntents.GUILDS, HKIntents.MESSAGE_CONTENT]
+intents = 0
+for intent in intents_list:
+    intents += intent
+
 botapp = hikari.GatewayBot(
+    intents=intents,
     token=BOT_TOKEN,
     logs={
         "version": 1,
