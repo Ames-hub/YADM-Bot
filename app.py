@@ -1,6 +1,7 @@
 from library.settings import get, set
 from library import datastore as ds
 import essentials
+import platform
 import datetime
 import logging
 import asyncio
@@ -171,6 +172,27 @@ if not get.bot_name() and not prod_mode:
     logging.warning("Bot name is not set. Using default 'Railway'.")
     set.bot_name("Railway")
 
+def get_os_name():
+    system = platform.system()
+
+    if system == "Linux":
+        try:
+            with open("/etc/os-release") as f:
+                for line in f:
+                    if line.startswith("PRETTY_NAME="):
+                        return line.strip().split("=", 1)[1].strip('"')
+        except FileNotFoundError:
+            return "Linux (unknown distro)"
+
+    elif system == "Windows":
+        ver = sys.getwindowsversion()
+        return "Windows 11" if ver.build >= 22000 else "Windows 10"
+
+    elif system == "Darwin":
+        return f"macOS {platform.mac_ver()[0]}"
+
+    return system
+
 # ----- BOT SETUP SECTION -----
 from library.botapp import botapp, client
 import importlib
@@ -190,7 +212,6 @@ async def on_starting(_: hikari.StartingEvent) -> None:
         await client.load_extensions_from_package(package)
 
     # Load essentials separately
-    import essentials
     await client.load_extensions_from_package(essentials)
 
 @botapp.listen(hikari.ShardReadyEvent)
@@ -203,8 +224,10 @@ async def on_shard_ready(event: hikari.ShardReadyEvent) -> None:
 ds.d["time_at_boot"] = datetime.datetime.now()
 
 try:
+    logging.info(f"OS Detected: {get_os_name()}")
     if os.name != "nt":
         import uvloop
+        logging.info(f"Using linux uvloop")
         asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
     botapp.run(
         shard_count=15 if prod_mode else 1
