@@ -5,6 +5,7 @@ import datetime
 import logging
 import hikari
 import dotenv
+import miru
 import os
 
 os.makedirs("logs", exist_ok=True)
@@ -25,7 +26,7 @@ else:
 DEBUG = os.getenv('DEBUG', 'false').lower() == 'true'
 BOT_TOKEN = get.bot_token()
 
-intents_list = [HKIntents.GUILD_MESSAGES, HKIntents.GUILDS, HKIntents.MESSAGE_CONTENT]
+intents_list = [HKIntents.GUILD_MESSAGES, HKIntents.GUILDS, HKIntents.MESSAGE_CONTENT, HKIntents.GUILD_MESSAGE_REACTIONS]
 intents = 0
 for intent in intents_list:
     intents += intent
@@ -42,5 +43,7 @@ botapp = hikari.GatewayBot(
         },
     },
 )
+
+miru_client = miru.Client(botapp)
 
 client = lightbulb.client_from_app(botapp)

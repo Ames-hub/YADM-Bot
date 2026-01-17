@@ -5,3 +5,4 @@ logs
 certs
 *.bkp
 *.dtmp
+local.db

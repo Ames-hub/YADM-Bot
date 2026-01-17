@@ -16,6 +16,9 @@ valid_settings = {
     "db_name": None,
     "bot_name": None,
     "allow_docker_fallback": True,
+    "primary_maintainer": None,
+    "ai_vision_enabled": True,
+    "nonprod_bot_token": None,  # The token to use while the bot is not in "production" mode
 }
 
 def make_settings_file():
@@ -34,20 +37,6 @@ def _save_value(key, value):
 
     if key not in valid_settings.keys():
         raise KeyError("This is a bad key for settings!")
-
-    if key == "allow_registration":
-        value = bool(value)
-    elif key == "weekday_end":
-        ref_dict = {
-            "monday": 1,
-            "tuesday": 2,
-            "wednesday": 3,
-            "thursday": 4,
-            "friday": 5,
-            "saturday": 6,
-            "sunday": 7,
-        }
-        value = ref_dict.get(value.lower(), 1)
 
     # Load existing settings if a file exists
     if os.path.exists(SETTINGS_PATH):
@@ -126,12 +115,24 @@ class get:
     def allow_docker_fallback():
         return _get_value("allow_docker_fallback", valid_settings["allow_docker_fallback"])
 
+    def primary_maintainer():
+        return _get_value("primary_maintainer", valid_settings["primary_maintainer"])
+
+    def ai_vision_enabled():
+        return _get_value("ai_vision_enabled", valid_settings["ai_vision_enabled"])
+
+    def nonprod_bot_token():
+        value = _get_value("nonprod_bot_token", valid_settings["nonprod_bot_token"])
+        if value is not None:
+            value = encryption().decrypt(value)
+        return value
+
 class set:
     def bot_token(value):
         # Protect the bot token by encrypting it before saving.
         value = encryption().encrypt(value)
         return _save_value("bot_token", value)
-    
+
     def prod_mode(value: bool):
         return _save_value("prod_mode", bool(value))
     
@@ -156,3 +157,13 @@ class set:
     
     def allow_docker_fallback(value: bool):
         return _save_value("allow_docker_fallback", bool(value))
+    
+    def primary_maintainer(value: int):
+        return _save_value("primary_maintainer", int(value))
+    
+    def ai_vision_enabled(value: bool):
+        return _save_value("ai_vision_enabled", bool(value))
+    
+    def nonprod_bot_token(value):
+        value = encryption().encrypt(value)
+        return _save_value("nonprod_bot_token", str(value))

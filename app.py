@@ -9,6 +9,9 @@ import dotenv
 import sys
 import os
 
+if os.name == "nt":
+    set.ai_vision_enabled(False)
+
 logging.basicConfig(
     filename=f"logs/{datetime.datetime.now().strftime('%Y-%m-%d')}.log",
     level=logging.INFO,
@@ -30,16 +33,6 @@ if not get.bot_token():
 
     if os.path.exists(".env"):
         dotenv.load_dotenv(".env")
-        bot_token = os.getenv("BOT_TOKEN", "").strip()
-        if bot_token:
-            set.bot_token(bot_token)
-            print("Detected .env file, loading bot token from there.\n\n")
-
-        bot_name = os.getenv("BOT_NAME", "").strip()
-        if bot_name:
-            set.bot_name(bot_name)
-            print(f"Detected .env file, loading bot name '{bot_name}' from there.\n\n")
-
         prod_mode = os.getenv("PROD_MODE", "").strip().lower()
         if prod_mode in ("y", "yes", "true", "1"):
             set.prod_mode(True)
@@ -47,6 +40,21 @@ if not get.bot_token():
         elif prod_mode in ("n", "no", "false", "0"):
             set.prod_mode(False)
             print("Detected .env file, disabling production mode from there.\n\n")
+
+        bot_token = os.getenv("BOT_TOKEN", "").strip()
+        if bot_token:
+            set.bot_token(bot_token)
+            print("Detected .env file, loading bot token from there.\n\n")
+
+        primary_maintainer = os.getenv("PRIMARY_MAINTAINER", "")
+        if primary_maintainer:
+            set.primary_maintainer(int(primary_maintainer))
+            print(f"Detected .env file, loading primary maintainer '{primary_maintainer}' from there.")
+
+        bot_name = os.getenv("BOT_NAME", "").strip()
+        if bot_name:
+            set.bot_name(bot_name)
+            print(f"Detected .env file, loading bot name '{bot_name}' from there.\n\n")
 
         allow_docker_fallback = os.getenv("ALLOW_DOCKER_FALLBACK", "").strip().lower()
         if allow_docker_fallback in ("y", "yes", "true", "1"):
@@ -70,23 +78,32 @@ if not get.bot_token():
                 set.db_port(int(db_port))
             print("Detected .env file, loading database configuration from there.\n\n")
 
-    print("Thank you for using Railway Bot!")
+    print("Thank you for using YADM Bot!")
     if not bot_token:
         print("To get started, please enter your Discord bot token.")
         token = input(">>> ").strip()
         set.bot_token(token)
         print("Bot token saved.\n\n")
 
+    print("Great! Now, would you like to use a separate discord bot token for when you are testing the bot? (y/n)")
+    use_debug_token = input(">>> ") == "y"
+    if use_debug_token:
+        print("Please enter your DEBUG discord bot token.")
+        debug_token = input(">>> ")
+        set.nonprod_bot_token(debug_token)
+    else:
+        set.nonprod_bot_token(token)  # Set both as the same
+
     if not bot_name:
-        print("What's the bot's name?")
+        print("What's the bot's name? (Default: Nodeus)")
         while True:
             name = input(">>> ").strip()
             if len(name) > 0:
                 set.bot_name(name)
                 break
             else:
-                print("Name cannot be blank.")
-                continue
+                name = "Nodeus"
+                set.bot_name(name)
         print(f"Great! Your bot's name is set to: {name}\n\n")
 
     if prod_mode is None:
@@ -137,7 +154,7 @@ if not get.bot_token():
 
 # ----- BOT ENVIRONMENT SETUP SECTION -----
 
-from library.postgre import manage as pg_manage
+from library.database import manage as pg_manage
 db_init_success = pg_manage.initialize()
 if db_init_success:
     pg_manage.modernize()
@@ -169,8 +186,8 @@ if prod_mode:
         raise ValueError("Bot name not set in production mode.")
 
 if not get.bot_name() and not prod_mode:
-    logging.warning("Bot name is not set. Using default 'Railway'.")
-    set.bot_name("Railway")
+    logging.warning("Bot name is not set. Using default 'Nodeus'.")
+    set.bot_name("Nodeus")
 
 def get_os_name():
     system = platform.system()
@@ -204,6 +221,9 @@ async def on_starting(_: hikari.StartingEvent) -> None:
 
     for root, dirs, files in os.walk(modules_dir):
         if "__init__.py" not in files:
+            if "__pycache__" in root:
+                continue  # Skip pycache
+            logging.info(f"Skipping {root} as it does not have an __init__.py")
             continue  # skip non-packages
 
         # Convert file system path to Python package path
@@ -213,22 +233,29 @@ async def on_starting(_: hikari.StartingEvent) -> None:
 
     # Load essentials separately
     await client.load_extensions_from_package(essentials)
+    await client.start()
 
 @botapp.listen(hikari.ShardReadyEvent)
 async def on_shard_ready(event: hikari.ShardReadyEvent) -> None:
-    msg = f"Shard {event.shard.id} is ready and connected to Discord!"
+    msg = f"Shard {event.shard.id} is ready and logged in as \"{event.my_user.username}\" to Discord!"
     print(msg)
     logging.info(msg)
 
 # ------- ds.d configuration ------- #
 ds.d["time_at_boot"] = datetime.datetime.now()
+ds.d["guild_name_cache"] = {}
+ds.d["PRIMARY_MAINTAINER"] = get.primary_maintainer()
+ds.d["guild_owner_ids_cache"] = {}
 
 try:
     logging.info(f"OS Detected: {get_os_name()}")
+    
     if os.name != "nt":
+        # More efficient than usual event loop policy
         import uvloop
         logging.info(f"Using linux uvloop")
         asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+
     botapp.run(
         shard_count=15 if prod_mode else 1
     )
