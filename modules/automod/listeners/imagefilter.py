@@ -35,7 +35,7 @@ async def botfunction(event: hikari.GuildMessageCreateEvent):
                 title=F"({result['probability']}) NSFW Image Detected 🔞",
                 description=f"{event.author.mention} We have detected that this image violates content rules."
             )
-            .set_footer("Did we get it right? If not, react to this message with 👎")
+            .set_footer("Did we get it right? If not, react to this message with 👎\nBut if this was an NSFW image, react with 👍")
         )
 
         msg_id = await automod.handle_guilty(event, alert_embed=embed, get_msg_id=True)
@@ -49,7 +49,6 @@ async def botfunction(event: hikari.GuildMessageCreateEvent):
         # Remove the reaction if the msg isn't going to be deleted.
         if not dbguild(event.guild_id).get.do_delete_msg():
             await event.message.remove_reaction("🔍", user=botapp.get_me().id)
-
         return True
     else:
         await event.message.remove_reaction("🔍", user=botapp.get_me().id)
