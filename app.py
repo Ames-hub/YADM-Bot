@@ -349,7 +349,7 @@ try:
         asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
     botapp.run(
-        shard_count=15 if prod_mode else 1
+        shard_count=3 if prod_mode else 1
     )
 except KeyboardInterrupt:
     print("Interrupt signal received, shutting down...")

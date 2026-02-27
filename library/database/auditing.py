@@ -59,6 +59,10 @@ class server_logs:
         self.guild_id = int(guild_id)
         self.entry_text = None
     
+    class NoLogsChannel(Exception):
+        def __init__(self, *args):
+            super().__init__(*args)
+
     def __archive_log(self, entry_text:str):
         session = get_session()
         try:
@@ -76,7 +80,7 @@ class server_logs:
         finally:
             session.close()
 
-    async def log(self, embed:hikari.Embed) -> bool:
+    async def create_entry(self, embed:hikari.Embed, no_channel_ok:bool=True) -> bool:
         config = logs_config(self.guild_id)
 
         entry_text = f"{embed.title}\n{embed.description}"
@@ -85,9 +89,16 @@ class server_logs:
         if embed.color == None or embed.colour == None:
             raise ValueError("Colour for embed cannot be None!")
 
+        logs_channel = config.get_logs_channel()
+        if not logs_channel:
+            if no_channel_ok:
+                return True
+            else:
+                raise self.NoLogsChannel
+
         try:
             await botapp.rest.create_message(
-                config.get_logs_channel(),
+                channel=logs_channel,
                 content=embed
             )
             return True

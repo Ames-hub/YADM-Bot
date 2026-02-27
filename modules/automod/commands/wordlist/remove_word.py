@@ -42,7 +42,7 @@ class command(
                 colour=0x00ff00
             )
             await ctx.respond(embed, flags=[hikari.MessageFlag.EPHEMERAL])
-            await server_logs(ctx.guild_id).log(
+            await server_logs(ctx.guild_id).create_entry(
                 hikari.Embed(
                     title="Word Removed.",
                     description=f"The word \"{self.word}\" has been removed from the bad words list by {ctx.user.mention}",

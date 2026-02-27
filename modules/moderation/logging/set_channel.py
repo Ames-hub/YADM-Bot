@@ -1,13 +1,26 @@
 from modules.moderation.logging.subgroup import logging_subgroup
-from library.database.auditing import logs_config
+from library.database.auditing import logs_config, server_logs
 from library.permissions import perms
 import lightbulb
 import hikari
 
 loader = lightbulb.Loader()
 
-async def handle_set_log_channel(guild_id:int, channel_id:int, responder_func):
+async def handle_set_log_channel(guild_id:int, channel_id:int, user_id:int, responder_func):
     config = logs_config(guild_id)
+    logs = server_logs(guild_id)
+
+    # Alert logs if a user is clearing the log channel config so it won't record
+    if channel_id == None:
+        old_log_channel = config.get_logs_channel()
+        if old_log_channel:
+            await logs.create_entry(
+                hikari.Embed(
+                    title="Logging channel removed",
+                    description=f"<@{user_id}> Has removed the logging channel"
+                )
+            )
+
     success = config.set_logs_channel(channel_id)
     if success:
         await responder_func(
@@ -17,6 +30,15 @@ async def handle_set_log_channel(guild_id:int, channel_id:int, responder_func):
                 color=0x00ff00
             )
         )
+
+        if channel_id is not None:
+            await logs.create_entry(
+                hikari.Embed(
+                    title="Logging channel changed",
+                    description=f"<@{user_id}> Has changed the logging channel to here!"
+                )
+            )
+
         return
     else:
         await responder_func(
@@ -43,5 +65,6 @@ class command(
         return await handle_set_log_channel(
             ctx.guild_id,
             self.channel.id,
+            ctx.user.id,
             ctx.respond
         )

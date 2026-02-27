@@ -131,7 +131,7 @@ def test_check_runs_low_and_medium_layers(monkeypatch, mock_dbguild):
         lambda guild_id=None: ["bad"]
     )
 
-    result = automod.check("b a d", guild_id=123)
+    result = automod.text_check("b a d", guild_id=123)
     assert result is True
 
 
@@ -142,7 +142,7 @@ def test_check_returns_false_when_clean(monkeypatch, mock_dbguild):
         lambda guild_id=None: ["bad"]
     )
 
-    result = automod.check("hello world", guild_id=123)
+    result = automod.text_check("hello world", guild_id=123)
     assert result is False
 
 # ---------------------------
@@ -187,7 +187,7 @@ def test_check_layer_override(monkeypatch, mock_dbguild):
         lambda guild_id=None: ["bad"]
     )
     # Should respect guild config for layers
-    result = automod.check("bad", check_layers=3, guild_id=123)
+    result = automod.text_check("bad", check_layers=3, guild_id=123)
     assert result is True
 
 def test_check_layer_skipped(monkeypatch):
@@ -197,7 +197,7 @@ def test_check_layer_skipped(monkeypatch):
         lambda guild_id=None: ["bad"]
     )
     # Skip low layer, layer=0
-    result = automod.check("bad", check_layers=0)
+    result = automod.text_check("bad", check_layers=0)
     assert result is False
 
 

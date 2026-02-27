@@ -47,7 +47,7 @@ class command(
                 embed=embed,
                 flags=[hikari.MessageFlag.EPHEMERAL]
             )
-            await server_logs(ctx.guild_id).log(
+            await server_logs(ctx.guild_id).create_entry(
                 hikari.Embed(
                     title="Word Added!",
                     description=f"The word \"{self.word}\" has been {'blacklisted' if self.blacklisted else 'whitelisted'} by {ctx.user.mention}",

@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, select, insert, Column, Integer, BigInteger, TEXT, TIMESTAMP, BOOLEAN, text, CheckConstraint, DATETIME, FLOAT
+from sqlalchemy import create_engine, select, insert, Column, Integer, BigInteger, TEXT, TIMESTAMP, BOOLEAN, text, CheckConstraint, DateTime, FLOAT
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.exc import OperationalError
 from library.settings import get
@@ -31,26 +31,58 @@ class member_violations(Base):
     violation = Column(TEXT, nullable=False)
     automated = Column(BOOLEAN, nullable=False)
 
-class guild_automod_settings(Base):
-    __tablename__ = "guild_automod_settings"
-
+class guild_text_automod_settings(Base):
+    __tablename__ = "guild_text_automod_settings"
+    
     guild_id = Column(BigInteger, nullable=False, primary_key=True)
     text_filter_level = Column(Integer, nullable=False, default=1)
-    penalty_delete_message = Column(BOOLEAN, nullable=False, default=True)
-    penalty_warn_member = Column(BOOLEAN, nullable=False, default=True)
+    penalty_delete_message = Column(BOOLEAN, nullable=False, default=False)
+    penalty_warn_member = Column(BOOLEAN, nullable=False, default=False)
     penalty_mute_member = Column(BOOLEAN, nullable=False, default=False)
     penalty_mute_duration = Column(BigInteger, nullable=False, default=-1)  # -1 = Permanent
     penalty_kick_member = Column(BOOLEAN, nullable=False, default=False)
     penalty_ban_member = Column(BOOLEAN, nullable=False, default=False)
+    ban_duration = Column(Integer, nullable=False, default=86400)  # 1 day
     ban_msg_purgetime = Column(Integer, nullable=False, default=600)  # 10 minutes
-    do_image_filtering = Column(BOOLEAN, nullable=False, default=True)
-    do_filter_spam = Column(BOOLEAN, nullable=False, default=False)
-    do_text_scan = Column(BOOLEAN, nullable=False, default=True)
-    muted_role_id = Column(BigInteger, nullable=True, default=None)
     __table_args__ = (
         # Enforce it to be 1, 2 or 3. Higher = more intense checking.
         CheckConstraint('text_filter_level >= 1 AND text_filter_level <= 3', name='ck_text_filter_level_range'),
     )
+
+class guild_spam_automod_settings(Base):
+    __tablename__ = "guild_spam_automod_settings"
+    
+    guild_id = Column(BigInteger, nullable=False, primary_key=True)
+    penalty_delete_message = Column(BOOLEAN, nullable=False, default=False)
+    penalty_warn_member = Column(BOOLEAN, nullable=False, default=False)
+    penalty_mute_member = Column(BOOLEAN, nullable=False, default=False)
+    penalty_mute_duration = Column(BigInteger, nullable=False, default=-1)  # -1 = Permanent
+    penalty_kick_member = Column(BOOLEAN, nullable=False, default=False)
+    penalty_ban_member = Column(BOOLEAN, nullable=False, default=False)
+    ban_duration = Column(Integer, nullable=False, default=86400)  # 1 day
+    ban_msg_purgetime = Column(Integer, nullable=False, default=600)  # 10 minutes
+
+class guild_images_automod_settings(Base):
+    __tablename__ = "guild_images_automod_settings"
+    
+    guild_id = Column(BigInteger, nullable=False, primary_key=True)
+    penalty_delete_message = Column(BOOLEAN, nullable=False, default=False)
+    penalty_warn_member = Column(BOOLEAN, nullable=False, default=False)
+    penalty_mute_member = Column(BOOLEAN, nullable=False, default=False)
+    penalty_mute_duration = Column(BigInteger, nullable=False, default=-1)  # -1 = Permanent
+    penalty_kick_member = Column(BOOLEAN, nullable=False, default=False)
+    penalty_ban_member = Column(BOOLEAN, nullable=False, default=False)
+    ban_duration = Column(Integer, nullable=False, default=86400)  # 1 day
+    ban_msg_purgetime = Column(Integer, nullable=False, default=600)  # 10 minutes, >0 is no deletion
+
+class guild_automod_settings(Base):
+    __tablename__ = "guild_automod_settings"
+
+    guild_id = Column(BigInteger, nullable=False, primary_key=True)
+    do_image_filtering = Column(BOOLEAN, nullable=False, default=True)
+    do_filter_spam = Column(BOOLEAN, nullable=False, default=False)
+    do_text_scan = Column(BOOLEAN, nullable=False, default=True)
+    muted_role_id = Column(BigInteger, nullable=True, default=None)
 
 class guild_imagescan_threshold(Base):
     __tablename__ = "guild_imagescan_threshold"
@@ -91,7 +123,7 @@ class guild_member_warnings(Base):
     moderator_id = Column(Integer, nullable=False)
     user_id = Column(Integer, nullable=False)
     guild_id = Column(BigInteger, nullable=False)
-    time = Column(DATETIME, nullable=False)
+    time = Column(DateTime, nullable=False)
 
 class scanned_image_list(Base):
     __tablename__ = "image_whitelists"
@@ -130,6 +162,16 @@ class guild_log_channel(Base):
     
     guild_id = Column(BigInteger, primary_key=True)
     channel = Column(BigInteger, nullable=True)
+
+class guild_ban_record(Base):
+    __tablename__ = "guild_ban_records"
+    
+    case_id = Column(Integer, primary_key=True, autoincrement=True)
+    guild_id = Column(BigInteger, nullable=False)
+    banned_id = Column(BigInteger, nullable=False)
+    moderator_id = Column(BigInteger, nullable=False)
+    time_to_unban = Column(DateTime, nullable=False)
+    reason = Column(TEXT, nullable=False)
 
 def get_session():
     if SessionLocal is None:
@@ -215,7 +257,7 @@ def create_docker_postgres(
     url = postgres_url(settings.getgroup.db_details())
     if not wait_for_db(url):
         logging.error("PostgreSQL container started but did not become reachable.")
-        return False
+        exit(0)
 
     logging.info("Docker PostgreSQL ready.")
     return True
@@ -223,21 +265,25 @@ def create_docker_postgres(
 def wait_for_db(url: str, retries: int = 30, delay: int = 2) -> bool:
     global engine, SessionLocal
 
-    if settings.get.db_port() is None:  # If this is none, the rest are also likely None.
+    if settings.get.db_port() is None and settings.get.prod_mode() is True:  # If this is none, the rest are also likely None.
         if settings.get.allow_docker_fallback():
             logging.info("Postgres Fallback DB Initiated: Creating docker DB using image 'postgres'")
             create_docker_postgres()
+            url = postgres_url(settings.getgroup.db_details())
         else:
             error = (
                 "Error! We are not allowed to make a fallback DB, and no externally configured DB is set while on Production mode. "
-                "To fix this, please set the following variable in settings: allow_docker_fallback = True"
+                "To fix this, please set the following variable in settings: allow_docker_fallback = True OR set a DB"
             )
             print(error)
             raise ConnectionAbortedError(error)
 
+    logging.info("DB: Creating engine")
+
     engine = create_engine(url, echo=False, future=True)
     SessionLocal = sessionmaker(bind=engine, future=True)
 
+    logging.info("DB: Beginning to attempt to connect to PostgreSQL database.")
     for i in range(retries):
         try:
             with engine.connect() as conn:
@@ -245,7 +291,7 @@ def wait_for_db(url: str, retries: int = 30, delay: int = 2) -> bool:
             logging.info("Database connection successful.")
             return True
         except OperationalError as err:
-            logging.debug(f"DB attempt {i+1}/{retries} failed: {err}")
+            logging.debug(f"DB attempt {i+1}/{retries} failed: {err}", exc_info=err)
             time.sleep(delay)
 
     logging.error("Database never became reachable.")

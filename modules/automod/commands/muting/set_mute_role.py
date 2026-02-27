@@ -29,7 +29,7 @@ class command(
                 description=f"The mute role has been set to <@&{self.role.id}>"
             )
             await ctx.respond(embed)
-            server_logs(ctx.guild_id).log(
+            server_logs(ctx.guild_id).create_entry(
                 hikari.Embed(
                     title="Muted Role Set",
                     description=f"The mute role has been set to <@&{self.role.id}> by {ctx.user.mention}"

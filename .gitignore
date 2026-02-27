@@ -6,3 +6,4 @@ certs
 *.bkp
 *.dtmp
 local.db
+.pytest_cache

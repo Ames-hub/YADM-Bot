@@ -40,7 +40,7 @@ class command(
                 color=0x00ff00
             )
             await ctx.respond(embed)
-            await server_logs(ctx.guild_id).log(
+            await server_logs(ctx.guild_id).create_entry(
                 hikari.Embed(
                     title="Text Filter Intensity",
                     description=f"Your text automoderation level has been updated to level {intensity} by {ctx.user.mention}",

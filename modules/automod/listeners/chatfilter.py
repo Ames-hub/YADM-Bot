@@ -15,7 +15,7 @@ async def botfunction(event: hikari.GuildMessageCreateEvent):
         return
 
     message = event.message.content.strip().lower()
-    guilty = automod.check(message, guild_id=event.guild_id)
+    guilty = automod.text_check(message, guild_id=event.guild_id)
     if guilty:
         guild = dbguild(event.guild_id)
         embed = hikari.Embed(
@@ -23,6 +23,6 @@ async def botfunction(event: hikari.GuildMessageCreateEvent):
             description=f"{event.author.mention}, your message was {"deleted as it was " if guild.get.do_delete_msg() else ""}found to violate the rules.\n"
         )
 
-        await automod.handle_guilty(event, alert_embed=embed)
+        await automod.handle_guilty(event, alert_embed=embed, automod_type=automod.automod_types.TEXT_FILTER)
         return True
     return True

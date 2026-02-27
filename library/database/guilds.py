@@ -1,13 +1,19 @@
 from library.database.manage import (
     get_session,
+    guild_text_automod_settings,
+    guild_spam_automod_settings,
+    guild_images_automod_settings,
     guild_automod_settings,
     member_violations,
     guild_custom_wordlist,
     mute_records,
     guild_member_warnings,
-    guild_imagescan_threshold
+    guild_imagescan_threshold,
+    guild_ban_record
 )
+from library.database.auditing import server_logs
 from sqlalchemy.exc import SQLAlchemyError
+from library import datastore as ds 
 from library.botapp import botapp
 import datetime
 import logging
@@ -61,7 +67,7 @@ class muting:
                     user=user_id,
                     role=muted_role
                 )
-            except hikari.ForbiddenError:
+            except (hikari.ForbiddenError, hikari.NotFoundError):
                 return False
 
             # Make a record in the DB to say the person needs to be unmuted eventually
@@ -211,7 +217,101 @@ class violations:
         finally:
             session.close()
 
-class automod_get:
+class _image_filter_get:
+    def __init__(self, guild_id):
+        self.guild_id = guild_id  
+
+    def _get_record(self):
+        session = get_session()
+        try:
+            return (
+                session.query(guild_images_automod_settings)
+                .filter(guild_images_automod_settings.guild_id == self.guild_id)
+                .one_or_none()
+            )
+        finally:
+            session.close()
+
+    def do_delete_msg(self):
+        record = self._get_record()
+        return record.penalty_delete_message if record else False
+
+    def do_warn_member(self):
+        record = self._get_record()
+        return record.penalty_warn_member if record else False
+
+    def do_mute_member(self):
+        record = self._get_record()
+        return record.penalty_mute_member if record else False
+
+    def do_kick_member(self):
+        record = self._get_record()
+        return record.penalty_kick_member if record else False
+
+    def do_ban_member(self):
+        record = self._get_record()
+        return record.penalty_ban_member if record else False
+
+    def ban_duration(self):
+        record = self._get_record()
+        return record.ban_duration if record else False
+
+    def get_mute_duration(self):
+        record = self._get_record()
+        return record.penalty_mute_duration if record else 60
+
+    def get_ban_msg_purgetime(self):
+        record = self._get_record()
+        return record.ban_msg_purgetime if record else 600  # 10 minutes
+
+class _spam_filter_get:
+    def __init__(self, guild_id):
+        self.guild_id = guild_id    
+
+    def _get_record(self):
+        session = get_session()
+        try:
+            return (
+                session.query(guild_spam_automod_settings)
+                .filter(guild_spam_automod_settings.guild_id == self.guild_id)
+                .one_or_none()
+            )
+        finally:
+            session.close()
+
+    def do_delete_msg(self):
+        record = self._get_record()
+        return record.penalty_delete_message if record else False
+
+    def do_warn_member(self):
+        record = self._get_record()
+        return record.penalty_warn_member if record else False
+
+    def do_mute_member(self):
+        record = self._get_record()
+        return record.penalty_mute_member if record else False
+
+    def do_kick_member(self):
+        record = self._get_record()
+        return record.penalty_kick_member if record else False
+
+    def do_ban_member(self):
+        record = self._get_record()
+        return record.penalty_ban_member if record else False
+
+    def ban_duration(self):
+        record = self._get_record()
+        return record.ban_duration if record else False
+
+    def get_mute_duration(self):
+        record = self._get_record()
+        return record.penalty_mute_duration if record else 60
+
+    def get_ban_msg_purgetime(self):
+        record = self._get_record()
+        return record.ban_msg_purgetime if record else 600  # 10 minutes
+
+class _text_filter_get:
     def __init__(self, guild_id):
         self.guild_id = guild_id
 
@@ -219,14 +319,14 @@ class automod_get:
         session = get_session()
         try:
             return (
-                session.query(guild_automod_settings)
-                .filter(guild_automod_settings.guild_id == self.guild_id)
+                session.query(guild_text_automod_settings)
+                .filter(guild_text_automod_settings.guild_id == self.guild_id)
                 .one_or_none()
             )
         finally:
             session.close()
 
-    def get_text_filter_level(self):
+    def get_filter_level(self):
         record = self._get_record()
         return record.text_filter_level if record else 1
 
@@ -242,10 +342,6 @@ class automod_get:
         record = self._get_record()
         return record.penalty_mute_member if record else False
 
-    def get_mute_duration(self):
-        record = self._get_record()
-        return record.penalty_mute_duration if record else 60
-
     def do_kick_member(self):
         record = self._get_record()
         return record.penalty_kick_member if record else False
@@ -253,10 +349,36 @@ class automod_get:
     def do_ban_member(self):
         record = self._get_record()
         return record.penalty_ban_member if record else False
+    
+    def ban_duration(self):
+        record = self._get_record()
+        return record.ban_duration if record else False
+
+    def get_mute_duration(self):
+        record = self._get_record()
+        return record.penalty_mute_duration if record else 60
 
     def get_ban_msg_purgetime(self):
         record = self._get_record()
         return record.ban_msg_purgetime if record else 600  # 10 minutes
+
+class automod_get:
+    def __init__(self, guild_id):
+        self.guild_id = guild_id
+        self.text = _text_filter_get(guild_id)
+        self.spam = _spam_filter_get(guild_id)
+        self.images = _image_filter_get(guild_id)
+
+    def _get_record(self):
+        session = get_session()
+        try:
+            return (
+                session.query(guild_automod_settings)
+                .filter(guild_automod_settings.guild_id == self.guild_id)
+                .one_or_none()
+            )
+        finally:
+            session.close()
 
     def muted_role_id(self):
         record = self._get_record()
@@ -285,7 +407,7 @@ class automod_get:
         finally:
             session.close()
 
-class automod_set:
+class _text_filter_set:
     def __init__(self, guild_id):
         self.guild_id = guild_id
 
@@ -293,13 +415,13 @@ class automod_set:
         session = get_session()
         try:
             record = (
-                session.query(guild_automod_settings)
-                .filter(guild_automod_settings.guild_id == self.guild_id)
+                session.query(guild_text_automod_settings)
+                .filter(guild_text_automod_settings.guild_id == self.guild_id)
                 .one_or_none()
             )
 
             if not record:
-                record = guild_automod_settings(
+                record = guild_text_automod_settings(
                     guild_id=self.guild_id,
                     **fields
                 )
@@ -311,7 +433,7 @@ class automod_set:
             session.commit()
             return True
         except SQLAlchemyError as err:
-            logging.error("Error updating!", exc_info=err)
+            logging.error("Error updating text automod settings!", exc_info=err)
             session.rollback()
             return False
         finally:
@@ -337,23 +459,133 @@ class automod_set:
 
     def do_ban_member(self, value: bool):
         return self._update(penalty_ban_member=value)
-
-    def set_ban_msg_purgetime(self, value: int):
-        return self._update(ban_msg_purgetime=value)
-
-    def muted_role_id(self, value:int):
-        return self._update(muted_role_id=value)
     
-    def do_image_filtering(self, value:bool):
-        return self._update(do_image_filtering=value)
+    def ban_duration(self, seconds: int):
+        return self._update(ban_duration=seconds)
 
-    def do_filter_spam(self, value:bool):
-        return self._update(do_filter_spam=value)
-    
-    def do_text_scan(self, value:bool):
-        return self._update(do_text_scan=value)
-    
-    def nsfw_scan_threshold(self, value: float):
+    def set_ban_msg_purgetime(self, seconds: int):
+        return self._update(ban_msg_purgetime=seconds)
+
+class _spam_filter_set:
+    def __init__(self, guild_id):
+        self.guild_id = guild_id
+
+    def _update(self, **fields):
+        session = get_session()
+        try:
+            record = (
+                session.query(guild_spam_automod_settings)
+                .filter(guild_spam_automod_settings.guild_id == self.guild_id)
+                .one_or_none()
+            )
+
+            if not record:
+                record = guild_spam_automod_settings(
+                    guild_id=self.guild_id,
+                    **fields
+                )
+                session.add(record)
+            else:
+                for key, value in fields.items():
+                    setattr(record, key, value)
+
+            session.commit()
+            return True
+        except SQLAlchemyError as err:
+            logging.error("Error updating spam automod settings!", exc_info=err)
+            session.rollback()
+            return False
+        finally:
+            session.close()
+
+    def do_delete_msg(self, value: bool):
+        return self._update(penalty_delete_message=value)
+
+    def do_warn_member(self, value: bool):
+        return self._update(penalty_warn_member=value)
+
+    def do_mute_member(self, value: bool):
+        return self._update(penalty_mute_member=value)
+
+    def set_mute_duration(self, seconds: int):
+        return self._update(penalty_mute_duration=seconds)
+
+    def do_kick_member(self, value: bool):
+        return self._update(penalty_kick_member=value)
+
+    def do_ban_member(self, value: bool):
+        return self._update(penalty_ban_member=value)
+
+    def ban_duration(self, seconds: int):
+        return self._update(ban_duration=seconds)
+
+    def set_ban_msg_purgetime(self, seconds: int):
+        return self._update(ban_msg_purgetime=seconds)
+
+class _image_filter_set:
+    def __init__(self, guild_id):
+        self.guild_id = guild_id
+
+    def _update(self, **fields):
+        session = get_session()
+        try:
+            record = (
+                session.query(guild_images_automod_settings)
+                .filter(guild_images_automod_settings.guild_id == self.guild_id)
+                .one_or_none()
+            )
+
+            if not record:
+                record = guild_images_automod_settings(
+                    guild_id=self.guild_id,
+                    **fields
+                )
+                session.add(record)
+            else:
+                for key, value in fields.items():
+                    setattr(record, key, value)
+
+            session.commit()
+            return True
+        except SQLAlchemyError as err:
+            logging.error("Error updating image automod settings!", exc_info=err)
+            session.rollback()
+            return False
+        finally:
+            session.close()
+
+    def do_delete_msg(self, value: bool):
+        return self._update(penalty_delete_message=value)
+
+    def do_warn_member(self, value: bool):
+        return self._update(penalty_warn_member=value)
+
+    def do_mute_member(self, value: bool):
+        return self._update(penalty_mute_member=value)
+
+    def set_mute_duration(self, seconds: int):
+        return self._update(penalty_mute_duration=seconds)
+
+    def do_kick_member(self, value: bool):
+        return self._update(penalty_kick_member=value)
+
+    def do_ban_member(self, value: bool):
+        return self._update(penalty_ban_member=value)
+
+    def ban_duration(self, seconds: int):
+        return self._update(ban_duration=seconds)
+
+    def set_ban_msg_purgetime(self, seconds: int):
+        return self._update(ban_msg_purgetime=seconds)
+
+class automod_set:
+    def __init__(self, guild_id):
+        self.guild_id = guild_id
+        self.text = _text_filter_set(guild_id)
+        self.spam = _spam_filter_set(guild_id)
+        self.images = _image_filter_set(guild_id)
+
+    def nsfw_scan_threshold(self, threshold:float):
         session = get_session()
         try:
             record = (
@@ -362,22 +594,83 @@ class automod_set:
                 .one_or_none()
             )
 
-            if record is None:
-                # Insert
+            if not record:
                 record = guild_imagescan_threshold(
                     guild_id=self.guild_id,
-                    threshold=value
+                    threshold=threshold
                 )
                 session.add(record)
             else:
-                # Update
-                record.threshold = value
+                record.threshold = threshold
 
             session.commit()
             return True
-
         except SQLAlchemyError as err:
-            logging.error("Error setting nsfw scan threshold!", exc_info=err)
+            logging.error("Error updating image automod threshold settings!", exc_info=err)
+            session.rollback()
+            return False
+        finally:
+            session.close()
+
+    def muted_role_id(self, value: int):
+        session = get_session()
+        try:
+            record = (
+                session.query(guild_automod_settings)
+                .filter(guild_automod_settings.guild_id == self.guild_id)
+                .one_or_none()
+            )
+
+            if not record:
+                record = guild_automod_settings(
+                    guild_id=self.guild_id,
+                    muted_role_id=value
+                )
+                session.add(record)
+            else:
+                record.muted_role_id = value
+
+            session.commit()
+            return True
+        except SQLAlchemyError as err:
+            logging.error("Error updating mute role ID automod settings!", exc_info=err)
+            session.rollback()
+            return False
+        finally:
+            session.close()
+
+    def do_image_filtering(self, value: bool):
+        return self._update_main(do_image_filtering=value)
+
+    def do_filter_spam(self, value: bool):
+        return self._update_main(do_filter_spam=value)
+
+    def do_text_scan(self, value: bool):
+        return self._update_main(do_text_scan=value)
+
+    def _update_main(self, **fields):
+        session = get_session()
+        try:
+            record = (
+                session.query(guild_automod_settings)
+                .filter(guild_automod_settings.guild_id == self.guild_id)
+                .one_or_none()
+            )
+
+            if not record:
+                record = guild_automod_settings(
+                    guild_id=self.guild_id,
+                    **fields
+                )
+                session.add(record)
+            else:
+                for key, value in fields.items():
+                    setattr(record, key, value)
+
+            session.commit()
+            return True
+        except SQLAlchemyError as err:
+            logging.error("Error updating automod settings!", exc_info=err)
             session.rollback()
             return False
         finally:
@@ -583,6 +876,164 @@ class guild_warnings:
             }
         return parsed_data
 
+# A duplicate of guild_bans.list_bans that doesn't filter by guild
+def list_all_bans() -> list[guild_ban_record]:
+    session = get_session()
+    try:
+        records = (session.query(guild_ban_record))
+        # `records` is a list of tuples, so we extract the first element from each tuple
+        return records
+    except SQLAlchemyError as err:
+        logging.error("Failed listing all bans!", exc_info=err)
+        return []  # Return an empty list if something goes wrong
+    finally:
+        session.close()
+
+class guild_bans:
+    def __init__(self, guild_id:int):
+        self.guild_id = int(guild_id)
+
+    async def unban_user(self, user_id:int, reason:str):
+        ban = self.fetch_ban(user_id)
+
+        try:
+            await botapp.rest.unban_member(
+                ban.guild_id,
+                ban.banned_id,
+                reason=reason
+            )
+        except (hikari.ForbiddenError, hikari.BadRequestError, hikari.UnauthorizedError):
+            return False
+        
+        logs = server_logs(self.guild_id)
+        await logs.create_entry(
+            hikari.Embed(
+                title="User unbanned",
+                description=f"<@{ban.banned_id}> was unbanned from the server.",
+                color=0x0000ff
+            )
+            .add_field(
+                name="Original Reason for ban",
+                value=ban.reason
+            )
+        )
+
+    async def ban_user(self, banned_id:int, moderator_id:int, msg_del_duration:int, ban_seconds:int, reason:str) -> bool:
+        if ban_seconds <= 0:
+            return -1
+
+        # Check our cache
+        cache_expire_time = 86400  # 1 day in seconds
+        timestamp_now = datetime.datetime.now().timestamp()
+        cache_obj = ds.d["guild_name_cache"].get(self.guild_id, None)
+        guild_name = None
+        if cache_obj:
+            if not timestamp_now - cache_obj['time'] >= cache_expire_time:
+                guild_name = cache_obj['name']
+            if not guild_name:
+                # Get from discord, add to cache.
+                discord_guild = await botapp.rest.fetch_guild(self.guild_id)
+                ds.d["guild_name_cache"][self.guild_id] = {"name": discord_guild.name, "time": timestamp_now}
+                guild_name = discord_guild.name
+
+        try:
+            banned_user = await botapp.rest.fetch_member(self.guild_id, banned_id)
+
+            # TODO: Make sending this toggleable
+            await banned_user.send(
+                embed=hikari.Embed(
+                    title="Banished",
+                    description=f"You've been detected as breaking the rules of {guild_name} and have been banned.\nReason: {reason}",
+                    colour=0xff0000
+                )
+            )
+        except (hikari.ForbiddenError, hikari.BadRequestError, hikari.UnauthorizedError):
+            pass
+
+        try:
+            await botapp.rest.ban_user(
+                self.guild_id,
+                banned_id,
+                delete_message_seconds=msg_del_duration,
+                reason=reason
+            )
+        except (hikari.ForbiddenError, hikari.BadRequestError, hikari.UnauthorizedError):
+            return False
+
+        time_to_unban = datetime.datetime.now().timestamp() + ban_seconds
+
+        # Add an entry to the database to track their unban timer
+        case_id = self.track_ban(
+            banned_id=banned_id,
+            moderator_id=moderator_id,
+            time_to_unban=time_to_unban,
+            reason=reason,
+            return_case_id=True
+        )
+
+        await server_logs(self.guild_id).create_entry(
+            hikari.Embed(
+                title=f"User Banned (Case {case_id})",
+                description=f"<@{banned_id}> Has been banned until <t:{time_to_unban}> for:\n{reason}"
+            )
+        )
+        return True
+
+    def track_ban(self, banned_id:int, moderator_id, time_to_unban:int, reason:str, return_case_id:bool=False):
+        session = get_session()
+        try:
+            record = guild_ban_record(
+                guild_id=self.guild_id,
+                banned_id=banned_id,
+                moderator_id=moderator_id,
+                time_to_unban=datetime.datetime.fromtimestamp(time_to_unban),
+                reason=reason
+            )
+            session.add(record)
+            session.commit()
+            session.refresh()
+            if return_case_id:
+                return record.case_id
+            else:
+                return True
+        except SQLAlchemyError as err:
+            logging.error("Error adding member ban record!", exc_info=err)
+            session.rollback()
+            return False
+        finally:
+            session.close()
+
+    def list_bans(self) -> list[guild_ban_record]:
+        session = get_session()
+        try:
+            records = (
+                session.query(guild_ban_record)
+                .filter(guild_ban_record.guild_id == self.guild_id)
+                .all()
+            )
+            return records
+        except SQLAlchemyError as err:
+            logging.error("Failed listing all bans!", exc_info=err)
+            return []  # Return an empty list if something goes wrong
+        finally:
+            session.close()
+
+    def fetch_ban(self, user_id) -> guild_ban_record:
+        session = get_session()
+        try:
+            records = (
+                session.query(guild_ban_record)
+                .filter(guild_ban_record.guild_id == self.guild_id)
+                .filter(guild_ban_record.banned_id == user_id)
+                .one_or_none()
+            )
+            return records
+        except SQLAlchemyError as err:
+            logging.error("Failed listing all bans!", exc_info=err)
+            return None
+        finally:
+            session.close()
+
 class dbguild:
     def __init__(self, guild_id):
         self.guild_id = guild_id
@@ -591,3 +1042,4 @@ class dbguild:
         self.wordlist = wordlist_modify(guild_id)
         self.muting = muting.guilds(guild_id)
         self.warnings = guild_warnings(guild_id)
+        self.bans = guild_bans(guild_id)

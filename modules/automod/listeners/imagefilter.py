@@ -38,7 +38,7 @@ async def botfunction(event: hikari.GuildMessageCreateEvent):
             .set_footer("Did we get it right? If not, react to this message with 👎\nBut if this was an NSFW image, react with 👍")
         )
 
-        msg_id = await automod.handle_guilty(event, alert_embed=embed, get_msg_id=True)
+        msg_id = await automod.handle_guilty(event, alert_embed=embed, get_msg_id=True, automod_type=automod.automod_types.IMAGE_FILTER)
         
         img_hash = automod.generate_hash(image_bytes)
         nsfw_scanner_reviews.track_msg(msg_id=msg_id, img_hash=img_hash)

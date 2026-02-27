@@ -37,7 +37,7 @@ class command(
                 text=f"This was done by {ctx.user.mention}"
             )
 
-            await server_logs(ctx.guild_id).log(embed)
+            await server_logs(ctx.guild_id).create_entry(embed)
         else:
             await ctx.respond(
                 hikari.Embed(

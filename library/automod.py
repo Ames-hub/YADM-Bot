@@ -1,11 +1,13 @@
 from library.database.guilds import dbguild, violations
 from library.database.db_automod import nsfw_scanner
+from library.database.auditing import server_logs
 from library import datastore as ds
 from difflib import SequenceMatcher
 from library.botapp import botapp
 from library.settings import get
 import imagehash
 import datetime
+import asyncio
 import logging
 import hikari
 import timm
@@ -40,14 +42,14 @@ def get_bad_word_list(guild_id):
         bad_word_list = bad_word_list + custom_bad_words
     return bad_word_list
 
-def check(text, check_layers=2, guild_id=None):
+def text_check(text, check_layers=2, guild_id=None):
     """
     Puts some text through all checks.
     """
 
     if guild_id is not None:
         guild = dbguild(guild_id)
-        check_layers = guild.get.get_text_filter_level()
+        check_layers = guild.get.text.get_filter_level()
 
     if check_layers >= 1:
         guilty = checks.heuristics.low.equality(text, guild_id=guild_id)
@@ -76,7 +78,20 @@ def check(text, check_layers=2, guild_id=None):
 
     return False
 
-async def handle_guilty(event:hikari.GuildMessageCreateEvent, alert_embed:hikari.Embed, get_msg_id:bool=False, get_case_id:bool=False):
+class automod_types:
+    TEXT_FILTER = 1
+    SPAM_FILTER = 2
+    IMAGE_FILTER = 3
+
+_active_punishments = {}
+
+async def handle_guilty(
+        event:hikari.GuildMessageCreateEvent,
+        alert_embed:hikari.Embed,
+        automod_type: int,
+        get_msg_id:bool=False,
+        get_case_id:bool=False,
+    ):
     """
     A Helper function to handle message content infractions.
     
@@ -87,109 +102,135 @@ async def handle_guilty(event:hikari.GuildMessageCreateEvent, alert_embed:hikari
     :param get_msg_id: Return the Message ID for the message we respond with
     :type get_msg_id: bool
     """
-    # Check lightbulb cache (note: its practically useless since lightbulb's cache never seems to cache anything. Or I'm doing it wrong.)
-    guild = dbguild(event.guild_id)
-    guild_name = event.get_guild().name
-    cache_expire_time = 86400  # 1 day in seconds
-    timestamp_now = datetime.datetime.now().timestamp()
-    if not guild_name:
-        # Check our cache
-        cache_obj = ds.d["guild_name_cache"].get(int(event.guild_id), None)
-        if cache_obj:
-            if not timestamp_now - cache_obj['time'] >= cache_expire_time:
-                guild_name = cache_obj['name']
-    if not guild_name:
-        # Get from discord, add to cache.
-        discord_guild = await event.app.rest.fetch_guild(int(event.guild_id))
-        ds.d["guild_name_cache"][int(event.guild_id)] = {"name": discord_guild.name, "time": timestamp_now}
-        guild_name = discord_guild.name
+    user_key = (event.guild_id, event.author.id)
 
-    violation = "User broke messaging content moderation rules by either swearing, using racial slurs, or anything else that'd fit the category."
+    if user_key not in _active_punishments:
+        _active_punishments[user_key] = asyncio.Lock()
 
-    # TODO: Make the public announcement optional
+    lock = _active_punishments[user_key]
+
     try:
-        msg = await event.message.respond(alert_embed)
-    except hikari.ForbiddenError:
-        return False
+        async with lock:
+            # Check lightbulb cache (note: its practically useless since lightbulb's cache never seems to cache anything. Or I'm doing it wrong.)
+            guild = dbguild(event.guild_id)
+            guild_name = event.get_guild().name
+            cache_expire_time = 86400  # 1 day in seconds
+            timestamp_now = datetime.datetime.now().timestamp()
+            logs = server_logs(event.guild_id)
+            if not guild_name:
+                # Check our cache
+                cache_obj = ds.d["guild_name_cache"].get(int(event.guild_id), None)
+                if cache_obj:
+                    if not timestamp_now - cache_obj['time'] >= cache_expire_time:
+                        guild_name = cache_obj['name']
+            if not guild_name:
+                # Get from discord, add to cache.
+                discord_guild = await event.app.rest.fetch_guild(int(event.guild_id))
+                ds.d["guild_name_cache"][int(event.guild_id)] = {"name": discord_guild.name, "time": timestamp_now}
+                guild_name = discord_guild.name
 
-    # Always add the violation for the record.
-    case_id = violations.create_member_violation(
-        reporter_id=botapp.get_me().id,
-        offender_id=event.author.id,
-        time=datetime.datetime.now(),
-        violation=violation,
-        automated=True
-    )
-    if not case_id:
-        return False
-
-    do_del_msg = guild.get.do_delete_msg()
-    if do_del_msg:
-        await event.message.delete()
-    if guild.get.do_warn_member():
-        guild.warnings.add_warning(
-            reason=violation,
-            mod_id=botapp.get_me().id,
-            user_id=event.author.id,
-            guild_id=event.guild_id
-        )
-    if guild.get.do_mute_member():
-        mute_duration = guild.get.get_mute_duration()
-        await guild.muting.mute_member(
-            user_id=event.author.id,
-            duration_s=mute_duration,
-        )
-    if guild.get.do_kick_member():
-        # TODO: Make messaging on kick toggleable.
-        try:
-            await event.member.send(
-                embed=hikari.Embed(
-                    title="Kicked",
-                    description=f"You've been detected as breaking the rules of {guild_name} and have been kicked.\nReason: {violation}"
-                )
+            violation = (
+                f"User <@{event.author.id}> ({event.author.username}) broke messaging content moderation rules by either swearing, using racial slurs, "
+                "or anything else that'd fit the category."
             )
-        except (hikari.ForbiddenError, hikari.BadRequestError, hikari.UnauthorizedError):
-            pass
 
-        try:
-            await event.member.kick(reason=violation)
-        except (hikari.ForbiddenError, hikari.UnauthorizedError):
-            # TODO: Make this send a message to a bot logs channel, not public chat.
-            await event.message.respond("Error kicking user from server!")
-    if guild.get.do_ban_member():
-        try:
-            # TODO: Make sending this toggleable
-            await event.member.send(
-                embed=hikari.Embed(
-                    title="Banished",
-                    description=f"You've been detected as breaking the rules of {guild_name} and have been banned.\nReason: {violation}"
-                )
-            )
-        except (hikari.ForbiddenError, hikari.BadRequestError, hikari.UnauthorizedError):
-            pass
-
-        delete_msg_seconds = guild.get.get_ban_msg_purgetime()
-
-        # TODO: Make this have a configurable auto-unban on a timer.
-        try:
-            await event.member.ban(delete_message_seconds=delete_msg_seconds, reason=violation)
-        except hikari.ForbiddenError:
-            # TODO: Make this send a message to a bot logs channel, not public chat.
+            # TODO: Make the public announcement optional
             try:
-                await event.message.respond("Error banning user!")
-            except hikari.ForbiddenError:
+                msg = await event.message.respond(alert_embed)
+            except (hikari.ForbiddenError, hikari.NotFoundError, hikari.UnauthorizedError):
                 return False
-            
-    # TODO: Make it post a more detailed variant to a logging channel
 
-    if get_msg_id:
-        if get_case_id:
-            return {'case_id': case_id, 'msg_id': msg.id}
-        return msg.id
-    else:
-        if get_case_id:
-            return case_id
-        return True
+            # Always add the violation for the record.
+            case_id = violations.create_member_violation(
+                reporter_id=botapp.get_me().id,
+                offender_id=event.author.id,
+                time=datetime.datetime.now(),
+                violation=violation,
+                automated=True
+            )
+            if not case_id:
+                return False
+
+            if automod_type == automod_types.TEXT_FILTER:
+                cat_check = guild.get.text
+            elif automod_type == automod_types.SPAM_FILTER:
+                cat_check = guild.get.spam
+            elif automod_type == automod_types.IMAGE_FILTER:
+                cat_check = guild.get.images
+
+            do_del_msg = cat_check.do_delete_msg()
+            if do_del_msg:
+                await event.message.delete()
+            if cat_check.do_warn_member():
+                guild.warnings.add_warning(
+                    reason=violation,
+                    mod_id=botapp.get_me().id,
+                    user_id=event.author.id,
+                    guild_id=event.guild_id
+                )
+            if cat_check.do_mute_member():
+                mute_duration = cat_check.get_mute_duration()
+                await guild.muting.mute_member(
+                    user_id=event.author.id,
+                    duration_s=mute_duration,
+                )
+            if cat_check.do_kick_member():
+                # TODO: Make messaging on kick toggleable.
+                try:
+                    await event.member.send(
+                        embed=hikari.Embed(
+                            title="Kicked",
+                            description=f"You've been detected as breaking the rules of {guild_name} and have been kicked.\nReason: {violation}"
+                        )
+                    )
+                except (hikari.ForbiddenError, hikari.BadRequestError, hikari.UnauthorizedError):
+                    pass
+
+                try:
+                    await event.member.kick(reason=violation)
+                except (hikari.ForbiddenError, hikari.UnauthorizedError):
+                    logs.create_entry(
+                        hikari.Embed(
+                            title="Error Kicking User!",
+                            description=f"I couldn't kick {event.author.mention} even though they broke rules!\nViolation: {violation}"
+                        )
+                    )
+            if cat_check.do_ban_member():
+                delete_msg_seconds = cat_check.get_ban_msg_purgetime()
+
+                try:
+                    await guild.bans.ban_user()
+                except hikari.ForbiddenError:
+                    logs.create_entry(
+                        hikari.Embed(
+                            title="Error Banning User!",
+                            description=f"I couldn't ban {event.author.mention} even though they broke rules!\nViolation: {violation}"
+                        )
+                    )
+                    
+            logs.create_entry(
+                hikari.Embed(
+                    title="Rule Violation Detected",
+                    description=violation
+                )
+                .add_field(
+                    name="Violating Content",
+                    value=f"{event.author.display_name} said:\n\"{event.message.content}\""
+                )
+                .set_author(name=event.author.display_name, icon=event.author.display_avatar_url)
+            )
+
+            if get_msg_id:
+                if get_case_id:
+                    return {'case_id': case_id, 'msg_id': msg.id}
+                return msg.id
+            else:
+                if get_case_id:
+                    return case_id
+                return True
+    finally:
+        if not lock.locked():
+            _active_punishments.pop(user_key, None)
 
 def generate_hash(image_bytes: bytes) -> str:
     img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
