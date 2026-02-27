@@ -210,6 +210,9 @@ class checks:
             # replace 2 or more repeated letters with 1
             return re.sub(r'(.)\1+', r'\1', text.lower())
 
+        def reverse_text(text:str):
+            return text[::-1]
+
     class ai_vision:
         """
         Yes, boo AI. I know. But this does have a practical application, and its not bad for the environment since its a small local model opposed to
@@ -224,6 +227,7 @@ class checks:
         @staticmethod
         def predict_is_nsfw(
             image_bytes: bytes,
+            guild_id:int=None
         ):
             """
             Predict whether an image is NSFW.
@@ -252,7 +256,24 @@ class checks:
             
             is_nsfw = image_class == "NSFW"
 
-            return {"nsfw": is_nsfw, "probability": round(float(probability[0]), 2)}
+            if guild_id:
+                guild = dbguild(guild_id)
+                probability = round(float(probability[0]), 2)
+                threshold = guild.get.nsfw_scan_threshold()
+
+                if not threshold:
+                    return {"nsfw": is_nsfw, "probability": probability}
+
+                if not is_nsfw:
+                    return {"nsfw": is_nsfw, "probability": probability}
+                else:
+                    # Lets guilds have some control over the discrim AI's results
+                    if probability >= threshold:
+                        return {"nsfw": is_nsfw, "probability": probability}
+                    else:
+                        return {"nsfw": False, "probability": probability}
+            else:
+                return {"nsfw": is_nsfw, "probability": round(float(probability[0]), 2)}
         
     class heuristics:
         """
@@ -343,9 +364,9 @@ class checks:
                 Reverse Check. Reverses text and sees if people tried to hide it that way.
                 """
                 text = str(text)
-                for word in text:
+                for word in text.split():
                     for bad_word in get_bad_word_list(guild_id):
-                        if word[::-1] == bad_word:
+                        if checks.helpers.reverse_text(word) == bad_word:
                             return True
                 return False
         

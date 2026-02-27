@@ -19,7 +19,8 @@ class command(
         embed = (
             hikari.Embed(
                 title=f"Online for {time_online} Hours",
-                description=f"I've been online since {ds.d["time_at_boot"].strftime("%d/%m/%Y, %I:%M %P")}"
+                description=f"I've been online since {ds.d["time_at_boot"].strftime("%d/%m/%Y, %I:%M %P")}",
+                colour=0x00ff00
             )
         )
 

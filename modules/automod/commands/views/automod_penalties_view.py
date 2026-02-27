@@ -78,12 +78,14 @@ class views:
 
         return embed
 
-    # noinspection PyMethodParameters
     def init_view(viewself):
+        viewself.refresh_automod_data()  # Always sync first
+
         active_style = hikari.ButtonStyle.PRIMARY
         inactive_style = hikari.ButtonStyle.SECONDARY
 
         class Menu_Init(miru.View):
+
             @miru.button(label="Exit", style=hikari.ButtonStyle.DANGER)
             async def stop_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
                 await ctx.edit_response(
@@ -93,51 +95,58 @@ class views:
                     ),
                     components=[]
                 )
-                self.stop()  # Called to stop the view
+                self.stop()
 
-            @miru.button(label="Toggle Deleting", style=active_style if viewself.do_delete_msg else inactive_style)
+            @miru.button(
+                label="Toggle Deleting",
+                style=active_style if viewself.guild.get.do_delete_msg() else inactive_style
+            )
             async def toggle_del_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
-                # Set to the opposite of self
                 active = not viewself.guild.get.do_delete_msg()
                 viewself.guild.set.do_delete_msg(active)
                 button.style = active_style if active else inactive_style
-
                 await ctx.edit_response(viewself.gen_embed(), components=self)
 
-            @miru.button(label="Toggle Warnings", style=active_style if viewself.do_warnings else inactive_style)
+            @miru.button(
+                label="Toggle Warnings",
+                style=active_style if viewself.guild.get.do_warn_member() else inactive_style
+            )
             async def toggle_warn_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
-                # Set to the opposite of self
                 active = not viewself.guild.get.do_warn_member()
                 viewself.guild.set.do_warn_member(active)
                 button.style = active_style if active else inactive_style
-
                 await ctx.edit_response(viewself.gen_embed(), components=self)
 
-            @miru.button(label="Toggle Muting", style=active_style if viewself.do_muting else inactive_style)
+            @miru.button(
+                label="Toggle Muting",
+                style=active_style if viewself.guild.get.do_mute_member() else inactive_style
+            )
             async def toggle_mute_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
-                # Set to the opposite of self
                 active = not viewself.guild.get.do_mute_member()
                 viewself.guild.set.do_mute_member(active)
                 button.style = active_style if active else inactive_style
-
                 await ctx.edit_response(viewself.gen_embed(), components=self)
 
-            @miru.button(label="Toggle Kick Users", style=active_style if viewself.do_kick_member else inactive_style, row=2)
+            @miru.button(
+                label="Toggle Kick Users",
+                style=active_style if viewself.guild.get.do_kick_member() else inactive_style,
+                row=2
+            )
             async def toggle_kick_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
-                # Set to the opposite of self
                 active = not viewself.guild.get.do_kick_member()
                 viewself.guild.set.do_kick_member(active)
                 button.style = active_style if active else inactive_style
-
                 await ctx.edit_response(viewself.gen_embed(), components=self)
 
-            @miru.button(label="Toggle Ban Users", style=active_style if viewself.do_ban_member else inactive_style, row=2)
+            @miru.button(
+                label="Toggle Ban Users",
+                style=active_style if viewself.guild.get.do_ban_member() else inactive_style,
+                row=2
+            )
             async def toggle_ban_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
-                # Set to the opposite of self
                 active = not viewself.guild.get.do_ban_member()
                 viewself.guild.set.do_ban_member(active)
                 button.style = active_style if active else inactive_style
-
                 await ctx.edit_response(viewself.gen_embed(), components=self)
 
         return Menu_Init()

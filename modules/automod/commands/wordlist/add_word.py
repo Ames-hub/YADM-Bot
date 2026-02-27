@@ -1,4 +1,5 @@
 from modules.automod.commands.wordlist.subgroup import wordlist_subgroup
+from library.database.auditing import server_logs
 from library.database.guilds import dbguild
 from library.permissions import perms
 import lightbulb
@@ -36,10 +37,20 @@ class command(
         success = guild.wordlist.add_word(word, self.blacklisted)
 
         if success:
+            embed = hikari.Embed(
+                title="Word Added!",
+                description=f"This word has been {'blacklisted.' if self.blacklisted else 'whitelisted!'}",
+                colour=0x00ff00 if not self.blacklisted else 0xff0000
+            )
+
             await ctx.respond(
-                embed=hikari.Embed(
-                    title="Added!",
-                    description=f"This word has been {'blacklisted.' if self.blacklisted else 'whitelisted!'}",
+                embed=embed,
+                flags=[hikari.MessageFlag.EPHEMERAL]
+            )
+            await server_logs(ctx.guild_id).log(
+                hikari.Embed(
+                    title="Word Added!",
+                    description=f"The word \"{self.word}\" has been {'blacklisted' if self.blacklisted else 'whitelisted'} by {ctx.user.mention}",
                     colour=0x00ff00 if not self.blacklisted else 0xff0000
                 )
             )

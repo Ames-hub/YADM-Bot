@@ -1,4 +1,5 @@
 from modules.automod.commands.wordlist.subgroup import wordlist_subgroup
+from library.database.auditing import server_logs
 from library.database.guilds import dbguild
 from library.permissions import perms
 import lightbulb
@@ -35,10 +36,16 @@ class command(
         success = guild.wordlist.remove_word(word)
 
         if success:
-            await ctx.respond(
-                embed=hikari.Embed(
-                    title="Removed.",
-                    description=f"This word has been removed from the list.",
+            embed = hikari.Embed(
+                title="Word Removed.",
+                description=f"This word has been removed from the list.",
+                colour=0x00ff00
+            )
+            await ctx.respond(embed, flags=[hikari.MessageFlag.EPHEMERAL])
+            await server_logs(ctx.guild_id).log(
+                hikari.Embed(
+                    title="Word Removed.",
+                    description=f"The word \"{self.word}\" has been removed from the bad words list by {ctx.user.mention}",
                     colour=0x00ff00
                 )
             )

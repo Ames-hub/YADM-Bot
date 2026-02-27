@@ -1,4 +1,4 @@
-from library.settings import get, set
+from library.settings import get, set, getgroup, setgroup
 from library import datastore as ds
 import essentials
 import platform
@@ -9,6 +9,8 @@ import dotenv
 import sys
 import os
 
+os.makedirs("logs", exist_ok=True)
+
 if os.name == "nt":
     set.ai_vision_enabled(False)
 
@@ -18,6 +20,96 @@ logging.basicConfig(
     format="%(asctime)s:%(levelname)s:%(name)s: %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
+
+if "--backup" in sys.argv and "--restore" in sys.argv:
+    msg = (
+        "\n\n----> WARNING <----\nThis is not an advanced backup system.\n"
+        "Please do not do unusual things like calling restore and backup at the same time. Chances are you'll get data loss.\n\n"
+    )
+    print(msg)
+    logging.warning(msg)
+    exit(1)
+
+# Check if "--backup" is in the call arg
+if "--backup" in sys.argv:
+    if get.prod_mode() is False:
+        raise RuntimeError("This bot is not in production mode, and does not have a DB to backup.")
+
+    from library.database import manage as dbman    
+    try:
+        success = dbman.transfer_database(source_url=dbman.postgres_url(getgroup.db_details()), dest_url=dbman.sqlite_url())
+    except Exception as err:
+        logging.basicConfig(
+            filename="error.log",
+            level=logging.ERROR,
+        )
+
+        print("Uh oh! Backup error! See logs.")
+        logging.error("Error backing up!", exc_info=err)
+        exit(2)
+
+    if success:
+        print("DB Backup completed! Exitting.")
+        logging.info("DB Backup completed! Exitting.")
+    else:
+        print("Failed to backup DB!")
+        logging.warning("Failed to backup DB!")
+    exit(0)
+elif "--restore" in sys.argv:
+    from library.database import manage as dbman
+
+    input("We're about to restore your PG Database from a backup. Please put the data.sqlite backup file in the root directory and press enter.")
+
+    db_init_success = dbman.initialize()
+    if db_init_success:
+        try:
+            success = dbman.transfer_database(source_url=dbman.sqlite_url(), dest_url=dbman.postgres_url(getgroup.db_details()))
+        except Exception as err:
+            logging.basicConfig(
+                filename="error.log",
+                level=logging.ERROR,
+            )
+
+            print("During this, you may see many errors about an sqlalchemy.exc.OperationalError. Ignore them. It's just the DB trying to connect.")
+
+            print("Uh oh! Backup restoration error! See logs.")
+            logging.error("Error backing up!", exc_info=err)
+            exit(2)
+        if success:
+            print("DB restoration completed! Exitting.")
+            logging.info("DB Restoration Completed! Exitting.")
+        else:
+            print("DB restoration Failed! Exitting.")
+            logging.warning("DB Restoration Failed! Exitting.")
+    exit(0)
+elif "--setup-db" in sys.argv:
+    from library.database import manage as pg_manage
+    print("DB Setup beginning. Details for your pre-existing postgre SQL database required.")
+    username = input("Username: >>> ")
+    password = input("Password: >>> ")
+    db_name = input("DB Name: >>> ")
+    db_host = input("DB Host: >>> ")
+    db_port = input("DB Port: >>> ")
+    print("We will now attempt to connect to this database.")
+    pg_manage.wait_for_db(
+        pg_manage.postgres_url({
+            "user": username,
+            "password": password,
+            "host": db_host,
+            "port": db_port,
+            "dbname": db_name
+        }),
+        ever_create_db=False  # Never make one with docker here.
+    )
+    setgroup.db_details({
+        "user": username,
+        "password": password,
+        "host": db_host,
+        "port": db_port,
+        "dbname": db_name
+    })
+    print("DB Setup confirmed. Saved.")
+    exit(0)
 
 # ----- INITIAL SETUP SECTION -----
 if not get.bot_token():

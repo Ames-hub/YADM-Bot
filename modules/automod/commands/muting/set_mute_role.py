@@ -1,4 +1,5 @@
 from modules.automod.commands.muting.subgroup import muting_subgroup
+from library.database.auditing import server_logs
 from library.database.guilds import dbguild
 from library.permissions import perms
 import lightbulb
@@ -23,10 +24,15 @@ class command(
         success = guild.set.muted_role_id(int(self.role.id))
 
         if success:
-            await ctx.respond(
+            embed = hikari.Embed(
+                title="Muted Role Set",
+                description=f"The mute role has been set to <@&{self.role.id}>"
+            )
+            await ctx.respond(embed)
+            server_logs(ctx.guild_id).log(
                 hikari.Embed(
-                    title="Set",
-                    description=f"The mute role has been set to <@&{self.role.id}>"
+                    title="Muted Role Set",
+                    description=f"The mute role has been set to <@&{self.role.id}> by {ctx.user.mention}"
                 )
             )
         else:

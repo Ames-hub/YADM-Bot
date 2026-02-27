@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, BigInteger, TEXT, TIMESTAMP, BOOLEAN, text, CheckConstraint, Time
+from sqlalchemy import create_engine, select, insert, Column, Integer, BigInteger, TEXT, TIMESTAMP, BOOLEAN, text, CheckConstraint, DATETIME, FLOAT
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.exc import OperationalError
 from library.settings import get
@@ -43,11 +43,20 @@ class guild_automod_settings(Base):
     penalty_kick_member = Column(BOOLEAN, nullable=False, default=False)
     penalty_ban_member = Column(BOOLEAN, nullable=False, default=False)
     ban_msg_purgetime = Column(Integer, nullable=False, default=600)  # 10 minutes
+    do_image_filtering = Column(BOOLEAN, nullable=False, default=True)
+    do_filter_spam = Column(BOOLEAN, nullable=False, default=False)
+    do_text_scan = Column(BOOLEAN, nullable=False, default=True)
     muted_role_id = Column(BigInteger, nullable=True, default=None)
     __table_args__ = (
         # Enforce it to be 1, 2 or 3. Higher = more intense checking.
         CheckConstraint('text_filter_level >= 1 AND text_filter_level <= 3', name='ck_text_filter_level_range'),
     )
+
+class guild_imagescan_threshold(Base):
+    __tablename__ = "guild_imagescan_threshold"
+
+    guild_id = Column(BigInteger, nullable=False, primary_key=True)
+    threshold = Column(FLOAT, nullable=False, default=0.95)
 
 class guild_custom_wordlist(Base):
     __tablename__ = "guild_custom_wordlist"
@@ -82,13 +91,45 @@ class guild_member_warnings(Base):
     moderator_id = Column(Integer, nullable=False)
     user_id = Column(Integer, nullable=False)
     guild_id = Column(BigInteger, nullable=False)
-    time = Column(Time, nullable=False)
+    time = Column(DATETIME, nullable=False)
 
 class scanned_image_list(Base):
     __tablename__ = "image_whitelists"
 
     image_hash = Column(TEXT, primary_key=True)
     whitelisted = Column(BOOLEAN, nullable=False)
+
+class guild_welcome_msg(Base):
+    __tablename__ = "guild_welcome_messages"
+
+    guild_id = Column(BigInteger, primary_key=True)
+    message = Column(TEXT, default="Please give <mention> them a warm welcome!")
+
+class guild_welcomer_enabled(Base):
+    __tablename__ = "guild_welcomer_enabled"
+
+    guild_id = Column(BigInteger, primary_key=True)
+    enabled = Column(BOOLEAN, default=False)
+
+class guild_join_role(Base):
+    __tablename__ = "guild_joinroles"
+
+    entry_id = Column(Integer, primary_key=True, autoincrement=True)
+    guild_id = Column(BigInteger, nullable=False)
+    role_id = Column(BigInteger, nullable=False, unique=True)
+
+class guild_audit_log_entry(Base):
+    __tablename__ = "guild_audit_logs"
+    
+    entry_id = Column(Integer, primary_key=True, autoincrement=True)
+    guild_id = Column(BigInteger, nullable=False)
+    entry_text = Column(TEXT, nullable=False)
+
+class guild_log_channel(Base):
+    __tablename__ = "guild_log_channels"
+    
+    guild_id = Column(BigInteger, primary_key=True)
+    channel = Column(BigInteger, nullable=True)
 
 def get_session():
     if SessionLocal is None:
@@ -121,6 +162,9 @@ def create_docker_postgres(
     Creates a Dockerized PostgreSQL instance and stores credentials in settings.
     Safe to call multiple times.
     """
+    log_msg = "Working on building a PostgreSQL DB With Docker."
+    print(log_msg)
+    logging.info(log_msg)
 
     password = _gen_password()
 
@@ -240,6 +284,41 @@ def initialize() -> bool:
 
     Base.metadata.create_all(bind=engine)
     logging.info("PostgreSQL database ready.")
+    return True
+
+def transfer_database(source_url: str, dest_url: str, chunk_size: int = 1000, echo: bool = False):
+    """
+    Copy data from source DB to destination DB using SQLAlchemy models (Base.metadata).
+    Tables are created in destination using Base.metadata, so SQLite compatibility is ensured.
+    """
+
+    # Engines
+    source_engine = create_engine(source_url, echo=echo, future=True)
+    dest_engine = create_engine(dest_url, echo=echo, future=True)
+
+    # Create destination tables (SQLite-compatible)
+    Base.metadata.create_all(bind=dest_engine)
+
+    # Sessions
+    SourceSession = sessionmaker(bind=source_engine, future=True)
+    DestSession = sessionmaker(bind=dest_engine, future=True)
+
+    with SourceSession() as src, DestSession() as dst:
+        for table in Base.metadata.sorted_tables:
+            logging.info(f"Transferring table: {table.name}")
+            offset = 0
+            while True:
+                # Fetch rows in chunks
+                rows = src.execute(select(table).offset(offset).limit(chunk_size)).mappings().all()
+                if not rows:
+                    break
+
+                # Insert into destination
+                dst.execute(insert(table), rows)
+                dst.commit()
+                offset += chunk_size
+
+    logging.info("Database transfer complete.")
     return True
 
 def modernize() -> None:

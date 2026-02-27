@@ -1,4 +1,5 @@
-from modules.automod.commands.group import group
+from modules.automod.commands.text.subgroup import text_subgroup
+from library.database.auditing import server_logs
 from library.database.guilds import dbguild
 from library.permissions import perms
 from lightbulb import Choice
@@ -7,7 +8,7 @@ import hikari
 
 loader = lightbulb.Loader()
 
-@group.register
+@text_subgroup.register
 class command(
     lightbulb.SlashCommand,
     name="intensity",
@@ -33,10 +34,16 @@ class command(
         success = guild.set.set_text_filter_level(intensity)
 
         if success:
-            await ctx.respond(
+            embed = hikari.Embed(
+                title="Updated",
+                description=f"Your automoderation level has been updated to level {intensity}.",
+                color=0x00ff00
+            )
+            await ctx.respond(embed)
+            await server_logs(ctx.guild_id).log(
                 hikari.Embed(
-                    title="Updated",
-                    description=f"Your automoderation level has been updated to level {intensity}.",
+                    title="Text Filter Intensity",
+                    description=f"Your text automoderation level has been updated to level {intensity} by {ctx.user.mention}",
                     color=0x00ff00
                 )
             )

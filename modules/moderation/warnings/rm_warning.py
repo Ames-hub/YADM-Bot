@@ -8,6 +8,31 @@ import hikari
 
 loader = lightbulb.Loader()
 
+async def handle_rm_warn(guild_id:int, warn_id:int, responder_func):
+    guild = dbguild(guild_id)
+
+    success = guild.warnings.revoke_warning(
+        warn_id=warn_id
+    )
+    
+    if success:
+        await responder_func(
+            hikari.Embed(
+                title="Warn Revoked",
+                description="The logged warning has been forgiven.",
+                color=0x00ff00
+            )
+        )
+    else:
+        await responder_func(
+            hikari.Embed(
+                title="Error!",
+                description="The logged warning was not able to be forgiven! Please try again.",
+                color=0xff0000
+            )
+        )
+    
+
 @warnings_subgroup.register
 class command(
     lightbulb.SlashCommand,
@@ -20,27 +45,8 @@ class command(
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
         await perms.perms_precheck(hikari.Permissions.ADMINISTRATOR, ctx)
-
-        guild = dbguild(ctx.guild_id)
-
-        success = guild.warnings.revoke_warning(
-            warn_id=self.warn_id
+        return await handle_rm_warn(
+            ctx.guild_id,
+            self.warn_id,
+            ctx.respond
         )
-        
-        if success:
-            await ctx.respond(
-                hikari.Embed(
-                    title="Warn Revoked",
-                    description="The logged warning has been forgiven.",
-                    color=0x00ff00
-                )
-            )
-        else:
-            await ctx.respond(
-                hikari.Embed(
-                    title="Error!",
-                    description="The logged warning was not able to be forgiven! Please try again.",
-                    color=0xff0000
-                )
-            )
-        

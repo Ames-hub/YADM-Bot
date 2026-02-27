@@ -1,4 +1,4 @@
-from modules.automod.commands.views.automod_menu_view import views
+from modules.automod.commands.views.automod_modules_view import views
 from modules.automod.commands.group import group
 from library.botapp import miru_client
 from library.permissions import perms
@@ -10,8 +10,8 @@ loader = lightbulb.Loader()
 @group.register
 class command(
     lightbulb.SlashCommand,
-    name="menu",
-    description="Automoderation configuration menu"
+    name="modules",
+    description="Config menu for all the automod modules!"
 ):
 
     @lightbulb.invoke

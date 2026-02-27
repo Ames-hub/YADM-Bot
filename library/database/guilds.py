@@ -1,4 +1,12 @@
-from library.database.manage import get_session, guild_automod_settings, member_violations, guild_custom_wordlist, mute_records, guild_member_warnings
+from library.database.manage import (
+    get_session,
+    guild_automod_settings,
+    member_violations,
+    guild_custom_wordlist,
+    mute_records,
+    guild_member_warnings,
+    guild_imagescan_threshold
+)
 from sqlalchemy.exc import SQLAlchemyError
 from library.botapp import botapp
 import datetime
@@ -254,6 +262,29 @@ class automod_get:
         record = self._get_record()
         return record.muted_role_id if record else None
 
+    def do_image_filtering(self):
+        record = self._get_record()
+        return record.do_image_filtering if record else None
+
+    def do_filter_spam(self):
+        record = self._get_record()
+        return record.do_filter_spam if record else None
+    
+    def do_text_scan(self):
+        record = self._get_record()
+        return record.do_text_scan if record else None
+
+    def nsfw_scan_threshold(self):
+        session = get_session()
+        try:
+            return (
+                session.query(guild_imagescan_threshold.threshold)
+                .filter(guild_imagescan_threshold.guild_id == self.guild_id)
+                .one_or_none()
+            )
+        finally:
+            session.close()
+
 class automod_set:
     def __init__(self, guild_id):
         self.guild_id = guild_id
@@ -279,7 +310,8 @@ class automod_set:
 
             session.commit()
             return True
-        except SQLAlchemyError:
+        except SQLAlchemyError as err:
+            logging.error("Error updating!", exc_info=err)
             session.rollback()
             return False
         finally:
@@ -311,6 +343,45 @@ class automod_set:
 
     def muted_role_id(self, value:int):
         return self._update(muted_role_id=value)
+    
+    def do_image_filtering(self, value:bool):
+        return self._update(do_image_filtering=value)
+
+    def do_filter_spam(self, value:bool):
+        return self._update(do_filter_spam=value)
+    
+    def do_text_scan(self, value:bool):
+        return self._update(do_text_scan=value)
+    
+    def nsfw_scan_threshold(self, value: float):
+        session = get_session()
+        try:
+            record = (
+                session.query(guild_imagescan_threshold)
+                .filter(guild_imagescan_threshold.guild_id == self.guild_id)
+                .one_or_none()
+            )
+
+            if record is None:
+                # Insert
+                record = guild_imagescan_threshold(
+                    guild_id=self.guild_id,
+                    threshold=value
+                )
+                session.add(record)
+            else:
+                # Update
+                record.threshold = value
+
+            session.commit()
+            return True
+
+        except SQLAlchemyError as err:
+            logging.error("Error setting nsfw scan threshold!", exc_info=err)
+            session.rollback()
+            return False
+        finally:
+            session.close()
 
 class wordlist_modify:
     def __init__(self, guild_id):

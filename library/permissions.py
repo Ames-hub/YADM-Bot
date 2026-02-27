@@ -1,7 +1,78 @@
 from library import datastore as ds
 from library.botapp import botapp
+from library.settings import get
+from datetime import datetime
 import lightbulb
 import hikari
+
+async def prechecks(
+        cmd_name:str,
+        ctx:lightbulb.Context,
+        permission:hikari.Permissions|None = None,
+        cooldown_s:int|None = None,
+        bot_admin_only:bool=False
+    ):
+    """
+    Docstring for prechecks
+    
+    :param cmd_name: A Unique identifier to give a command.
+    :type cmd_name: str
+    :param permission: The permission required to run the command. Enter as None if not required.
+    :type permission: hikari.Permissions | None
+    :param ctx: The command context
+    :type ctx: lightbulb.Context
+    :param cooldown_s: How many seconds can pass before use of the command is allowed again
+    :type cooldown_s: int | None
+    :param bot_admin_only: If the command is only for bot admins.
+    :type bot_admin_only: bool
+    """
+    # High Latency behavior
+    if botapp.heartbeat_latency * 1000 > 300:  # ms
+        await ctx.defer()
+
+    guild_id = ctx.guild_id
+    user_id = ctx.user.id
+
+    if not bot_admin_only:
+        if permission is not None:
+            if await perms.is_privileged(permission, guild_id, user_id) is False:
+                await ctx.respond(perms.embeds.forbidden())
+                raise perms.errors.user_perm_error
+    else:
+        allowed = ctx.user.id == get.primary_maintainer()
+        if allowed:
+            return True
+
+    if cooldown_s is not None:
+        cd = cooldowns(ctx.user.id)
+        wait_time = cd.cmd_cooled(cmd_name)
+        if not wait_time == True:
+            await ctx.respond(perms.embeds.cooldown_active(wait_time))
+            raise perms.errors.cooldown_active
+
+        ds.d["cmd_cooldowns_memory"][cmd_name] = cooldown_s
+        cd.start_cooldown(cmd_name, cooldown_s)
+
+class cooldowns:
+    def __init__(self, user_id):
+        self.user_id = user_id
+    
+    def start_cooldown(self, cmd_name, cooldown_s):
+        if not ds.d['cooldowns'].get(self.user_id, False):
+            ds.d['cooldowns'][self.user_id] = {}
+        
+        cooldown_expiration = datetime.now().timestamp() + cooldown_s
+
+        ds.d['cooldowns'][self.user_id][cmd_name] = cooldown_expiration
+        return True
+    
+    def cmd_cooled(self, cmd_name):
+        time_now = datetime.now().timestamp()
+        cooldown_over = time_now >= ds.d['cooldowns'][self.user_id][cmd_name]
+        if cooldown_over:
+            return True
+        else:
+            return time_now - ds.d['cooldowns'][self.user_id][cmd_name]
 
 class perms:
     class embeds:
@@ -11,12 +82,34 @@ class perms:
                 description="You're missing the required permissions to run this command."
             )
 
+        def cooldown_active(wait_time):
+            if wait_time <= 120:  # Under 2 minutes
+                time_unit = "second(s)"
+                # No change to wait_time (remains in seconds).
+            elif wait_time <= 3599:  # Under an hour
+                time_unit = "minute(s)"
+                wait_time = wait_time // 60  # Convert seconds to minutes.
+            elif wait_time <= 86399:  # Less than a day (under 24 hours)
+                time_unit = "hour(s)"
+                wait_time = wait_time // 3600  # Convert seconds to hours.
+            else:  # Greater than or equal to 1 day
+                time_unit = "day(s)"
+                wait_time = wait_time // 86400  # Convert seconds to days.
+
+            return hikari.Embed(
+                title="❄️ Cooldown ❄️",
+                description=f"You still have {wait_time} {time_unit} until you can run this command again."
+            )   
+
     class errors:
         class user_perm_error(Exception):
             def __init__(self):
                 super().__init__("User does not have required permissions.")
             def __str__(self):
                 return "User does not have required permissions."
+        class cooldown_active(Exception):
+            def __init__(self):
+                pass
 
     @staticmethod
     async def perms_precheck(permission:hikari.Permissions, ctx:lightbulb.Context):

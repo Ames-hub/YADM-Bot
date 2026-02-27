@@ -41,7 +41,8 @@ class command(
         embed = (
             hikari.Embed(
                 title="🎲 Roll the dice! 🎲",
-                description=desc
+                description=desc,
+                colour=0xff00ff
             )
         )
 
