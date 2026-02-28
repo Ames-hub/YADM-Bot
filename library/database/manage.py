@@ -92,6 +92,7 @@ class guild_automod_settings(Base):
     do_filter_spam = Column(BOOLEAN, nullable=False, default=False)
     do_text_scan = Column(BOOLEAN, nullable=False, default=False)
     muted_role_id = Column(BigInteger, nullable=True, default=None)
+    use_preset_word_ban_list = Column(BOOLEAN, nullable=False, default=True)
 
 class guild_imagescan_threshold(Base):
     __tablename__ = "guild_imagescan_threshold"

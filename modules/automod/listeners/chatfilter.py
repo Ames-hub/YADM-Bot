@@ -1,4 +1,5 @@
 from library.database.guilds import dbguild
+from library import datastore as ds
 from library import automod
 import lightbulb
 
@@ -12,6 +13,10 @@ async def botfunction(event: hikari.GuildMessageCreateEvent):
         return
     
     if not event.message.content:
+        return
+
+    # if the admins have marked them as exempted, don't interact with them
+    if event.author.id in ds.d["text_filter_exemptions"].get(int(event.guild_id), []):
         return
 
     message = event.message.content.strip().lower()

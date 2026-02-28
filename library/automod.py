@@ -43,11 +43,12 @@ for word in iw:
     insulting_words_list.append(word.replace("\n", ""))
 
 def get_bad_word_list(guild_id):
-    bad_word_list = preset_bad_words.copy()
-    if guild_id:
-        guild = dbguild(guild_id)
-        custom_bad_words = guild.wordlist.get_list(blacklist_only=True)
-        bad_word_list = bad_word_list + custom_bad_words
+    guild = dbguild(guild_id)
+    custom_bad_words = guild.wordlist.get_list(blacklist_only=True)
+    if guild.get.use_preset_word_ban_list():
+        bad_word_list = preset_bad_words.copy() + custom_bad_words
+    else:
+        return custom_bad_words
     return bad_word_list
 
 def text_check(text, guild_id=None):

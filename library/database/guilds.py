@@ -436,6 +436,10 @@ class automod_get:
         record = self._get_record()
         return record.do_text_scan if record else None
 
+    def use_preset_word_ban_list(self):
+        record = self._get_record()
+        return record.use_preset_word_ban_list if record else True
+
     def nsfw_scan_threshold(self):
         session = get_session()
         try:
@@ -745,6 +749,9 @@ class automod_set:
 
     def do_text_scan(self, value: bool):
         return self._update_main(do_text_scan=value)
+
+    def use_preset_word_ban_list(self, value: bool):
+        return self._update_main(use_preset_word_ban_list=value)
 
     def _update_main(self, **fields):
         session = get_session()
