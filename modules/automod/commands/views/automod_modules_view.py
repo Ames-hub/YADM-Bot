@@ -15,7 +15,8 @@ class views:
         embed = (
             hikari.Embed(
                 title="Configuration Menu",
-                description="The below details what modules are active to detect misbehavior.\n"
+                description="The below details what modules are active to detect misbehavior.\n",
+                color=0x00ffff
             )
             .add_field(
                 name="Scan Text",

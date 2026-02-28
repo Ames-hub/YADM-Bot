@@ -57,25 +57,16 @@ class views:
             ban_duration_text = "⏳ Bans are not performed. (0 second bans)"
 
         if self.automod_category == automod_types.TEXT_FILTER:
-            filter_level = self.get_category.get_filter_level()
-            active_modules_text = ""
-            if filter_level >= 1 :
-                active_modules_text += "Equality checking, Symbol-hider checking, Multi-letter-hiding checking\n"
-            if filter_level >= 2:
-                active_modules_text += "Space-Hack checking, Letter stitch checking, Inverse-word checking\n"
-            if filter_level == 3:
-                active_modules_text += "Reputation checking, Similarity checking."
-
             disabled = self.guild.get.do_text_scan()
             if disabled:
                 disabled_warning = " — Module Disabled"
+            else:
+                disabled_warning = ""
 
             embed = hikari.Embed(
                 title=f"{self.category_text.capitalize()} Automod Config Menu{disabled_warning}",
-                description="The below details how we will behave when users violate *text* moderation rules.\n\n"
-                f"*Current Text Auto-Moderation Level: {filter_level}*\n"
-                f"*Run /automod intensity to change the above level*\n\n"
-                f"Current active modules: {active_modules_text}"
+                description="The below details how we will behave when users violate *text* moderation rules.\n\n",
+                color=0x00ffff
             )
         elif self.automod_category == automod_types.SPAM_FILTER:
             disabled = self.guild.get.do_filter_spam()
@@ -84,7 +75,8 @@ class views:
 
             embed = hikari.Embed(
                 title=f"{self.category_text.capitalize()} Automod Config Menu{disabled_warning}",
-                description="The below details how we will behave when users violate *spam* moderation rules.\n\n"
+                description="The below details how we will behave when users violate *spam* moderation rules.\n\n",
+                color=0x00ffff
             )
         elif self.automod_category == automod_types.IMAGE_FILTER:
             disabled = self.guild.get.do_image_filtering()
@@ -93,7 +85,8 @@ class views:
 
             embed = hikari.Embed(
                 title=f"{self.category_text.capitalize()} Automod Config Menu{disabled_warning}",
-                description="The below details how we will behave when users violate *image* moderation rules.\n\n"
+                description="The below details how we will behave when users violate *image* moderation rules.\n\n",
+                color=0x00ffff
             )
         else:
             raise ValueError("Invalid automod type!")

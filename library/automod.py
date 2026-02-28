@@ -1,3 +1,4 @@
+from library.database.manage import guild_text_automod_text_checks
 from library.database.guilds import dbguild, violations
 from library.database.db_automod import nsfw_scanner
 from library.database.auditing import server_logs
@@ -34,6 +35,13 @@ preset_bad_words = []
 for word in bw:
     preset_bad_words.append(word.replace("\n", ""))
 
+with open('library/preset_insulting_words.txt', 'r') as f:
+    iw = f.readlines()
+
+insulting_words_list = []
+for word in iw:
+    insulting_words_list.append(word.replace("\n", ""))
+
 def get_bad_word_list(guild_id):
     bad_word_list = preset_bad_words.copy()
     if guild_id:
@@ -42,41 +50,69 @@ def get_bad_word_list(guild_id):
         bad_word_list = bad_word_list + custom_bad_words
     return bad_word_list
 
-def text_check(text, check_layers=2, guild_id=None):
+def text_check(text, guild_id=None):
     """
-    Puts some text through all checks.
+    Puts some text through any/all checks.
     """
 
-    if guild_id is not None:
+    # Define all checks in order
+    check_pipeline = [
+        ("equality", lambda: checks.heuristics.low.equality(text, guild_id=guild_id)),
+        ("symbol", lambda: checks.heuristics.low.symbol_check(text, guild_id=guild_id)),
+        ("collapse", lambda: checks.heuristics.low.collapsed_check(text, guild_id=guild_id)),
+        ("spacehack", lambda: checks.heuristics.medium.spacehack_check(text)),
+        ("stitching", lambda: checks.heuristics.medium.letter_stitch_check(text)),
+        ("reversing", lambda: checks.heuristics.medium.reverse_check(text)),
+        ("similarity", lambda: checks.heuristics.high.similarity_check(text, guild_id=guild_id)),
+        ("syntactic", lambda: checks.heuristics.high.syntactic_analysis(text)),
+    ]
+
+    # If guild exists, respect its config
+    if guild_id:
         guild = dbguild(guild_id)
-        check_layers = guild.get.text.get_filter_level()
+        checks_allowed: guild_text_automod_text_checks = guild.get.text.checks._get_record()
 
-    if check_layers >= 1:
-        guilty = checks.heuristics.low.equality(text, guild_id=guild_id)
-        if guilty:
-            return True
-        guilty = checks.heuristics.low.symbol_check(text, guild_id=guild_id)
-        if guilty:
-            return True
-        guilty = checks.heuristics.low.collapsed_check(text, guild_id=guild_id)
-        if guilty:
-            return True
+        if checks_allowed is not None:
+            enabled_map = {
+                "equality": checks_allowed.equality_check,
+                "symbol": checks_allowed.symbol_check,
+                "collapse": checks_allowed.collapsed_check,
+                "spacehack": checks_allowed.spacehack_check,
+                "stitching": checks_allowed.letter_stitch_check,
+                "reversing": checks_allowed.reverse_check,
+                "similarity": checks_allowed.similarity_check,
+                "syntactic": checks_allowed.syntactic_analysis,
+            }
+        else:
+            enabled_map = {
+                "equality": False,
+                "symbol": False,
+                "collapse": False,
+                "spacehack": False,
+                "stitching": False,
+                "reversing": False,
+                "similarity": False,
+                "syntactic": False,
+            }
+    else:
+        # If no guild, everything runs
+        enabled_map = {name: True for name, _ in check_pipeline}
 
-    if check_layers >= 2:
-        guilty = checks.heuristics.medium.spacehack_check(text)
-        if guilty:
-            return True
-        guilty = checks.heuristics.medium.letter_stitch_check(text)
-        if guilty:
-            return True
-        guilty = checks.heuristics.medium.reverse_check(text)
-        if guilty:
-            return True
+    # Run checks
+    for name, func in check_pipeline:
+        if not enabled_map.get(name):
+            continue
 
-    if check_layers >= 3:
-        pass
+        result = func()
 
-    return False
+        if name == "syntactic":
+            if result["bad"]:
+                return True, name, result["type"]
+        else:
+            if result:
+                return True, name
+
+    return False, None
 
 class automod_types:
     TEXT_FILTER = 1
@@ -89,6 +125,7 @@ async def handle_guilty(
         event:hikari.GuildMessageCreateEvent,
         alert_embed:hikari.Embed,
         automod_type: int,
+        whistleblower:str,
         get_msg_id:bool=False,
         get_case_id:bool=False,
     ):
@@ -146,7 +183,8 @@ async def handle_guilty(
                 offender_id=event.author.id,
                 time=datetime.datetime.now(),
                 violation=violation,
-                automated=True
+                automated=True,
+                whistleblower=whistleblower
             )
             if not case_id:
                 return False
@@ -199,7 +237,13 @@ async def handle_guilty(
                 delete_msg_seconds = cat_check.get_ban_msg_purgetime()
 
                 try:
-                    await guild.bans.ban_user()
+                    await guild.bans.ban_user(
+                        banned_id=event.author.id,
+                        moderator_id=botapp.get_me().id,
+                        msg_del_duration=delete_msg_seconds,
+                        ban_seconds=cat_check.ban_duration(),
+                        reason=violation
+                    )
                 except hikari.ForbiddenError:
                     logs.create_entry(
                         hikari.Embed(
@@ -253,6 +297,106 @@ class checks:
 
         def reverse_text(text:str):
             return text[::-1]
+
+    class syntax_analysis_check:
+        """
+        This is a text moderation tool which can break down a word into its component parts and detect insults based on heuristics.
+        It works by:
+
+        1. Breaking down a word into a normalized word: eg, "i'm" to "i am"
+        2. Checking if a banned word is in the message being scanned
+        3. Determining by pronouns who is being referred to, eg "Omg I'm a dumbass" does not flag, but "You're a dumbass" gets flagged.
+        """
+        class ALLOW_OK(Exception):
+            def __init__(self, *args):
+                super().__init__(*args)
+            def __str__(self):
+                return "ALLOW_OK"
+        class DELETE_BAD(Exception):
+            def __init__(self, *args):
+                super().__init__(*args)
+            def __str__(self):
+                return "DELETE_BAD"
+        class DELETE_PROBABLE(Exception):
+            def __init__(self, *args):
+                super().__init__(*args)
+            def __str__(self):
+                return "DELETE_PROBABLE"
+        class ALLOW_SELF_DIRECTED(Exception):
+            def __init__(self, *args):
+                super().__init__(*args)
+            def __str__(self):
+                return "ALLOW_SELF_DIRECTED"
+
+        def __init__(self):
+            self.insulting_words = insulting_words_list
+            self.self_pronouns = {"i", "me", "my", "mine", "myself", "we", "us", "our", "ourselves"}
+            self.other_pronouns = {"you", "your", "yours", "yourself"}
+            self.third_person = {"he", "she", "they", "him", "her", "them", "his", "hers", "their", "that", "this", "those", "these", "guy", "gal", "person"}
+            self.imperative_start = {"do", "stop", "try", "don't", "never", "avoid"}
+            self.multi_word_patterns = ["acting like", "looks like"]
+
+        def normalize_text(self, text: str) -> str:
+            text = text.lower()
+            contractions = {
+                "you're": "you are",
+                "i'm": "i am",
+                "he's": "he is",
+                "she's": "she is",
+                "they're": "they are",
+                "we're": "we are",
+                "it's": "it is",
+                "don't": "do not",
+                "doesn't": "does not",
+                "didn't": "did not",
+                "can't": "cannot"
+            }
+            for c, full in contractions.items():
+                text = text.replace(c, full)
+            return text
+
+        def tokenize(self, text: str):
+            return re.findall(r'\b\w+\b', text)
+
+        def find_subject(self, tokens, banned_index):
+            window = 5
+            start = max(0, banned_index - window)
+            context = tokens[start:banned_index]
+
+            for w in reversed(context):
+                if w in self.self_pronouns:
+                    return "self"
+                elif w in self.other_pronouns:
+                    return "other"
+                elif w in self.third_person:
+                    return "other"
+
+            if tokens[0] in self.imperative_start:
+                return "other"
+
+            return None
+
+        def detect_insult(self, text: str) -> str:
+            text_norm = self.normalize_text(text)
+
+            for pattern in self.multi_word_patterns:
+                if pattern in text_norm:
+                    text_norm = text_norm.replace(pattern, pattern.replace(" ", "_"))
+
+            tokens = self.tokenize(text_norm)
+
+            for i, word in enumerate(tokens):
+                check_word = word.replace("_", " ")
+                if check_word in self.insulting_words:
+                    subject = self.find_subject(tokens, i)
+                    if subject == "other":
+                        return self.DELETE_BAD
+                    elif subject == "self":
+                        return self.ALLOW_SELF_DIRECTED
+                    else:
+                        return self.DELETE_PROBABLE
+
+            return self.ALLOW_OK
 
     class ai_vision:
         """
@@ -340,13 +484,40 @@ class checks:
                             pass
                 return False
 
-            def symbol_check(text:str, guild_id:int=None) -> bool:
+            def symbol_check(text: str, guild_id: int = None) -> bool:
                 """
-                Equality Check, except with all symbols removed.
+                Equality check, except with symbols removed and basic leetspeak normalized.
                 """
                 text = str(text)
-                text = checks.helpers.remove_symbols(text)
-                return checks.heuristics.low.equality(text, guild_id=guild_id)
+
+                # Basic leetspeak normalization
+                leet_map = str.maketrans({
+                    "0": "o",
+                    "1": "i",
+                    "3": "e",
+                    "4": "a",
+                    "5": "s",
+                    "7": "t",
+                    "8": "b",
+                    "@": "a",
+                    "$": "s",
+                    "!": "i",
+                    "(": "c",
+                    "{": "c",
+                    "[": "c"
+                })
+
+                translated_text = text.translate(leet_map)
+
+                guilty = checks.heuristics.low.equality(translated_text, guild_id=guild_id)
+                if guilty:
+                    return True
+                
+                # Remove symbols and checks again
+                no_symb_text = checks.helpers.remove_symbols(text)
+                guilty = checks.heuristics.low.equality(no_symb_text, guild_id=guild_id)
+                if guilty:
+                    return True
             
             def collapsed_check(text:str, guild_id:int=None) -> bool:
                 """
@@ -412,14 +583,20 @@ class checks:
                 return False
         
         class high:
-            def reputation_check(text, user_id):
-                return False  # TODO: Finish this
-            
             def similarity_check(text:str, guild_id:int=None):
                 # Determines how similar 2 strings are by importing the SequenceMatcher class from difflib
                 for word in text.split(" "):
                     for item in get_bad_word_list(guild_id):
                         similarity = SequenceMatcher(None, a=word, b=item).ratio()
-                        if similarity >= 0.80:
+                        if similarity >= 0.85:
                             return True
                 return False
+            
+            def syntactic_analysis(text: str):
+                checker = checks.syntax_analysis_check()
+                result = checker.detect_insult(text)
+                bad = result not in [checker.ALLOW_OK, checker.ALLOW_SELF_DIRECTED]
+                return {
+                    "bad": bad,
+                    "type": result
+                }

@@ -6,10 +6,11 @@ from library.database.manage import (
     guild_automod_settings,
     member_violations,
     guild_custom_wordlist,
-    mute_records,
+    mute_record,
     guild_member_warnings,
     guild_imagescan_threshold,
-    guild_ban_record
+    guild_ban_record,
+    guild_text_automod_text_checks
 )
 from library.database.auditing import server_logs
 from sqlalchemy.exc import SQLAlchemyError
@@ -24,7 +25,7 @@ class muting:
         def __init__(self, guild_id:int):
             self.guild_id = int(guild_id)
 
-        async def mute_member(self, user_id:int, duration_s:int=600, hardmute:bool=False):
+        async def mute_member(self, user_id:int, reason:str, duration_s:int=600, hardmute:bool=False):
             """
             Mute a member in a guild for a specific amount of seconds.
             
@@ -56,10 +57,8 @@ class muting:
                             user=user_id,
                             role=role.id
                         )
-                except hikari.ForbiddenError:
-                    # Insufficient permissions. Skip
-                    logging.info(f"Guild {guild_id} Tried to hard-mute {user_id} but I didn't have permissions sufficient to do it.")
-                    pass
+                except (hikari.ForbiddenError, hikari.UnauthorizedError, hikari.NotFoundError):
+                    return False
 
             try:
                 await botapp.rest.add_role_to_member(
@@ -73,16 +72,18 @@ class muting:
             # Make a record in the DB to say the person needs to be unmuted eventually
             session = get_session()
             try:
-                record = mute_records(
+                record = mute_record(
                     user_id=user_id,
                     guild_id=guild_id,
-                    scheduled_unmute=datetime.datetime.now().timestamp() + duration_s
+                    scheduled_unmute=datetime.datetime.now().timestamp() + duration_s,
+                    reason=reason
                 )
                 session.add(record)
                 session.commit()
                 session.refresh(record)
                 return record.case_id
-            except SQLAlchemyError:
+            except SQLAlchemyError as err:
+                logging.error("Error muting a member of a guild!", exc_info=err)
                 session.rollback()
                 raise
             finally:
@@ -106,29 +107,22 @@ class muting:
             success = guild.set.muted_role_id(new_role.id)
             return success
 
-    def list_all_mutes(active_only=True):
+    def list_all_mutes(active_only=True) -> list[mute_record]:
         session = get_session()
         try:
             if active_only:
                 records = (
-                    session.query(mute_records)
-                    .filter(mute_records.active == True)
+                    session.query(mute_record)
+                    .filter(mute_record.active == True)
                     .all()
                 )
             else:
                 records = (
-                    session.query(mute_records)
+                    session.query(mute_record)
                     .all()
                 )
 
-            return {
-                record.case_id: {
-                    "user_id": record.user_id,
-                    "guild_id": record.guild_id,
-                    "scheduled_unmute": record.scheduled_unmute,
-                }
-                for record in records
-            }
+            return records
         finally:
             session.close()
 
@@ -136,15 +130,15 @@ class muting:
         session = get_session()
         try:
             record = (
-                session.query(mute_records)
-                .filter(mute_records.case_id == mute_id)
+                session.query(mute_record)
+                .filter(mute_record.case_id == mute_id)
                 .one_or_none()
             )
 
             if not record:
                 raise muting.errors.mute_not_found
             else:
-                setattr(record, "active", False)
+                record.active = False
 
             session.commit()
             return True
@@ -165,7 +159,8 @@ class violations:
         offender_id: int,
         time: datetime,
         violation: str,
-        automated: bool
+        automated: bool,
+        whistleblower: str
     ) -> int:
 
         reporter_id = int(reporter_id)
@@ -182,6 +177,7 @@ class violations:
                 time=time,
                 violation=violation,
                 automated=automated,
+                whistleblower=whistleblower
             )
             session.add(record)
             session.commit()
@@ -217,7 +213,7 @@ class violations:
         finally:
             session.close()
 
-class _image_filter_get:
+class _image_filter_penalty_get:
     def __init__(self, guild_id):
         self.guild_id = guild_id  
 
@@ -264,7 +260,7 @@ class _image_filter_get:
         record = self._get_record()
         return record.ban_msg_purgetime if record else 600  # 10 minutes
 
-class _spam_filter_get:
+class _spam_filter_penalty_get:
     def __init__(self, guild_id):
         self.guild_id = guild_id    
 
@@ -311,9 +307,57 @@ class _spam_filter_get:
         record = self._get_record()
         return record.ban_msg_purgetime if record else 600  # 10 minutes
 
-class _text_filter_get:
+class _text_filter_checks_enabled_get:
     def __init__(self, guild_id):
         self.guild_id = guild_id
+
+    def _get_record(self) -> guild_text_automod_text_checks:
+        session = get_session()
+        try:
+            return (
+                session.query(guild_text_automod_text_checks)
+                .filter(guild_text_automod_text_checks.guild_id == self.guild_id)
+                .one_or_none()
+            )
+        finally:
+            session.close()
+
+    def equality_check(self):
+        record = self._get_record()
+        return record.equality_check if record else False
+
+    def symbol_check(self):
+        record = self._get_record()
+        return record.symbol_check if record else False
+
+    def collapsed_check(self):
+        record = self._get_record()
+        return record.collapsed_check if record else False
+
+    def spacehack_check(self):
+        record = self._get_record()
+        return record.spacehack_check if record else False
+
+    def letter_stitch_check(self):
+        record = self._get_record()
+        return record.letter_stitch_check if record else False
+
+    def reverse_check(self):
+        record = self._get_record()
+        return record.reverse_check if record else False
+    
+    def similarity_check(self):
+        record = self._get_record()
+        return record.similarity_check if record else False
+
+    def syntactic_analysis(self):
+        record = self._get_record()
+        return record.syntactic_analysis if record else False
+
+class _text_filter_penalty_get:
+    def __init__(self, guild_id):
+        self.guild_id = guild_id
+        self.checks = _text_filter_checks_enabled_get(guild_id)
 
     def _get_record(self):
         session = get_session()
@@ -325,10 +369,6 @@ class _text_filter_get:
             )
         finally:
             session.close()
-
-    def get_filter_level(self):
-        record = self._get_record()
-        return record.text_filter_level if record else 1
 
     def do_delete_msg(self):
         record = self._get_record()
@@ -365,9 +405,9 @@ class _text_filter_get:
 class automod_get:
     def __init__(self, guild_id):
         self.guild_id = guild_id
-        self.text = _text_filter_get(guild_id)
-        self.spam = _spam_filter_get(guild_id)
-        self.images = _image_filter_get(guild_id)
+        self.text = _text_filter_penalty_get(guild_id)
+        self.spam = _spam_filter_penalty_get(guild_id)
+        self.images = _image_filter_penalty_get(guild_id)
 
     def _get_record(self):
         session = get_session()
@@ -407,9 +447,66 @@ class automod_get:
         finally:
             session.close()
 
-class _text_filter_set:
+class _text_filter_checks_set:
     def __init__(self, guild_id):
         self.guild_id = guild_id
+
+    def _update(self, **fields):
+        session = get_session()
+        try:
+            record = (
+                session.query(guild_text_automod_text_checks)
+                .filter(guild_text_automod_text_checks.guild_id == self.guild_id)
+                .one_or_none()
+            )
+
+            if not record:
+                record = guild_text_automod_text_checks(
+                    guild_id=self.guild_id,
+                    **fields
+                )
+                session.add(record)
+            else:
+                for key, value in fields.items():
+                    setattr(record, key, value)
+
+            session.commit()
+            return True
+        except SQLAlchemyError as err:
+            logging.error("Error updating text automod settings for which checks are enabled!", exc_info=err)
+            session.rollback()
+            return False
+        finally:
+            session.close()
+
+    def equality_check(self, value:bool):
+        return self._update(equality_check=value)
+
+    def symbol_check(self, value: bool):
+        return self._update(symbol_check=value)
+
+    def collapsed_check(self, value: bool):
+        return self._update(collapsed_check=value)
+
+    def spacehack_check(self, value: bool):
+        return self._update(spacehack_check=value)
+
+    def letter_stitch_check(self, value: bool):
+        return self._update(letter_stitch_check=value)
+
+    def reverse_check(self, value: bool):
+        return self._update(reverse_check=value)
+
+    def similarity_check(self, value: bool):
+        return self._update(similarity_check=value)
+    
+    def syntactic_analysis(self, value: bool):
+        return self._update(syntactic_analysis=value)
+
+class _text_filter_penalties_set:
+    def __init__(self, guild_id):
+        self.guild_id = guild_id
+        self.checks = _text_filter_checks_set(guild_id)
 
     def _update(self, **fields):
         session = get_session()
@@ -469,6 +566,7 @@ class _text_filter_set:
 class _spam_filter_set:
     def __init__(self, guild_id):
         self.guild_id = guild_id
+        self.checks = _text_filter_checks_set(guild_id)
 
     def _update(self, **fields):
         session = get_session()
@@ -581,7 +679,7 @@ class _image_filter_set:
 class automod_set:
     def __init__(self, guild_id):
         self.guild_id = guild_id
-        self.text = _text_filter_set(guild_id)
+        self.text = _text_filter_penalties_set(guild_id)
         self.spam = _spam_filter_set(guild_id)
         self.images = _image_filter_set(guild_id)
 

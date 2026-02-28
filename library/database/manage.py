@@ -30,12 +30,12 @@ class member_violations(Base):
     entry_id = Column(Integer, primary_key=True, autoincrement=True)
     violation = Column(TEXT, nullable=False)
     automated = Column(BOOLEAN, nullable=False)
+    whistleblower = Column(TEXT, nullable=False)
 
 class guild_text_automod_settings(Base):
     __tablename__ = "guild_text_automod_settings"
     
     guild_id = Column(BigInteger, nullable=False, primary_key=True)
-    text_filter_level = Column(Integer, nullable=False, default=1)
     penalty_delete_message = Column(BOOLEAN, nullable=False, default=False)
     penalty_warn_member = Column(BOOLEAN, nullable=False, default=False)
     penalty_mute_member = Column(BOOLEAN, nullable=False, default=False)
@@ -44,10 +44,19 @@ class guild_text_automod_settings(Base):
     penalty_ban_member = Column(BOOLEAN, nullable=False, default=False)
     ban_duration = Column(Integer, nullable=False, default=86400)  # 1 day
     ban_msg_purgetime = Column(Integer, nullable=False, default=600)  # 10 minutes
-    __table_args__ = (
-        # Enforce it to be 1, 2 or 3. Higher = more intense checking.
-        CheckConstraint('text_filter_level >= 1 AND text_filter_level <= 3', name='ck_text_filter_level_range'),
-    )
+
+class guild_text_automod_text_checks(Base):
+    __tablename__ = "guild_text_automod_text_checks"
+    
+    guild_id = Column(BigInteger, nullable=False, primary_key=True)
+    equality_check = Column(BOOLEAN, nullable=False, default=False)
+    symbol_check = Column(BOOLEAN, nullable=False, default=False)
+    collapsed_check = Column(BOOLEAN, nullable=False, default=False)
+    spacehack_check = Column(BOOLEAN, nullable=False, default=False)
+    letter_stitch_check = Column(BOOLEAN, nullable=False, default=False)
+    reverse_check = Column(BOOLEAN, nullable=False, default=False)
+    similarity_check = Column(BOOLEAN, nullable=False, default=False)
+    syntactic_analysis = Column(BOOLEAN, nullable=False, default=False)
 
 class guild_spam_automod_settings(Base):
     __tablename__ = "guild_spam_automod_settings"
@@ -79,9 +88,9 @@ class guild_automod_settings(Base):
     __tablename__ = "guild_automod_settings"
 
     guild_id = Column(BigInteger, nullable=False, primary_key=True)
-    do_image_filtering = Column(BOOLEAN, nullable=False, default=True)
+    do_image_filtering = Column(BOOLEAN, nullable=False, default=False)
     do_filter_spam = Column(BOOLEAN, nullable=False, default=False)
-    do_text_scan = Column(BOOLEAN, nullable=False, default=True)
+    do_text_scan = Column(BOOLEAN, nullable=False, default=False)
     muted_role_id = Column(BigInteger, nullable=True, default=None)
 
 class guild_imagescan_threshold(Base):
@@ -98,7 +107,7 @@ class guild_custom_wordlist(Base):
     word = Column(TEXT, nullable=False)
     blacklisted = Column(BOOLEAN, nullable=False, default=True)  # If false, then its a whitelisted word.
 
-class mute_records(Base):
+class mute_record(Base):
     __tablename__ = "mute_records"
 
     case_id = Column(Integer, primary_key=True, autoincrement=True)
@@ -106,6 +115,7 @@ class mute_records(Base):
     guild_id = Column(BigInteger, nullable=False)
     scheduled_unmute = Column(Integer, nullable=False, default=-1)  # -1 is permanent
     active = Column(BOOLEAN, nullable=False, default=True)
+    reason = Column(TEXT, nullable=False)
 
 class automod_nsfw_scan_feedback(Base):
     __tablename__ = "automod_nsfw_scan_feedback"

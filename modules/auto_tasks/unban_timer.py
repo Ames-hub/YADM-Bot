@@ -11,7 +11,6 @@ async def handle_task():
 
     for ban in all_bans:
         # If the ban has expired,
-        # TODO: Test this to see if it works
         if ban.time_to_unban.timestamp() <= datetime.now().timestamp():
             guild = dbguild(ban.guild_id)
             reason = f"Ban countdown as set by user with ID {ban.moderator_id} had expired"
