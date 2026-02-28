@@ -164,7 +164,7 @@ class perms:
                 hikari.Permissions.ADMINISTRATOR,
                 hikari.Permissions.MANAGE_GUILD,
                 hikari.Permissions.MANAGE_ROLES,
-                ]
+            ]
 
         perms_list = []
         roles = await member.fetch_roles()

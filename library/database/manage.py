@@ -111,6 +111,7 @@ class automod_nsfw_scan_feedback(Base):
     __tablename__ = "automod_nsfw_scan_feedback"
 
     msg_id = Column(BigInteger, primary_key=True, nullable=False)
+    msg_creation_date = Column(DateTime, nullable=False)
     related_img_hash = Column(TEXT, unique=True, nullable=False)
     upvote_count = Column(Integer, nullable=False, default=0)
     downvote_count = Column(Integer, nullable=False, default=0)

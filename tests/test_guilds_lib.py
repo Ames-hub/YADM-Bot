@@ -146,10 +146,10 @@ def test_automod_set_get(mock_get_session, automod_set_instance, automod_get_ins
     mock_session.add.return_value = None
 
     # test set text filter level
-    result = automod_set_instance.set_text_filter_level(5)
+    result = automod_set_instance.text.set_text_filter_level(5)
     assert result is True
 
     # test get_text_filter_level returns default if no record
     mock_session.query.return_value.filter.return_value.one_or_none.return_value = None
-    level = automod_get_instance.get_text_filter_level()
+    level = automod_get_instance.text.get_filter_level()
     assert level == 1

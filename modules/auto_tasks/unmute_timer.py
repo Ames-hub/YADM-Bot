@@ -7,8 +7,7 @@ import hikari
 
 loader = lightbulb.Loader()
 
-@loader.task(lightbulb.uniformtrigger(seconds=10, wait_first=False))
-async def task() -> None:
+async def handle_task():
     all_mutes = muting.list_all_mutes()
 
     for case_id in all_mutes:
@@ -18,7 +17,7 @@ async def task() -> None:
         scheduled_unmute = mute_case['scheduled_unmute']
 
         now = datetime.now().timestamp()
-        if now <= scheduled_unmute:
+        if now >= scheduled_unmute:
             guild_id = mute_case['guild_id']
 
             guild = dbguild(guild_id)
@@ -34,7 +33,7 @@ async def task() -> None:
             except (hikari.ForbiddenError, hikari.NotFoundError):
                 unmute_failure = True
 
-            guild_name = ds.d["guild_name_cache"].get(int(guild_id), None).get('name', None)
+            guild_name = ds.d["guild_name_cache"].get(int(guild_id), {}).get('name')
             if not guild_name:
                 try:
                     discord_guild = await botapp.rest.fetch_guild(guild_id)
@@ -69,8 +68,12 @@ async def task() -> None:
 
             # TODO: have this send an embed to the logs channel too
 
-            try:
-                user = await botapp.rest.fetch_user(muted_user)
-                await user.send(embed)
-            except (hikari.ForbiddenError, hikari.UnauthorizedError, hikari.NotFoundError):
-                return True
+        try:
+            user = await botapp.rest.fetch_user(muted_user)
+            await user.send(embed)
+        except (hikari.ForbiddenError, hikari.UnauthorizedError, hikari.NotFoundError):
+            continue
+
+@loader.task(lightbulb.uniformtrigger(seconds=10, wait_first=False))
+async def task() -> None:
+    await handle_task()

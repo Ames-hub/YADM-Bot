@@ -19,21 +19,21 @@ def mock_guild():
     guild.get.do_ban_member.return_value = False
     return guild
 
-
 @pytest.fixture
-def mock_dbguild(mock_guild):
-    with patch("library.automod.dbguild", return_value=mock_guild):
-        yield
-
+def mock_dbguild(monkeypatch):
+    mock = MagicMock()
+    monkeypatch.setattr(automod, "dbguild", mock)
+    return mock
 
 # ---------------------------
 # Bad Word List
 # ---------------------------
-
 def test_get_bad_word_list_includes_custom(mock_dbguild):
+    # Make the mock return a real list
+    mock_dbguild.return_value.wordlist.get_list.return_value = ["custombad"]
+
     result = automod.get_bad_word_list(guild_id=123)
     assert "custombad" in result
-
 
 # ---------------------------
 # Low Level Heuristics
@@ -131,6 +131,8 @@ def test_check_runs_low_and_medium_layers(monkeypatch, mock_dbguild):
         lambda guild_id=None: ["bad"]
     )
 
+    mock_dbguild.return_value.get.text.get_filter_level.return_value = 2
+
     result = automod.text_check("b a d", guild_id=123)
     assert result is True
 
@@ -141,6 +143,8 @@ def test_check_returns_false_when_clean(monkeypatch, mock_dbguild):
         "get_bad_word_list",
         lambda guild_id=None: ["bad"]
     )
+
+    mock_dbguild.return_value.get.text.get_filter_level.return_value = 2
 
     result = automod.text_check("hello world", guild_id=123)
     assert result is False
@@ -179,14 +183,15 @@ def test_generate_hash(monkeypatch):
 # ---------------------------
 # check() with different check_layers
 # ---------------------------
-
 def test_check_layer_override(monkeypatch, mock_dbguild):
     monkeypatch.setattr(
         automod,
         "get_bad_word_list",
         lambda guild_id=None: ["bad"]
     )
-    # Should respect guild config for layers
+
+    mock_dbguild.return_value.get.text.get_filter_level.return_value = 3
+
     result = automod.text_check("bad", check_layers=3, guild_id=123)
     assert result is True
 

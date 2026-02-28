@@ -1,5 +1,6 @@
 from library.database.manage import get_session, automod_nsfw_scan_feedback, scanned_image_list
 from sqlalchemy.exc import SQLAlchemyError
+from datetime import datetime, timedelta
 import logging
 
 
@@ -95,7 +96,7 @@ class nsfw_scanner_reviews:
         finally:
             session.close()
 
-    def list_review_msgs(min_upvotes=None, min_downvotes=None):
+    def list_review_msgs(min_upvotes=None, min_downvotes=None, maximum_msg_age=7):
         session = get_session()
         try:
             if not min_upvotes and not min_downvotes:
@@ -107,7 +108,8 @@ class nsfw_scanner_reviews:
                 records = (
                     session.query(automod_nsfw_scan_feedback)
                     .filter(
-                        automod_nsfw_scan_feedback.upvote_count >= min_upvotes
+                        automod_nsfw_scan_feedback.upvote_count >= min_upvotes,
+                        datetime.now() - automod_nsfw_scan_feedback.msg_creation_date < timedelta(days=maximum_msg_age)
                     )
                     .all()
                 )
@@ -115,7 +117,8 @@ class nsfw_scanner_reviews:
                 records = (
                     session.query(automod_nsfw_scan_feedback)
                     .filter(
-                        automod_nsfw_scan_feedback.downvote_count >= min_downvotes
+                        automod_nsfw_scan_feedback.downvote_count >= min_downvotes,
+                        datetime.now() - automod_nsfw_scan_feedback.msg_creation_date < timedelta(days=maximum_msg_age)
                     )
                     .all()
                 )
@@ -124,7 +127,8 @@ class nsfw_scanner_reviews:
                     session.query(automod_nsfw_scan_feedback)
                     .filter(
                         automod_nsfw_scan_feedback.upvote_count >= min_upvotes,
-                        automod_nsfw_scan_feedback.downvote_count >= min_downvotes
+                        automod_nsfw_scan_feedback.downvote_count >= min_downvotes,
+                        datetime.now() - automod_nsfw_scan_feedback.msg_creation_date < timedelta(days=maximum_msg_age)
                     )
                     .all()
                 )

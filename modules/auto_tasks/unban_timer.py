@@ -6,8 +6,7 @@ import hikari
 
 loader = lightbulb.Loader()
 
-@loader.task(lightbulb.uniformtrigger(seconds=10, wait_first=False))
-async def task() -> None:
+async def handle_task():
     all_bans = list_all_bans()
 
     for ban in all_bans:
@@ -17,7 +16,7 @@ async def task() -> None:
             guild = dbguild(ban.guild_id)
             reason = f"Ban countdown as set by user with ID {ban.moderator_id} had expired"
             try:
-                success = guild.bans.unban_user(
+                success = await guild.bans.unban_user(
                     user_id=ban.banned_id,
                     reason=reason
                 )
@@ -30,3 +29,7 @@ async def task() -> None:
                     )
             except (hikari.ForbiddenError, hikari.UnauthorizedError, hikari.NotFoundError):
                 continue
+
+@loader.task(lightbulb.uniformtrigger(seconds=10, wait_first=False))
+async def task() -> None:
+    await handle_task()
