@@ -24,10 +24,10 @@ async def handle_task(for_upvote:bool):
             else:
                 nsfw_scanner.blacklist_image(msg['img_hash'])
 
-@loader.task(lightbulb.uniformtrigger(seconds=10, wait_first=False))
+@loader.task(lightbulb.uniformtrigger(seconds=10, wait_first=False), auto_start=True)
 async def upvote_task() -> None:
     await handle_task(True)
 
-@loader.task(lightbulb.uniformtrigger(seconds=10, wait_first=False))
+@loader.task(lightbulb.uniformtrigger(seconds=10, wait_first=False), auto_start=True)
 async def downvote_task() -> None:
     await handle_task(False)

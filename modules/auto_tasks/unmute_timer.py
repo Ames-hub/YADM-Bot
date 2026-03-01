@@ -9,12 +9,12 @@ import hikari
 loader = lightbulb.Loader()
 
 async def handle_task():
-    all_mutes = muting.list_all_mutes()
+    all_mutes = muting.list_all_mutes(active_only=True)
 
     for mute_case in all_mutes:
         now = datetime.now().timestamp()
         if now >= mute_case.scheduled_unmute:
-            guild_id = mute_case['guild_id']
+            guild_id = mute_case.guild_id
 
             guild = dbguild(guild_id)
             guild_mute_role = guild.get.muted_role_id()
@@ -26,6 +26,7 @@ async def handle_task():
                     user=mute_case.user_id,
                     role=guild_mute_role
                 )
+                muting.set_mute_inactive(mute_case.case_id)
             except (hikari.ForbiddenError, hikari.NotFoundError):
                 unmute_failure = True
 
@@ -78,17 +79,18 @@ async def handle_task():
             log_embed = (
                 hikari.Embed(
                     title="Member Unmuted",
-                    description=f"{user.mention} ({user.username}) Has been unmuted as of <t:{mute_case.scheduled_unmute}:R>"
+                    description=f"{user.mention} ({user.username}) Has been unmuted as of <t:{mute_case.scheduled_unmute}:R>",
+                    colour=0x00ff00
                 )
             )
 
-            server_logs(mute_case.guild_id).create_entry(log_embed)
+            await server_logs(mute_case.guild_id).create_entry(log_embed)
 
             try:
                 await user.send(embed)
             except (hikari.ForbiddenError, hikari.UnauthorizedError, hikari.NotFoundError):
                 continue
 
-@loader.task(lightbulb.uniformtrigger(seconds=10, wait_first=False))
+@loader.task(lightbulb.uniformtrigger(seconds=10, wait_first=False), auto_start=True)
 async def task() -> None:
     await handle_task()

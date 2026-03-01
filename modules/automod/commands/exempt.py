@@ -1,5 +1,5 @@
-from modules.automod.commands.text.subgroup import text_subgroup
 from library.database.auditing import server_logs
+from modules.automod.commands.group import group
 from library.permissions import perms
 from library import datastore as ds
 from datetime import datetime
@@ -8,7 +8,7 @@ import hikari
 
 loader = lightbulb.Loader()
 
-@text_subgroup.register
+@group.register
 class command(
     lightbulb.SlashCommand,
     name="exempt",
@@ -23,10 +23,10 @@ class command(
 
         # Setup the dict and list if its not existing for this guild
         guild_id = int(ctx.guild_id)
-        if ds.d["text_filter_exemptions"].get(guild_id, None) is None:
-            ds.d["text_filter_exemptions"][guild_id] = []
+        if ds.d["filter_exemptions"].get(guild_id, None) is None:
+            ds.d["filter_exemptions"][guild_id] = []
         
-        if self.user.id in ds.d["text_filter_exemptions"][guild_id]:
+        if self.user.id in ds.d["filter_exemptions"][guild_id]:
             await ctx.respond(
                 hikari.Embed(
                     title="Already Exempted",
@@ -36,7 +36,7 @@ class command(
             )
             return
 
-        ds.d["text_filter_exemptions"][guild_id].append(self.user.id)
+        ds.d["filter_exemptions"][guild_id].append(self.user.id)
 
         await ctx.respond(
             hikari.Embed(

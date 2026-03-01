@@ -44,6 +44,7 @@ class muting:
             muted_role = dbguild(guild_id).get.muted_role_id()
             if not muted_role:
                 success = await self.create_muted_role()
+                muted_role = dbguild(guild_id).get.muted_role_id()
                 if not success:
                     return False
             
@@ -60,11 +61,25 @@ class muting:
                 except (hikari.ForbiddenError, hikari.UnauthorizedError, hikari.NotFoundError):
                     return False
 
+            # Checks if the user has an active mute (if so, there should only be one)
+            existing_mutes = muting.list_all_mutes(active_only=True, user_id=user_id, guild_id=guild_id)
+            if existing_mutes:
+                # Check what roles the individual has, make sure they still have the muted role
+                member = await botapp.rest.fetch_member(self.guild_id, user_id)
+                member_roles = member.get_roles()
+                if muted_role not in [role.id for role in member_roles]:
+                    # If the user doesn't have the muted role, mark all mutes for this user as inactive
+                    for mute in existing_mutes:
+                        muting.set_mute_inactive(mute.case_id)
+                else:
+                    return existing_mutes[0].case_id  # Return the existing mute's case ID, we don't want to double-mute someone                    
+
             try:
                 await botapp.rest.add_role_to_member(
                     guild=guild_id,
                     user=user_id,
-                    role=muted_role
+                    role=muted_role,
+                    reason="Member is being muted for: " + reason
                 )
             except (hikari.ForbiddenError, hikari.NotFoundError):
                 return False
@@ -85,9 +100,10 @@ class muting:
             except SQLAlchemyError as err:
                 logging.error("Error muting a member of a guild!", exc_info=err)
                 session.rollback()
-                raise
+                return False
             finally:
                 session.close()
+
 
         async def create_muted_role(self):
             try:
@@ -97,32 +113,63 @@ class muting:
                     colour=0xff0000,
                     hoist=True,  # HOIST OF SHAME >:(
                     mentionable=False,
-                    reason="Guild did not have a pre-set muted role assigned for the bot.",
+                    reason="Server did not have a pre-set muted role assigned for the bot.",
                     name="muted"
                 )
             except hikari.ForbiddenError:
+                return False
+            
+            # Get own top role and place muted role right below it,
+            # so that the bot can still manage it but it will also over-ride as many other roles as possible
+            try:
+                me = await botapp.rest.fetch_member(self.guild_id, botapp.get_me().id)
+                server_roles = await botapp.rest.fetch_roles(self.guild_id)
+            except (hikari.NotFoundError, hikari.ForbiddenError, hikari.UnauthorizedError):
+                return False
+
+            my_top_role = me.get_top_role()
+            muted_role_pos = my_top_role.position - 1
+
+            roles_map = {}
+
+            for role in server_roles:
+                if role.id == new_role.id:
+                    roles_map[muted_role_pos] = hikari.Snowflake(role.id)
+                else:
+                    roles_map[int(role.position)] = hikari.Snowflake(role.id)
+
+            try:
+                await botapp.rest.reposition_roles(
+                    self.guild_id,
+                    roles_map,
+                    reason="Placing the muted role right below the bot's top role, so that it can manage it and over-ride as many roles as possible."
+                )
+            except (hikari.NotFoundError, hikari.ForbiddenError, hikari.UnauthorizedError):
                 return False
 
             guild = dbguild(self.guild_id)
             success = guild.set.muted_role_id(new_role.id)
             return success
 
-    def list_all_mutes(active_only=True) -> list[mute_record]:
+    def list_all_mutes(active_only=True, user_id:int=None, guild_id:int=None) -> list[mute_record]:
         session = get_session()
         try:
             if active_only:
                 records = (
                     session.query(mute_record)
                     .filter(mute_record.active == True)
-                    .all()
                 )
             else:
                 records = (
                     session.query(mute_record)
-                    .all()
                 )
 
-            return records
+            if user_id is not None:
+                records = records.filter(mute_record.user_id == user_id)
+            if guild_id is not None:
+                records = records.filter(mute_record.guild_id == guild_id)
+
+            return records.all()
         finally:
             session.close()
 

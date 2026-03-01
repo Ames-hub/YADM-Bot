@@ -26,14 +26,14 @@ async def test_mute_user_success(mock_dbguild):
     )
 
     # Ensure mute_member was called
-    mock_guild_instance.muting.mute_member.assert_called_once_with(987, 60, hardmute=False)
+    mock_guild_instance.muting.mute_member.assert_called_once_with(987, "Test", 60, hardmute=False)
 
     # Ensure respond_func was called with a success embed
     mock_respond.assert_called_once()
     embed_arg = mock_respond.call_args[0][0]
-    assert isinstance(embed_arg, hikari.Embed)
-    assert embed_arg.title == "Muted!"
-    assert "Member has been muted until" in embed_arg.description
+    assert isinstance(embed_arg, hikari.Embed), "Embed argument is not an instance of hikari.Embed"
+    assert embed_arg.title == "Muted!", "Embed title is not 'Muted!'"
+    assert "Member has been muted until" in embed_arg.description, "Embed description does not contain expected text about mute duration"
 
 
 @pytest.mark.asyncio
@@ -57,7 +57,7 @@ async def test_mute_user_failure(mock_dbguild):
     )
 
     # Ensure mute_member was called
-    mock_guild_instance.muting.mute_member.assert_called_once_with(987, 60, hardmute=False)
+    mock_guild_instance.muting.mute_member.assert_called_once_with(987, "Test", 60, hardmute=False)
 
     # Ensure respond_func was called with a failure embed
     mock_respond.assert_called_once()

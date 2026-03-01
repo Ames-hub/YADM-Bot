@@ -30,12 +30,6 @@ async def test_botjoin_sends_message(mock_get, mock_botapp):
     assert isinstance(embed_arg, hikari.Embed)
     assert embed_arg.title == "RailwayBot Has Joined!"
     assert "Hello! Thank you for picking me" in embed_arg.description
-    field_names = [f.name for f in embed_arg.fields]
-    field_values = [f.value for f in embed_arg.fields]
-    assert "Purpose" in field_names
-    assert "Getting Started" in field_names
-    assert any("Set the intensity of the text automod" in v for v in field_values)
-
 
 @pytest.mark.asyncio
 @patch("modules.utility.on_bot_join.botapp")

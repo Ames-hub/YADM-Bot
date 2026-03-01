@@ -27,6 +27,18 @@ if get.ai_vision_enabled() is True:
     data_config = timm.data.resolve_model_data_config(nsfw_scan_model)
     transforms = timm.data.create_transform(**data_config, is_training=False)
 
+def convert_duration_txt(seconds:int) -> str:
+    if seconds == -1:
+        return "Forever"
+    elif seconds < 60:
+        return f"{seconds} second(s)"
+    elif seconds < 3600:
+        return f"{seconds // 60} minute(s)"
+    elif seconds < 86400:
+        return f"{seconds // 3600} hour(s)"
+    else:
+        return f"{seconds // 86400} day(s)"
+
 # The default ones. Users can add their own.
 with open('library/preset_bad_words.txt', 'r') as f:
     bw = f.readlines()
@@ -119,13 +131,13 @@ def text_check(text, guild_id=None):
             if result["bad"]:
                 return True, name, result["type"]
             else:
-                return False
+                return False, None
         elif name == "similarity":
             if result["bad"]:
                 similarity = result['sim']
                 return True, similarity
             else:
-                return False
+                return False, None
         else:
             if result:
                 return True, name
@@ -184,10 +196,31 @@ async def handle_guilty(
                 ds.d["guild_name_cache"][int(event.guild_id)] = {"name": discord_guild.name, "time": timestamp_now}
                 guild_name = discord_guild.name
 
-            violation = (
-                f"User <@{event.author.id}> ({event.author.username}) broke messaging content moderation rules by either swearing, using racial slurs, "
-                "or anything else that'd fit the category."
-            )
+            if automod_type == automod_types.TEXT_FILTER:
+                cat_check = guild.get.text
+                violation = (
+                    f"User <@{event.author.id}> ({event.author.username}) broke messaging content moderation rules by either swearing, using racial slurs, "
+                    "or anything else that'd fit the category."
+                )
+            elif automod_type == automod_types.SPAM_FILTER:
+                cat_check = guild.get.spam
+
+                violation = (
+                    f"User <@{event.author.id}> ({event.author.username}) broke spam moderation rules by sending too many messages in a short period of time."
+                )
+
+                # TODO: make this cooldown optional
+                await guild.muting.mute_member(
+                    user_id=event.author.id,
+                    reason=violation,
+                    duration_s=30,  # 30 sec mute for spam. TODO: Make this configurable.
+                )
+            elif automod_type == automod_types.IMAGE_FILTER:
+                cat_check = guild.get.images
+                
+                violation = (
+                    f"User <@{event.author.id}> ({event.author.username}) sent an image that was flagged as NSFW by the {get.bot_name()} automod system."
+                )
 
             # TODO: Make the public announcement optional
             try:
@@ -206,13 +239,6 @@ async def handle_guilty(
             )
             if not case_id:
                 return False
-
-            if automod_type == automod_types.TEXT_FILTER:
-                cat_check = guild.get.text
-            elif automod_type == automod_types.SPAM_FILTER:
-                cat_check = guild.get.spam
-            elif automod_type == automod_types.IMAGE_FILTER:
-                cat_check = guild.get.images
 
             do_del_msg = cat_check.do_delete_msg()
             if do_del_msg:
@@ -270,10 +296,11 @@ async def handle_guilty(
                         )
                     )
                     
-            logs.create_entry(
+            logs_embed = (
                 hikari.Embed(
                     title="Rule Violation Detected",
-                    description=violation
+                    description=violation,
+                    colour=0xff0000
                 )
                 .add_field(
                     name="Violating Content",
@@ -281,6 +308,10 @@ async def handle_guilty(
                 )
                 .set_author(name=event.author.display_name, icon=event.author.display_avatar_url)
             )
+            if automod_type == automod_types.SPAM_FILTER:
+                logs_embed.add_field(name="❄️ Time-out", value="User has been put in a 30 second time-out for spamming messages.")
+
+            await logs.create_entry(logs_embed)
 
             if get_msg_id:
                 if get_case_id:

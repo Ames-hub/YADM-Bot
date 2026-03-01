@@ -1,5 +1,6 @@
 from library.database.db_automod import nsfw_scanner_reviews, nsfw_scanner
 from library.database.guilds import dbguild
+from library import datastore as ds
 from library.botapp import botapp
 from library import automod
 import lightbulb
@@ -11,10 +12,18 @@ loader = lightbulb.Loader()
 async def botfunction(event: hikari.GuildMessageCreateEvent):
     if not event.is_human:
         return
-    
+
     if not event.message.attachments:
         return  # No attachments
 
+    # if the admins have marked them as exempted, don't interact with them
+    if event.author.id in ds.d["filter_exemptions"].get(int(event.guild_id), []):
+        return
+
+    guild = dbguild(event.guild_id)
+    if not guild.get.do_image_filtering():
+        return
+    
     await event.message.add_reaction("🔍")
 
     try:
@@ -47,7 +56,7 @@ async def botfunction(event: hikari.GuildMessageCreateEvent):
         )
 
         # Remove the reaction if the msg isn't going to be deleted.
-        if not dbguild(event.guild_id).get.do_delete_msg():
+        if not guild.get.do_delete_msg():
             await event.message.remove_reaction("🔍", user=botapp.get_me().id)
         return True
     else:

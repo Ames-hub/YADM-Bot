@@ -29,6 +29,6 @@ async def handle_task():
             except (hikari.ForbiddenError, hikari.UnauthorizedError, hikari.NotFoundError):
                 continue
 
-@loader.task(lightbulb.uniformtrigger(seconds=10, wait_first=False))
+@loader.task(lightbulb.uniformtrigger(seconds=10, wait_first=False), auto_start=True)
 async def task() -> None:
     await handle_task()

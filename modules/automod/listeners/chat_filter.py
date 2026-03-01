@@ -16,7 +16,7 @@ async def botfunction(event: hikari.GuildMessageCreateEvent):
         return
 
     # if the admins have marked them as exempted, don't interact with them
-    if event.author.id in ds.d["text_filter_exemptions"].get(int(event.guild_id), []):
+    if event.author.id in ds.d["filter_exemptions"].get(int(event.guild_id), []):
         return
 
     message = event.message.content.strip().lower()

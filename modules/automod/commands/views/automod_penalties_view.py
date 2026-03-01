@@ -1,5 +1,5 @@
+from library.automod import automod_types, convert_duration_txt
 from library.database.guilds import dbguild
-from library.automod import automod_types
 import hikari
 import miru
 
@@ -42,17 +42,17 @@ class views:
             self.refresh_automod_data()
 
         if self.mute_duration != -1:  # -1 = Forever
-            mute_duration_text = f"⏳ All {self.category_text} auto-mutes last " + str(self.mute_duration // 60) + " minute(s)"
+            mute_duration_text = f"⏳ All {self.category_text} auto-mutes last {convert_duration_txt(self.mute_duration)}."
         else:
             mute_duration_text = "⏳ All auto-mutes last until explicitly cancelled by authorities"
 
         if self.ban_msg_del_length > 0:
-            ban_del_duration_text = f"⏳ Bans result in {self.ban_msg_del_length // 60} minute(s) worth of messages being deleted."
+            ban_del_duration_text = f"⏳ Bans result in {convert_duration_txt(self.ban_msg_del_length)} worth of messages being deleted."
         else:
             ban_del_duration_text = "⏳ No messages are deleted on a ban."
 
         if self.ban_duration > 0:
-            ban_duration_text = f"⏳ Auto-Bans last {self.ban_duration // 60} minute(s)."
+            ban_duration_text = f"⏳ Auto-Bans last {convert_duration_txt(self.ban_duration)}."
         else:
             ban_duration_text = "⏳ Bans are not performed. (0 second bans)"
 

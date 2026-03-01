@@ -40,33 +40,6 @@ def automod_get_instance(guild_id):
     return guilds.automod_get(guild_id)
 
 # ------------------------
-# Test muting
-# ------------------------
-@patch("library.database.guilds.botapp")
-@patch("library.database.guilds.get_session")
-def test_mute_member_creates_record(mock_get_session, mock_botapp, muting_instance, guild_id, user_id):
-    mock_session = MagicMock()
-    mock_get_session.return_value = mock_session
-    mock_record = MagicMock()
-    mock_session.add.return_value = None
-    mock_session.commit.return_value = None
-    mock_session.refresh.return_value = None
-    mock_session.query.return_value.filter.return_value.one_or_none.return_value = None
-
-    # patch muted_role to exist
-    with patch.object(muting_instance, 'create_muted_role', AsyncMock(return_value=True)):
-        with patch("library.database.guilds.dbguild") as mock_dbguild:
-            mock_dbguild.return_value.get.muted_role_id = MagicMock(return_value=999)
-            mock_botapp.rest.add_role_to_member = AsyncMock()
-            case_id = muting_instance.mute_member(user_id, duration_s=10, reason="Test")
-            # This is async, so we need to await it
-            import asyncio
-            result = asyncio.run(case_id)
-            assert result is not False
-            mock_session.add.assert_called()
-            mock_session.commit.assert_called()
-
-# ------------------------
 # Test violations
 # ------------------------
 @patch("library.database.guilds.get_session")
