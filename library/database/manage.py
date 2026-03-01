@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, select, insert, Column, Integer, BigInteger, TEXT, TIMESTAMP, BOOLEAN, text, CheckConstraint, DateTime, FLOAT
+from sqlalchemy import create_engine, select, insert, Column, Integer, BigInteger, TEXT, TIMESTAMP, BOOLEAN, text, DateTime, FLOAT
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.exc import OperationalError
 from library.settings import get
@@ -44,6 +44,7 @@ class guild_text_automod_settings(Base):
     penalty_ban_member = Column(BOOLEAN, nullable=False, default=False)
     ban_duration = Column(Integer, nullable=False, default=86400)  # 1 day
     ban_msg_purgetime = Column(Integer, nullable=False, default=600)  # 10 minutes
+    sim_check_threshold = Column(FLOAT, nullable=False, default=0.80)
 
 class guild_text_automod_text_checks(Base):
     __tablename__ = "guild_text_automod_text_checks"

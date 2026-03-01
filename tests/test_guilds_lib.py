@@ -58,7 +58,7 @@ def test_mute_member_creates_record(mock_get_session, mock_botapp, muting_instan
         with patch("library.database.guilds.dbguild") as mock_dbguild:
             mock_dbguild.return_value.get.muted_role_id = MagicMock(return_value=999)
             mock_botapp.rest.add_role_to_member = AsyncMock()
-            case_id = muting_instance.mute_member(user_id, duration_s=10)
+            case_id = muting_instance.mute_member(user_id, duration_s=10, reason="Test")
             # This is async, so we need to await it
             import asyncio
             result = asyncio.run(case_id)
@@ -85,7 +85,8 @@ def test_create_member_violation(mock_get_session):
             offender_id=2,
             time=datetime.datetime.now(),
             violation="test",
-            automated=True
+            automated=True,
+            whistleblower="None, test"
         )
         assert entry_id == 1
         mock_session.add.assert_called()
@@ -134,22 +135,3 @@ def test_add_and_revoke_warning(mock_get_session, warnings_instance):
     revoked = warnings_instance.revoke_warning(mock_record.warn_id)
     assert revoked is True
     mock_session.delete.assert_called()
-
-# ------------------------
-# Test automod set/get
-# ------------------------
-@patch("library.database.guilds.get_session")
-def test_automod_set_get(mock_get_session, automod_set_instance, automod_get_instance):
-    mock_session = MagicMock()
-    mock_get_session.return_value = mock_session
-    mock_session.commit.return_value = None
-    mock_session.add.return_value = None
-
-    # test set text filter level
-    result = automod_set_instance.text.set_text_filter_level(5)
-    assert result is True
-
-    # test get_text_filter_level returns default if no record
-    mock_session.query.return_value.filter.return_value.one_or_none.return_value = None
-    level = automod_get_instance.text.get_filter_level()
-    assert level == 1

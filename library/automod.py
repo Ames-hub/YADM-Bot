@@ -43,18 +43,27 @@ for word in iw:
     insulting_words_list.append(word.replace("\n", ""))
 
 def get_bad_word_list(guild_id):
-    guild = dbguild(guild_id)
-    custom_bad_words = guild.wordlist.get_list(blacklist_only=True)
-    if guild.get.use_preset_word_ban_list():
-        bad_word_list = preset_bad_words.copy() + custom_bad_words
+    if guild_id:
+        guild = dbguild(guild_id)
+        custom_bad_words = guild.wordlist.get_list(blacklist_only=True)
+        if guild.get.use_preset_word_ban_list():
+            bad_word_list = preset_bad_words.copy() + custom_bad_words
+        else:
+            return custom_bad_words
+        return bad_word_list
     else:
-        return custom_bad_words
-    return bad_word_list
+        return preset_bad_words.copy()
 
 def text_check(text, guild_id=None):
     """
     Puts some text through any/all checks.
     """
+
+    if guild_id is None:
+        threshold = 0.80
+    else:
+        guild = dbguild(guild_id)
+        threshold = guild.get.text.similarity_threshold()
 
     # Define all checks in order
     check_pipeline = [
@@ -64,13 +73,13 @@ def text_check(text, guild_id=None):
         ("spacehack", lambda: checks.heuristics.medium.spacehack_check(text)),
         ("stitching", lambda: checks.heuristics.medium.letter_stitch_check(text)),
         ("reversing", lambda: checks.heuristics.medium.reverse_check(text)),
-        ("similarity", lambda: checks.heuristics.high.similarity_check(text, guild_id=guild_id)),
+        ("similarity", lambda: checks.heuristics.high.similarity_check(text, guild_id=guild_id, threshold=threshold)),
         ("syntactic", lambda: checks.heuristics.high.syntactic_analysis(text)),
     ]
 
     # If guild exists, respect its config
     if guild_id:
-        guild = dbguild(guild_id)
+        
         checks_allowed: guild_text_automod_text_checks = guild.get.text.checks._get_record()
 
         if checks_allowed is not None:
@@ -109,6 +118,14 @@ def text_check(text, guild_id=None):
         if name == "syntactic":
             if result["bad"]:
                 return True, name, result["type"]
+            else:
+                return False
+        elif name == "similarity":
+            if result["bad"]:
+                similarity = result['sim']
+                return True, similarity
+            else:
+                return False
         else:
             if result:
                 return True, name
@@ -584,14 +601,21 @@ class checks:
                 return False
         
         class high:
-            def similarity_check(text:str, guild_id:int=None):
+            def similarity_check(text:str, guild_id:int=None, threshold:float=0.80):
                 # Determines how similar 2 strings are by importing the SequenceMatcher class from difflib
+                bad_word_list = get_bad_word_list(guild_id)
                 for word in text.split(" "):
-                    for item in get_bad_word_list(guild_id):
+                    for item in bad_word_list:
                         similarity = SequenceMatcher(None, a=word, b=item).ratio()
-                        if similarity >= 0.85:
-                            return True
-                return False
+                        if similarity >= threshold:
+                            return {
+                                "bad": True,
+                                "sim": similarity
+                            }
+                return {
+                    "bad": False,
+                    "sim": 0.0
+                }
             
             def syntactic_analysis(text: str):
                 checker = checks.syntax_analysis_check()

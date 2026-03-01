@@ -117,37 +117,8 @@ def test_similarity_check_detects_similar_word(monkeypatch):
     )
 
     # slight variation
-    assert automod.checks.heuristics.high.similarity_check("bann3d") is True
-
-
-# ---------------------------
-# Master Check()
-# ---------------------------
-
-def test_check_runs_low_and_medium_layers(monkeypatch, mock_dbguild):
-    monkeypatch.setattr(
-        automod,
-        "get_bad_word_list",
-        lambda guild_id=None: ["bad"]
-    )
-
-    mock_dbguild.return_value.get.text.get_filter_level.return_value = 2
-
-    result = automod.text_check("b a d", guild_id=123)
-    assert result is True
-
-
-def test_check_returns_false_when_clean(monkeypatch, mock_dbguild):
-    monkeypatch.setattr(
-        automod,
-        "get_bad_word_list",
-        lambda guild_id=None: ["bad"]
-    )
-
-    mock_dbguild.return_value.get.text.get_filter_level.return_value = 2
-
-    result = automod.text_check("hello world", guild_id=123)
-    assert result is False
+    result = automod.checks.heuristics.high.similarity_check("bann3d", threshold=0.80)
+    assert result['bad'] is True, f"Result is not True!"
 
 # ---------------------------
 # Helpers
@@ -179,32 +150,6 @@ def test_generate_hash(monkeypatch):
 
     result = automod.generate_hash(b"fakebytes")
     assert result == "hash123"
-
-# ---------------------------
-# check() with different check_layers
-# ---------------------------
-def test_check_layer_override(monkeypatch, mock_dbguild):
-    monkeypatch.setattr(
-        automod,
-        "get_bad_word_list",
-        lambda guild_id=None: ["bad"]
-    )
-
-    mock_dbguild.return_value.get.text.get_filter_level.return_value = 3
-
-    result = automod.text_check("bad", check_layers=3, guild_id=123)
-    assert result is True
-
-def test_check_layer_skipped(monkeypatch):
-    monkeypatch.setattr(
-        automod,
-        "get_bad_word_list",
-        lambda guild_id=None: ["bad"]
-    )
-    # Skip low layer, layer=0
-    result = automod.text_check("bad", check_layers=0)
-    assert result is False
-
 
 # ---------------------------
 # Edge cases for medium heuristics

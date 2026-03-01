@@ -402,6 +402,10 @@ class _text_filter_penalty_get:
         record = self._get_record()
         return record.ban_msg_purgetime if record else 600  # 10 minutes
 
+    def similarity_threshold(self):
+        record = self._get_record()
+        return record.sim_check_threshold if record else 0.85
+
 class automod_get:
     def __init__(self, guild_id):
         self.guild_id = guild_id
@@ -566,6 +570,9 @@ class _text_filter_penalties_set:
 
     def set_ban_msg_purgetime(self, seconds: int):
         return self._update(ban_msg_purgetime=seconds)
+
+    def similarity_threshold(self, value: float):
+        return self._update(sim_check_threshold=value)
 
 class _spam_filter_set:
     def __init__(self, guild_id):

@@ -21,7 +21,8 @@ async def test_mute_user_success(mock_dbguild):
         guild_id=123,
         duration_in_seconds=60,
         user_id=987,
-        respond_func=mock_respond
+        respond_func=mock_respond,
+        reason="Test"
     )
 
     # Ensure mute_member was called
@@ -51,7 +52,8 @@ async def test_mute_user_failure(mock_dbguild):
         guild_id=123,
         duration_in_seconds=60,
         user_id=987,
-        respond_func=mock_respond
+        respond_func=mock_respond,
+        reason="Test"
     )
 
     # Ensure mute_member was called
