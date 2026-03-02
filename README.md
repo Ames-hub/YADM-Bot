@@ -27,7 +27,7 @@ Additionally, each of these checks can be toggled on or off, so if you don't lik
 - **Discriminative AI Powered NSFW Detection** - Local, light PyTorch model for privacy and speed
 - **Perceptual Hashing** - Tracks images by hash to avoid re-scanning
 - **Community Review System** - Users can upvote/downvote detections
-- **Automatic Whitelisting/Blacklisting** - Based on vote thresholds
+- **Automatic Image Whitelisting/Blacklisting** - Based on vote thresholds
 
 #### Spam Protection (WIP)
 When this feature is fully implemented, you will have:
@@ -42,6 +42,8 @@ When this feature is fully implemented, you will have:
 - Mute member (temporary or permanent)
 - Kick member
 - Ban member (temporary or permanent)
+- Announce the violation (or just take action)
+- Announce their ban or kick
 
 #### Temporary Punishments
 - **Temporary Mutes** - Auto-unmute when timer expires

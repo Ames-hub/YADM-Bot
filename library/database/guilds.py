@@ -12,6 +12,7 @@ from library.database.manage import (
     guild_ban_record,
     guild_text_automod_text_checks
 )
+from library.database.auditing import logs_config
 from library.database.auditing import server_logs
 from sqlalchemy.exc import SQLAlchemyError
 from library import datastore as ds 
@@ -639,9 +640,6 @@ class _text_filter_penalties_set:
         finally:
             session.close()
 
-    def set_text_filter_level(self, level: int):
-        return self._update(text_filter_level=level)
-
     def do_delete_msg(self, value: bool):
         return self._update(penalty_delete_message=value)
 
@@ -675,10 +673,15 @@ class _text_filter_penalties_set:
     def do_announce_infraction(self, value: bool):
         return self._update(announce_infraction=value)
 
+    def do_announce_kick(self, value: bool):
+        return self._update(announce_kick=value)
+    
+    def do_announce_ban(self, value: bool):
+        return self._update(announce_ban=value)
+
 class _spam_filter_set:
     def __init__(self, guild_id):
         self.guild_id = guild_id
-        self.checks = _text_filter_checks_set(guild_id)
 
     def _update(self, **fields):
         session = get_session()
@@ -737,6 +740,12 @@ class _spam_filter_set:
 
     def do_announce_infraction(self, value: bool):
         return self._update(announce_infraction=value)
+
+    def do_announce_kick(self, value: bool):
+        return self._update(announce_kick=value)
+    
+    def do_announce_ban(self, value: bool):
+        return self._update(announce_ban=value)
 
 class _image_filter_set:
     def __init__(self, guild_id):
@@ -799,6 +808,12 @@ class _image_filter_set:
 
     def do_announce_infraction(self, value: bool):
         return self._update(announce_infraction=value)
+
+    def do_announce_kick(self, value: bool):
+        return self._update(announce_kick=value)
+    
+    def do_announce_ban(self, value: bool):
+        return self._update(announce_ban=value)
 
 class automod_set:
     def __init__(self, guild_id):
@@ -1268,6 +1283,91 @@ class dbguild:
         self.muting = muting.guilds(guild_id)
         self.warnings = guild_warnings(guild_id)
         self.bans = guild_bans(guild_id)
+        self.logs_config = logs_config(guild_id)
+
+    async def set_recommended_settings(self):
+        await self.logs_config.mk_logs_channel()
+
+        self.set.do_image_filtering(True)
+        self.set.do_text_scan(True)
+        self.set.do_filter_spam(True)
+        self.set.use_preset_word_ban_list(True)
+        
+        self.set.text.do_announce_infraction(True)
+        self.set.text.do_delete_msg(True)
+        self.set.text.do_warn_member(True)
+        self.set.text.do_cooldown(True)
+        self.set.text.do_kick_member(False)
+        self.set.text.do_ban_member(False)
+        self.set.text.checks.equality_check(True)
+        self.set.text.checks.symbol_check(True)
+        self.set.text.checks.collapsed_check(True)
+        self.set.text.checks.spacehack_check(True)
+        self.set.text.checks.letter_stitch_check(True)
+        self.set.text.checks.reverse_check(True)
+        self.set.text.checks.similarity_check(True)
+        self.set.text.checks.syntactic_analysis(True)
+
+        self.set.spam.do_announce_infraction(True)
+        self.set.spam.do_cooldown(True)
+        self.set.spam.do_kick_member(False)
+        self.set.spam.do_ban_member(False)
+        self.set.spam.do_delete_msg(True)
+        self.set.spam.do_warn_member(True)
+
+        self.set.images.do_announce_infraction(True)
+        self.set.images.do_cooldown(True)
+        self.set.images.do_kick_member(False)
+        self.set.images.do_ban_member(False)
+        self.set.images.do_delete_msg(True)
+        self.set.images.do_warn_member(True)
+        self.set.nsfw_scan_threshold(0.95)
+
+        return True
+
+    async def purge_messages(self, moderator_id:int, channel_id:int, after:datetime.datetime=None, messages_list:list=None, reason: str="No reason provided"):
+        if not after and not messages_list:
+            raise ValueError("Must provide at least 'after', or 'messages to purge' list")
+        elif messages_list and after:
+            raise ValueError("Cannot provide both 'after' and 'messages to purge' list")
+
+        if after:
+            two_weeks = 1209600  # 14 days in seconds
+            if (datetime.datetime.now() - after).total_seconds() > two_weeks:
+                raise ValueError("Cannot bulk delete messages older than 14 days due to Discord limitations.")
+
+        messages_list = []
+        if messages_list:
+            messages_list = messages_list
+        else:
+            try:
+                fetched_messages = botapp.rest.fetch_messages(channel_id, after=after)
+            except (hikari.ForbiddenError, hikari.NotFoundError, hikari.UnauthorizedError):
+                return False
+            async for message in fetched_messages:
+                messages_list.append(message.id)
+
+        log_msg = f"{len(messages_list)} messages were purged from <#{channel_id}> by <@{moderator_id}>.\nReason: {reason}"
+        await server_logs(self.guild_id).create_entry(
+            hikari.Embed(
+                title="Messages Purged",
+                description=log_msg,
+                color=0xFFD580
+            )
+        )
+
+        try:
+            await botapp.rest.delete_messages(
+                channel_id,
+                messages_list,
+                reason=f"Moderator: <@{moderator_id}> | Reason: {reason}"
+            )
+            return True
+        except (hikari.ForbiddenError, hikari.NotFoundError, hikari.UnauthorizedError):
+            return False
+        except hikari.BulkDeleteError as err:
+            logging.error("Bulk delete error during message purge!", exc_info=err)
+            return False
 
     def exists_in_db(self):
         session = get_session()

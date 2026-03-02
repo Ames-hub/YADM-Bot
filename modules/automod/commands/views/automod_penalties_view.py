@@ -1,4 +1,5 @@
 from library.automod import automod_types, convert_duration_txt
+from library.database.auditing import server_logs
 from library.database.guilds import dbguild
 import hikari
 import miru
@@ -16,15 +17,15 @@ class views:
         if automod_category == automod_types.TEXT_FILTER:
             self.set_category = self.guild.set.text
             self.get_category = self.guild.get.text
-            self.category_text = "text"
+            self.category_text = "text filtering"
         elif automod_category == automod_types.SPAM_FILTER:
             self.set_category = self.guild.set.spam
             self.get_category = self.guild.get.spam
-            self.category_text = "spam"
+            self.category_text = "spam filtering"
         elif automod_category == automod_types.IMAGE_FILTER:
             self.set_category = self.guild.set.images
             self.get_category = self.guild.get.images
-            self.category_text = "image"
+            self.category_text = "image scanning"
         else:
             raise ValueError("Invalid automoderation category!")
 
@@ -80,6 +81,8 @@ class views:
             enabled = self.guild.get.do_filter_spam()
             if not enabled:
                 disabled_warning = " — Module Disabled"
+            else:
+                disabled_warning = ""
 
             embed = hikari.Embed(
                 title=f"{self.category_text.capitalize()} Automod Config Menu{disabled_warning}",
@@ -90,6 +93,8 @@ class views:
             enabled = self.guild.get.do_image_filtering()
             if not enabled:
                 disabled_warning = " — Module Disabled"
+            else:
+                disabled_warning = ""
 
             embed = hikari.Embed(
                 title=f"{self.category_text.capitalize()} Automod Config Menu{disabled_warning}",
@@ -170,7 +175,7 @@ class views:
 
         class Menu_Init(miru.View):
 
-            @miru.button(label="Exit", style=hikari.ButtonStyle.DANGER)
+            @miru.button(label="Exit", style=hikari.ButtonStyle.DANGER, row=4)
             async def stop_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
                 await ctx.edit_response(
                     hikari.Embed(
@@ -183,72 +188,209 @@ class views:
 
             @miru.button(
                 label="Toggle Deleting",
-                style=active_style if viewself.get_category.do_delete_msg() else inactive_style
+                style=active_style if viewself.get_category.do_delete_msg() else inactive_style,
+                row=1
             )
             async def toggle_del_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
                 active = not viewself.get_category.do_delete_msg()
                 viewself.set_category.do_delete_msg(active)
                 button.style = active_style if active else inactive_style
                 await ctx.edit_response(viewself.gen_embed(), components=self)
+                await server_logs(ctx.guild_id).create_entry(
+                    hikari.Embed(
+                        title=f"{viewself.category_text.capitalize()} Setting Changed",
+                        description=(
+                            f"User's messsages will now {'be deleted' if active else 'not be deleted'} on {viewself.category_text} infractions."
+                        ),
+                        colour=0x00FF00 if active else 0xFFA500
+                    )
+                    .set_footer(
+                        f"Changed by {ctx.user.username} ({ctx.user.id})",
+                    )
+                )
 
             @miru.button(
                 label="Toggle Warnings",
-                style=active_style if viewself.get_category.do_warn_member() else inactive_style
+                style=active_style if viewself.get_category.do_warn_member() else inactive_style,
+                row=1
             )
             async def toggle_warn_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
                 active = not viewself.get_category.do_warn_member()
                 viewself.set_category.do_warn_member(active)
                 button.style = active_style if active else inactive_style
                 await ctx.edit_response(viewself.gen_embed(), components=self)
+                await server_logs(ctx.guild_id).create_entry(
+                    hikari.Embed(
+                        title=f"{viewself.category_text.capitalize()} Setting Changed",
+                        description=(
+                            f"User messages will now {'be warned' if active else 'not be warned'} on {viewself.category_text} infractions."
+                        ),
+                        colour=0x00FF00 if active else 0xFFA500
+                    )
+                    .set_footer(
+                        f"Changed by {ctx.user.username} ({ctx.user.id})",
+                    )
+                )
 
             @miru.button(
                 label="Toggle Muting",
-                style=active_style if viewself.get_category.do_mute_member() else inactive_style
+                style=active_style if viewself.get_category.do_mute_member() else inactive_style,
+                row=1
             )
             async def toggle_mute_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
                 active = not viewself.get_category.do_mute_member()
                 viewself.set_category.do_mute_member(active)
                 button.style = active_style if active else inactive_style
                 await ctx.edit_response(viewself.gen_embed(), components=self)
+                await server_logs(ctx.guild_id).create_entry(
+                    hikari.Embed(
+                        title=f"{viewself.category_text.capitalize()} Setting Changed",
+                        description=(
+                            f"User's will now {'be muted' if active else 'not be muted'} on {viewself.category_text} infractions."
+                        ),
+                        colour=0x00FF00 if active else 0xFFA500
+                    )
+                    .set_footer(
+                        f"Changed by {ctx.user.username} ({ctx.user.id})",
+                    )
+                )
 
             @miru.button(
                 label="Toggle Kick Users",
                 style=active_style if viewself.get_category.do_kick_member() else inactive_style,
+                row=2
             )
             async def toggle_kick_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
                 active = not viewself.get_category.do_kick_member()
                 viewself.set_category.do_kick_member(active)
                 button.style = active_style if active else inactive_style
                 await ctx.edit_response(viewself.gen_embed(), components=self)
+                await server_logs(ctx.guild_id).create_entry(
+                    hikari.Embed(
+                        title=f"{viewself.category_text.capitalize()} Setting Changed",
+                        description=(
+                            f"User messages will now {'be kicked' if active else 'not be kicked'} on {viewself.category_text} infractions."
+                        ),
+                        colour=0x00FF00 if active else 0xFFA500
+                    )
+                    .set_footer(
+                        f"Changed by {ctx.user.username} ({ctx.user.id})",
+                    )
+                )
 
             @miru.button(
                 label="Toggle Ban Users",
                 style=active_style if viewself.get_category.do_ban_member() else inactive_style,
+                row=2
             )
             async def toggle_ban_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
                 active = not viewself.get_category.do_ban_member()
                 viewself.set_category.do_ban_member(active)
                 button.style = active_style if active else inactive_style
                 await ctx.edit_response(viewself.gen_embed(), components=self)
+                await server_logs(ctx.guild_id).create_entry(
+                    hikari.Embed(
+                        title=f"{viewself.category_text.capitalize()} Setting Changed",
+                        description=(
+                            f"User messages will now {'be banned' if active else 'not be banned'} on {viewself.category_text} infractions."
+                        ),
+                        colour=0x00FF00 if active else 0xFFA500
+                    )
+                    .set_footer(
+                        f"Changed by {ctx.user.username} ({ctx.user.id})",
+                    )
+                )
 
             @miru.button(
                 label="Toggle Cooldowns",
-                style=active_style if viewself.get_category.do_cooldown() else inactive_style
+                style=active_style if viewself.get_category.do_cooldown() else inactive_style,
+                row=2
             )
             async def toggle_cooldown_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
                 active = not viewself.get_category.do_cooldown()
                 viewself.set_category.do_cooldown(active)
                 button.style = active_style if active else inactive_style
                 await ctx.edit_response(viewself.gen_embed(), components=self)
+                await server_logs(ctx.guild_id).create_entry(
+                    hikari.Embed(
+                        title=f"{viewself.category_text.capitalize()} Setting Changed",
+                        description=(
+                            f"User messages will now {'be put on cooldown' if active else 'not be put on cooldown'} on {viewself.category_text} infractions."
+                        ),
+                        colour=0x00FF00 if active else 0xFFA500
+                    )
+                    .set_footer(
+                        f"Changed by {ctx.user.username} ({ctx.user.id})",
+                    )
+                )
 
             @miru.button(
                 label="Toggle Announcements",
                 style=active_style if viewself.get_category.do_announce_infraction() else inactive_style,
+                row=3
             )
             async def toggle_announce_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
                 active = not viewself.get_category.do_announce_infraction()
                 viewself.set_category.do_announce_infraction(active)
                 button.style = active_style if active else inactive_style
                 await ctx.edit_response(viewself.gen_embed(), components=self)
+                await server_logs(ctx.guild_id).create_entry(
+                    hikari.Embed(
+                        title=f"{viewself.category_text.capitalize()} Setting Changed",
+                        description=(
+                            f"User violations will now {'be announced' if active else 'not be announced'} on {viewself.category_text} infractions."
+                        ),
+                        colour=0x00FF00 if active else 0xFFA500
+                    )
+                    .set_footer(
+                        f"Changed by {ctx.user.username} ({ctx.user.id})",
+                    ),
+                )
+
+            @miru.button(
+                label="Toggle Kick Announcements",
+                style=active_style if viewself.get_category.do_announce_kick() else inactive_style,
+                row=3
+            )
+            async def toggle_announce_kick_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                active = not viewself.get_category.do_announce_kick()
+                viewself.set_category.do_announce_kick(active)
+                button.style = active_style if active else inactive_style
+                await ctx.edit_response(viewself.gen_embed(), components=self)
+                await server_logs(ctx.guild_id).create_entry(
+                    hikari.Embed(
+                        title=f"{viewself.category_text.capitalize()} Setting Changed",
+                        description=(
+                            f"User kicks will now {'be announced' if active else 'not be announced'} on {viewself.category_text} violations."
+                        ),
+                        colour=0x00FF00 if active else 0xFFA500
+                    )
+                    .set_footer(
+                        f"Changed by {ctx.user.username} ({ctx.user.id})",
+                    )
+                )
+            
+            @miru.button(
+                label="Toggle Ban Announcements",
+                style=active_style if viewself.get_category.do_announce_ban() else inactive_style,
+                row=3
+            )
+            async def toggle_announce_ban_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                active = not viewself.get_category.do_announce_ban()
+                viewself.set_category.do_announce_ban(active)
+                button.style = active_style if active else inactive_style
+                await ctx.edit_response(viewself.gen_embed(), components=self)
+                await server_logs(ctx.guild_id).create_entry(
+                    hikari.Embed(
+                        title=f"{viewself.category_text.capitalize()} Setting Changed",
+                        description=(
+                            f"User bans will now {'be announced' if active else 'not be announced'} on {viewself.category_text} violations."
+                        ),
+                        colour=0x00FF00 if active else 0xFFA500
+                    )
+                    .set_footer(
+                        f"Changed by {ctx.user.username} ({ctx.user.id})",
+                    )
+                )
 
         return Menu_Init()

@@ -12,6 +12,26 @@ class logs_config:
     def __init__(self, guild_id:int):
         self.guild_id = int(guild_id)
 
+    async def mk_logs_channel(self):
+        try:
+            channel = await botapp.rest.create_guild_text_channel(
+                self.guild_id,
+                "nodeus-logs",
+                reason="Creating audit logs channel for the server, as part of setting up recommended settings!"
+            )
+            await botapp.rest.edit_permission_overwrite(
+                channel=channel.id,
+                target_type=hikari.PermissionOverwriteType.ROLE,
+                target=self.guild_id,
+                deny=68608,  # Deny send messages, view channel, read history to all members
+            )
+            self.set_logs_channel(channel.id)
+            return True
+        except (hikari.UnauthorizedError, hikari.ForbiddenError):
+            return False
+        except hikari.NotFoundError:
+            return False 
+
     def set_logs_channel(self, channel:int):
         session = get_session()
         try:
@@ -45,9 +65,9 @@ class logs_config:
             records = (
                 session.query(guild_log_channel.channel)
                 .filter(guild_log_channel.guild_id == self.guild_id)
-                .all()
+                .one_or_none()
             )
-            return records
+            return records[0] if records else None
         except SQLAlchemyError as err:
             logging.error("Error getting the logs channel!", exc_info=err)
             return []  # Return an empty list if something goes wrong
