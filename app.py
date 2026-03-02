@@ -246,13 +246,14 @@ if not get.bot_token():
 
 # ----- BOT ENVIRONMENT SETUP SECTION -----
 
-from library.database import manage as pg_manage
-db_init_success = pg_manage.initialize()
-if db_init_success:
-    pg_manage.modernize()
-else:
-    print("Error: Unable to initialize the database connection. Please check your settings and ensure the database is reachable.")
-    raise ConnectionError("Database initialization failed.")
+if __name__ == "__main__":
+    from library.database import manage as pg_manage
+    db_init_success = pg_manage.initialize()
+    if db_init_success:
+        pg_manage.modernize()
+    else:
+        print("Error: Unable to initialize the database connection. Please check your settings and ensure the database is reachable.")
+        raise ConnectionError("Database initialization failed.")
 
 # Always check to see if a DB can be reached or made.
 if get.allow_docker_fallback() is False and not get.db_host():

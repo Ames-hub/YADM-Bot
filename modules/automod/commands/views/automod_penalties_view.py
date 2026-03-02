@@ -9,6 +9,10 @@ class views:
         self.guild = dbguild(self.guild_id)
         self.automod_category = automod_category
 
+        # 🔹 Ensure guild row exists before doing anything else
+        if not self.guild.exists_in_db():
+            self.guild.create()
+
         if automod_category == automod_types.TEXT_FILTER:
             self.set_category = self.guild.set.text
             self.get_category = self.guild.get.text
@@ -35,6 +39,10 @@ class views:
         self.do_ban_member = self.get_category.do_ban_member()
         self.ban_msg_del_length = self.get_category.get_ban_msg_purgetime()
         self.ban_duration = self.get_category.ban_duration()
+        self.do_cooldown = self.get_category.do_cooldown()
+        self.announce_infraction = self.get_category.do_announce_infraction()
+        self.announce_kick = self.get_category.do_announce_kick()
+        self.announce_ban = self.get_category.do_announce_ban()
         return True
 
     def gen_embed(self, no_refresh:bool=False):
@@ -57,8 +65,8 @@ class views:
             ban_duration_text = "⏳ Bans are not performed. (0 second bans)"
 
         if self.automod_category == automod_types.TEXT_FILTER:
-            disabled = self.guild.get.do_text_scan()
-            if disabled:
+            enabled = self.guild.get.do_text_scan()
+            if not enabled:
                 disabled_warning = " — Module Disabled"
             else:
                 disabled_warning = ""
@@ -69,8 +77,8 @@ class views:
                 color=0x00ffff
             )
         elif self.automod_category == automod_types.SPAM_FILTER:
-            disabled = self.guild.get.do_filter_spam()
-            if disabled:
+            enabled = self.guild.get.do_filter_spam()
+            if not enabled:
                 disabled_warning = " — Module Disabled"
 
             embed = hikari.Embed(
@@ -79,8 +87,8 @@ class views:
                 color=0x00ffff
             )
         elif self.automod_category == automod_types.IMAGE_FILTER:
-            disabled = self.guild.get.do_image_filtering()
-            if disabled:
+            enabled = self.guild.get.do_image_filtering()
+            if not enabled:
                 disabled_warning = " — Module Disabled"
 
             embed = hikari.Embed(
@@ -117,9 +125,29 @@ class views:
             inline=True
         )
         embed.add_field(
+            name="Cooldowns",
+            value="✅ Enabled" if self.do_cooldown else "❌ Disabled",
+            inline=True
+        )
+        embed.add_field(
+            name="Announce violation",
+            value="✅ Will announce to users when they violate rules" if self.announce_infraction else "❌ Will not announce to users when they violate rules",
+            inline=True
+        )
+        embed.add_field(
+            name="Announce Kick",
+            value="✅ Will announce to users when they are kicked" if self.announce_kick else "❌ Will not announce to users when they are kicked",
+            inline=True
+        )
+        embed.add_field(
+            name="Announce Ban",
+            value="✅ Will announce to users when they are banned" if self.announce_ban else "❌ Will not announce to users when they are banned",
+            inline=True
+        )
+        embed.add_field(
             name="Ban Duration",
             value=ban_duration_text,
-            inline=True
+            inline=False
         )
         embed.add_field(
             name="Mute Duration",
@@ -186,7 +214,6 @@ class views:
             @miru.button(
                 label="Toggle Kick Users",
                 style=active_style if viewself.get_category.do_kick_member() else inactive_style,
-                row=2
             )
             async def toggle_kick_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
                 active = not viewself.get_category.do_kick_member()
@@ -197,11 +224,30 @@ class views:
             @miru.button(
                 label="Toggle Ban Users",
                 style=active_style if viewself.get_category.do_ban_member() else inactive_style,
-                row=2
             )
             async def toggle_ban_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
                 active = not viewself.get_category.do_ban_member()
                 viewself.set_category.do_ban_member(active)
+                button.style = active_style if active else inactive_style
+                await ctx.edit_response(viewself.gen_embed(), components=self)
+
+            @miru.button(
+                label="Toggle Cooldowns",
+                style=active_style if viewself.get_category.do_cooldown() else inactive_style
+            )
+            async def toggle_cooldown_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                active = not viewself.get_category.do_cooldown()
+                viewself.set_category.do_cooldown(active)
+                button.style = active_style if active else inactive_style
+                await ctx.edit_response(viewself.gen_embed(), components=self)
+
+            @miru.button(
+                label="Toggle Announcements",
+                style=active_style if viewself.get_category.do_announce_infraction() else inactive_style,
+            )
+            async def toggle_announce_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                active = not viewself.get_category.do_announce_infraction()
+                viewself.set_category.do_announce_infraction(active)
                 button.style = active_style if active else inactive_style
                 await ctx.edit_response(viewself.gen_embed(), components=self)
 

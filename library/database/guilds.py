@@ -307,6 +307,22 @@ class _image_filter_penalty_get:
         record = self._get_record()
         return record.ban_msg_purgetime if record else 600  # 10 minutes
 
+    def do_cooldown(self):
+        record = self._get_record()
+        return record.do_cooldown if record else True
+
+    def do_announce_infraction(self):
+        record = self._get_record()
+        return record.announce_infraction if record else False
+
+    def do_announce_kick(self):
+        record = self._get_record()
+        return record.announce_kick if record else False
+
+    def do_announce_ban(self):
+        record = self._get_record()
+        return record.announce_ban if record else False
+
 class _spam_filter_penalty_get:
     def __init__(self, guild_id):
         self.guild_id = guild_id    
@@ -353,6 +369,22 @@ class _spam_filter_penalty_get:
     def get_ban_msg_purgetime(self):
         record = self._get_record()
         return record.ban_msg_purgetime if record else 600  # 10 minutes
+
+    def do_cooldown(self):
+        record = self._get_record()
+        return record.do_cooldown if record else True
+
+    def do_announce_infraction(self):
+        record = self._get_record()
+        return record.announce_infraction if record else False
+
+    def do_announce_kick(self):
+        record = self._get_record()
+        return record.announce_kick if record else False
+
+    def do_announce_ban(self):
+        record = self._get_record()
+        return record.announce_ban if record else False
 
 class _text_filter_checks_enabled_get:
     def __init__(self, guild_id):
@@ -452,6 +484,22 @@ class _text_filter_penalty_get:
     def similarity_threshold(self):
         record = self._get_record()
         return record.sim_check_threshold if record else 0.85
+
+    def do_cooldown(self):
+        record = self._get_record()
+        return record.do_cooldown if record else True
+
+    def do_announce_infraction(self):
+        record = self._get_record()
+        return record.announce_infraction if record else False
+
+    def do_announce_kick(self):
+        record = self._get_record()
+        return record.announce_kick if record else False
+
+    def do_announce_ban(self):
+        record = self._get_record()
+        return record.announce_ban if record else False
 
 class automod_get:
     def __init__(self, guild_id):
@@ -621,6 +669,12 @@ class _text_filter_penalties_set:
     def similarity_threshold(self, value: float):
         return self._update(sim_check_threshold=value)
 
+    def do_cooldown(self, value: bool):
+        return self._update(do_cooldown=value)
+
+    def do_announce_infraction(self, value: bool):
+        return self._update(announce_infraction=value)
+
 class _spam_filter_set:
     def __init__(self, guild_id):
         self.guild_id = guild_id
@@ -678,6 +732,12 @@ class _spam_filter_set:
     def set_ban_msg_purgetime(self, seconds: int):
         return self._update(ban_msg_purgetime=seconds)
 
+    def do_cooldown(self, value: bool):
+        return self._update(do_cooldown=value)
+
+    def do_announce_infraction(self, value: bool):
+        return self._update(announce_infraction=value)
+
 class _image_filter_set:
     def __init__(self, guild_id):
         self.guild_id = guild_id
@@ -733,6 +793,12 @@ class _image_filter_set:
 
     def set_ban_msg_purgetime(self, seconds: int):
         return self._update(ban_msg_purgetime=seconds)
+
+    def do_cooldown(self, value: bool):
+        return self._update(do_cooldown=value)
+
+    def do_announce_infraction(self, value: bool):
+        return self._update(announce_infraction=value)
 
 class automod_set:
     def __init__(self, guild_id):
@@ -1077,7 +1143,7 @@ class guild_bans:
             )
         )
 
-    async def ban_user(self, banned_id:int, moderator_id:int, msg_del_duration:int, ban_seconds:int, reason:str) -> bool:
+    async def ban_user(self, banned_id:int, moderator_id:int, msg_del_duration:int, ban_seconds:int, reason:str, announce_ban:bool) -> bool:
         if ban_seconds <= 0:
             return -1
 
@@ -1095,19 +1161,19 @@ class guild_bans:
                 ds.d["guild_name_cache"][self.guild_id] = {"name": discord_guild.name, "time": timestamp_now}
                 guild_name = discord_guild.name
 
-        try:
-            banned_user = await botapp.rest.fetch_member(self.guild_id, banned_id)
+        if announce_ban:
+            try:
+                banned_user = await botapp.rest.fetch_member(self.guild_id, banned_id)
 
-            # TODO: Make sending this toggleable
-            await banned_user.send(
-                embed=hikari.Embed(
-                    title="Banished",
-                    description=f"You've been detected as breaking the rules of {guild_name} and have been banned.\nReason: {reason}",
-                    colour=0xff0000
+                await banned_user.send(
+                    embed=hikari.Embed(
+                        title="Banished",
+                        description=f"You've been detected as breaking the rules of {guild_name} and have been banned.\nReason: {reason}",
+                        colour=0xff0000
+                    )
                 )
-            )
-        except (hikari.ForbiddenError, hikari.BadRequestError, hikari.UnauthorizedError):
-            pass
+            except (hikari.ForbiddenError, hikari.BadRequestError, hikari.UnauthorizedError):
+                pass
 
         try:
             await botapp.rest.ban_user(
@@ -1202,3 +1268,32 @@ class dbguild:
         self.muting = muting.guilds(guild_id)
         self.warnings = guild_warnings(guild_id)
         self.bans = guild_bans(guild_id)
+
+    def exists_in_db(self):
+        session = get_session()
+        try:
+            return (
+                session.query(guild_automod_settings)
+                .filter(guild_automod_settings.guild_id == self.guild_id)
+                .one_or_none()
+                is not None
+            )
+        finally:
+            session.close()
+
+    def create(self):
+        """
+        Inserts the default row for a guild into the database. This should only be used once per guild.
+        """
+        if not self.exists_in_db():
+            session = get_session()
+            try:
+                record = guild_automod_settings(guild_id=self.guild_id)
+                session.add(record)
+                session.commit()
+            except SQLAlchemyError as err:
+                logging.error("Error creating guild automod settings!", exc_info=err)
+                session.rollback()
+                return False
+            finally:
+                session.close()

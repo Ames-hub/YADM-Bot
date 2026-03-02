@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, select, insert, Column, Integer, BigInteger, TEXT, TIMESTAMP, BOOLEAN, text, DateTime, FLOAT
+from sqlalchemy import create_engine, select, insert, Column, Integer, BigInteger, TEXT, TIMESTAMP, BOOLEAN, text, DateTime, FLOAT, inspect
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.exc import OperationalError
 from library.settings import get
@@ -45,14 +45,18 @@ class guild_text_automod_settings(Base):
     ban_duration = Column(Integer, nullable=False, default=86400)  # 1 day
     ban_msg_purgetime = Column(Integer, nullable=False, default=600)  # 10 minutes
     sim_check_threshold = Column(FLOAT, nullable=False, default=0.80)
+    do_cooldown = Column(BOOLEAN, nullable=False, default=True)
+    announce_infraction = Column(BOOLEAN, nullable=False, default=True)
+    announce_kick = Column(BOOLEAN, nullable=False, default=True)
+    announce_ban = Column(BOOLEAN, nullable=False, default=True)
 
 class guild_text_automod_text_checks(Base):
     __tablename__ = "guild_text_automod_text_checks"
     
     guild_id = Column(BigInteger, nullable=False, primary_key=True)
-    equality_check = Column(BOOLEAN, nullable=False, default=False)
-    symbol_check = Column(BOOLEAN, nullable=False, default=False)
-    collapsed_check = Column(BOOLEAN, nullable=False, default=False)
+    equality_check = Column(BOOLEAN, nullable=False, default=True)
+    symbol_check = Column(BOOLEAN, nullable=False, default=True)
+    collapsed_check = Column(BOOLEAN, nullable=False, default=True)
     spacehack_check = Column(BOOLEAN, nullable=False, default=False)
     letter_stitch_check = Column(BOOLEAN, nullable=False, default=False)
     reverse_check = Column(BOOLEAN, nullable=False, default=False)
@@ -66,11 +70,15 @@ class guild_spam_automod_settings(Base):
     penalty_delete_message = Column(BOOLEAN, nullable=False, default=False)
     penalty_warn_member = Column(BOOLEAN, nullable=False, default=False)
     penalty_mute_member = Column(BOOLEAN, nullable=False, default=False)
-    penalty_mute_duration = Column(BigInteger, nullable=False, default=-1)  # -1 = Permanent
+    penalty_mute_duration = Column(BigInteger, nullable=False, default=120)  # -1 = Permanent, 120 is 2 mins
     penalty_kick_member = Column(BOOLEAN, nullable=False, default=False)
     penalty_ban_member = Column(BOOLEAN, nullable=False, default=False)
     ban_duration = Column(Integer, nullable=False, default=86400)  # 1 day
     ban_msg_purgetime = Column(Integer, nullable=False, default=600)  # 10 minutes
+    do_cooldown = Column(BOOLEAN, nullable=False, default=True)
+    announce_infraction = Column(BOOLEAN, nullable=False, default=True)
+    announce_kick = Column(BOOLEAN, nullable=False, default=True)
+    announce_ban = Column(BOOLEAN, nullable=False, default=True)
 
 class guild_images_automod_settings(Base):
     __tablename__ = "guild_images_automod_settings"
@@ -84,6 +92,10 @@ class guild_images_automod_settings(Base):
     penalty_ban_member = Column(BOOLEAN, nullable=False, default=False)
     ban_duration = Column(Integer, nullable=False, default=86400)  # 1 day
     ban_msg_purgetime = Column(Integer, nullable=False, default=600)  # 10 minutes, >0 is no deletion
+    do_cooldown = Column(BOOLEAN, nullable=False, default=True)
+    announce_infraction = Column(BOOLEAN, nullable=False, default=True)
+    announce_kick = Column(BOOLEAN, nullable=False, default=True)
+    announce_ban = Column(BOOLEAN, nullable=False, default=True)
 
 class guild_automod_settings(Base):
     __tablename__ = "guild_automod_settings"
@@ -328,7 +340,7 @@ def initialize() -> bool:
             return False
 
         Base.metadata.create_all(bind=engine)
-        logging.info("SQLite database ready.")
+        logging.info("Sqlite Database ready and schema upgraded.")
         return True
 
     # postgres (for prod)
@@ -342,7 +354,7 @@ def initialize() -> bool:
         return False
 
     Base.metadata.create_all(bind=engine)
-    logging.info("PostgreSQL database ready.")
+    logging.info("PostgreSQL Database ready and schema upgraded.")
     return True
 
 def transfer_database(source_url: str, dest_url: str, chunk_size: int = 1000, echo: bool = False):
@@ -382,12 +394,57 @@ def transfer_database(source_url: str, dest_url: str, chunk_size: int = 1000, ec
 
 def modernize() -> None:
     """
-    Ensures all defined tables exist.
+    Auto-sync database schema:
+    - Creates missing tables
+    - Adds missing columns
+    - Does NOT remove or modify existing columns
+    Safe for SQLite and PostgreSQL.
     """
+
     global engine
 
     if engine is None:
         initialize()
 
-    Base.metadata.create_all(bind=engine)
-    logging.info("Schema synchronized.")
+    inspector = inspect(engine)
+
+    existing_tables = set(inspector.get_table_names())
+    model_tables = Base.metadata.tables
+
+    with engine.begin() as conn:
+        # 1. Create missing tables
+        for table_name, table in model_tables.items():
+            if table_name not in existing_tables:
+                logging.info(f"Creating missing table: {table_name}")
+                table.create(bind=conn)
+                continue
+
+            # 2. Add missing columns
+            existing_columns = {col["name"] for col in inspector.get_columns(table_name)}
+
+            for column in table.columns:
+                if column.name not in existing_columns:
+                    logging.info(f"Adding missing column '{column.name}' to '{table_name}'")
+
+                    # Compile column type for current dialect
+                    column_type = column.type.compile(engine.dialect)
+
+                    nullable = "NULL" if column.nullable else "NOT NULL"
+
+                    default_clause = ""
+                    if column.default is not None and hasattr(column.default, "arg"):
+                        default_value = column.default.arg
+                        if isinstance(default_value, str):
+                            default_clause = f" DEFAULT '{default_value}'"
+                        else:
+                            default_clause = f" DEFAULT {default_value}"
+
+                    sql = (
+                        f"ALTER TABLE {table_name} "
+                        f"ADD COLUMN {column.name} {column_type} "
+                        f"{nullable}{default_clause}"
+                    )
+
+                    conn.execute(text(sql))
+
+    logging.info("Database schema auto-synchronized.")
