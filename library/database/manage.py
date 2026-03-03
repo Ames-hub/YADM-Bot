@@ -49,6 +49,10 @@ class guild_text_automod_settings(Base):
     announce_infraction = Column(BOOLEAN, nullable=False, default=True)
     announce_kick = Column(BOOLEAN, nullable=False, default=True)
     announce_ban = Column(BOOLEAN, nullable=False, default=True)
+    use_preset_swears_list = Column(BOOLEAN, nullable=False, default=True)
+    use_preset_slurs_list = Column(BOOLEAN, nullable=False, default=True)
+    use_preset_lessnsfw_list = Column(BOOLEAN, nullable=False, default=False)
+    use_preset_hardnsfw_list = Column(BOOLEAN, nullable=False, default=True)
 
 class guild_text_automod_text_checks(Base):
     __tablename__ = "guild_text_automod_text_checks"
@@ -105,7 +109,6 @@ class guild_automod_settings(Base):
     do_filter_spam = Column(BOOLEAN, nullable=False, default=False)
     do_text_scan = Column(BOOLEAN, nullable=False, default=False)
     muted_role_id = Column(BigInteger, nullable=True, default=None)
-    use_preset_word_ban_list = Column(BOOLEAN, nullable=False, default=True)
 
 class guild_imagescan_threshold(Base):
     __tablename__ = "guild_imagescan_threshold"

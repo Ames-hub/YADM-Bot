@@ -56,7 +56,7 @@ class views:
                             "• Spam protection will now a) announce infractions, b) delete messages, c) warn users, d) put users on cooldown.\n"
                             "• Image filtering will now a) announce infractions, b) delete messages, c) warn users, d) put users on cooldown.\n"
                             "• NSFW image scan threshold has been set to 95% Certainty before action taken\n"
-                            "• The bot will now use the preset word ban list, which includes many commonly used slurs and offensive words.\n"
+                            "• The bot will now use the following ban lists: a) swear words, b) slurs, c) Hard-NSFW but will allow soft NSFW\n"
                             "• A logs channel has been created, and log archiving has been enabled!\n"
                         )
                     ),

@@ -502,6 +502,22 @@ class _text_filter_penalty_get:
         record = self._get_record()
         return record.announce_ban if record else False
 
+    def use_preset_swears_list(self):
+        record = self._get_record()
+        return record.use_preset_swears_list
+    
+    def use_preset_slurs_list(self):
+        record = self._get_record()
+        return record.use_preset_slurs_list
+    
+    def use_preset_lessnsfw_list(self):
+        record = self._get_record()
+        return record.use_preset_lessnsfw_list
+
+    def use_preset_hardnsfw_list(self):
+        record = self._get_record()
+        return record.use_preset_hardnsfw_list
+
 class automod_get:
     def __init__(self, guild_id):
         self.guild_id = guild_id
@@ -535,10 +551,6 @@ class automod_get:
     def do_text_scan(self):
         record = self._get_record()
         return record.do_text_scan if record else None
-
-    def use_preset_word_ban_list(self):
-        record = self._get_record()
-        return record.use_preset_word_ban_list if record else True
 
     def nsfw_scan_threshold(self):
         session = get_session()
@@ -678,6 +690,18 @@ class _text_filter_penalties_set:
     
     def do_announce_ban(self, value: bool):
         return self._update(announce_ban=value)
+
+    def use_preset_swears_list(self, value: bool):
+        return self._update(use_preset_swears_list=value)
+    
+    def use_preset_slurs_list(self, value: bool):
+        return self._update(use_preset_slurs_list=value)
+    
+    def use_preset_lessnsfw_list(self, value: bool):
+        return self._update(use_preset_lessnsfw_list=value)
+    
+    def use_preset_hardnsfw_list(self, value: bool):
+        return self._update(use_preset_hardnsfw_list=value)
 
 class _spam_filter_set:
     def __init__(self, guild_id):
@@ -885,8 +909,8 @@ class automod_set:
     def do_text_scan(self, value: bool):
         return self._update_main(do_text_scan=value)
 
-    def use_preset_word_ban_list(self, value: bool):
-        return self._update_main(use_preset_word_ban_list=value)
+    def use_wordlist_swears(self, value: bool):
+        return self._update_main()
 
     def _update_main(self, **fields):
         session = get_session()
@@ -1291,7 +1315,10 @@ class dbguild:
         self.set.do_image_filtering(True)
         self.set.do_text_scan(True)
         self.set.do_filter_spam(True)
-        self.set.use_preset_word_ban_list(True)
+        self.set.text.use_preset_swears_list(True)
+        self.set.text.use_preset_slurs_list(True)
+        self.set.text.use_preset_lessnsfw_list(False)
+        self.set.text.use_preset_hardnsfw_list(True)
         
         self.set.text.do_announce_infraction(True)
         self.set.text.do_delete_msg(True)

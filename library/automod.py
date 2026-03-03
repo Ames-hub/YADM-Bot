@@ -40,12 +40,14 @@ def convert_duration_txt(seconds:int) -> str:
         return f"{seconds // 86400} day(s)"
 
 # The default ones. Users can add their own.
-with open('library/preset_bad_words.txt', 'r') as f:
-    bw = f.readlines()
-
-preset_bad_words = []
-for word in bw:
-    preset_bad_words.append(word.replace("\n", ""))
+with open('library/less_nsfw_words.txt', 'r') as f:
+    less_nsfw_list = f.readlines()
+with open('library/nsfw_words.txt', 'r') as f:
+    hard_nsfw_list = f.readlines()
+with open('library/slurs_list.txt', 'r') as f:
+    slurs_list = f.readlines()
+with open('library/swears_list.txt', 'r') as f:
+    swears_list = f.readlines()
 
 with open('library/preset_insulting_words.txt', 'r') as f:
     iw = f.readlines()
@@ -58,19 +60,34 @@ def get_bad_word_list(guild_id):
     if guild_id:
         guild = dbguild(guild_id)
         custom_bad_words = guild.wordlist.get_list(blacklist_only=True)
-        if guild.get.use_preset_word_ban_list():
-            bad_word_list = preset_bad_words.copy() + custom_bad_words
-        else:
-            return custom_bad_words
-        return bad_word_list
+
+        bad_list = []
+
+        if custom_bad_words:
+            bad_list += custom_bad_words
+        if guild.get.text.use_preset_swears_list():
+            bad_list += swears_list
+        if guild.get.text.use_preset_slurs_list():
+            bad_list += slurs_list
+        if guild.get.text.use_preset_lessnsfw_list():
+            bad_list += less_nsfw_list
+        if guild.get.text.use_preset_hardnsfw_list():
+            bad_list += hard_nsfw_list
+
+        return bad_list
     else:
-        return preset_bad_words.copy()
+        # ALL
+        bad_list = swears_list.copy()
+        bad_list += slurs_list
+        bad_list += less_nsfw_list
+        bad_list += hard_nsfw_list
+        return bad_list
 
 def text_check(text, guild_id=None):
     """
     Puts some text through any/all checks.
+    Returns: (is_bad, check_name, flagged_word)
     """
-
     if guild_id is None:
         threshold = 0.80
     else:
@@ -82,16 +99,15 @@ def text_check(text, guild_id=None):
         ("equality", lambda: checks.heuristics.low.equality(text, guild_id=guild_id)),
         ("symbol", lambda: checks.heuristics.low.symbol_check(text, guild_id=guild_id)),
         ("collapse", lambda: checks.heuristics.low.collapsed_check(text, guild_id=guild_id)),
-        ("spacehack", lambda: checks.heuristics.medium.spacehack_check(text)),
-        ("stitching", lambda: checks.heuristics.medium.letter_stitch_check(text)),
-        ("reversing", lambda: checks.heuristics.medium.reverse_check(text)),
+        ("spacehack", lambda: checks.heuristics.medium.spacehack_check(text, guild_id=guild_id)),
+        ("stitching", lambda: checks.heuristics.medium.letter_stitch_check(text, guild_id=guild_id)),
+        ("reversing", lambda: checks.heuristics.medium.reverse_check(text, guild_id=guild_id)),
         ("similarity", lambda: checks.heuristics.high.similarity_check(text, guild_id=guild_id, threshold=threshold)),
         ("syntactic", lambda: checks.heuristics.high.syntactic_analysis(text)),
     ]
 
     # If guild exists, respect its config
-    if guild_id:
-        
+    if guild_id:        
         checks_allowed: guild_text_automod_text_checks = guild.get.text.checks._get_record()
 
         if checks_allowed is not None:
@@ -129,20 +145,23 @@ def text_check(text, guild_id=None):
 
         if name == "syntactic":
             if result["bad"]:
-                return True, name, result["type"]
+                return True, name, result.get("word", "unknown")
             else:
-                return False, None
+                return False, None, None
         elif name == "similarity":
             if result["bad"]:
-                similarity = result['sim']
-                return True, similarity
+                return True, name, result.get("word", "unknown")
             else:
-                return False, None
+                return False, None, None
         else:
-            if result:
-                return True, name
+            # Handle checks that return a dictionary with 'bad' and 'word' keys
+            if isinstance(result, dict) and result.get("bad"):
+                return True, name, result.get("word", "unknown")
+            # Handle boolean returns from older checks
+            elif isinstance(result, bool) and result:
+                return True, name, "unknown"
 
-    return False, None
+    return False, None, None
 
 class automod_types:
     TEXT_FILTER = 1
@@ -158,6 +177,7 @@ async def handle_guilty(
         whistleblower:str,
         get_msg_id:bool=False,
         get_case_id:bool=False,
+        flagged_word:str=None
     ):
     """
     A Helper function to handle message content infractions.
@@ -170,6 +190,9 @@ async def handle_guilty(
     :type get_msg_id: bool
     """
     user_key = (event.guild_id, event.author.id)
+
+    if flagged_word is not None and automod_type != automod_types.TEXT_FILTER:
+        return ValueError("Only text filter can set a flagged word")
 
     if user_key not in _active_punishments:
         _active_punishments[user_key] = asyncio.Lock()
@@ -199,8 +222,8 @@ async def handle_guilty(
             if automod_type == automod_types.TEXT_FILTER:
                 cat_check = guild.get.text
                 violation = (
-                    f"User <@{event.author.id}> ({event.author.username}) broke messaging content moderation rules by either swearing, using racial slurs, "
-                    "or anything else that'd fit the category."
+                    f"User <@{event.author.id}> ({event.author.username}) broke messaging content moderation rules, which banned the word \"{flagged_word}\"\n"
+                    f"What they said in full was: || \"{event.message.content}\" ||"  # Censor if read on discord
                 )
             elif automod_type == automod_types.SPAM_FILTER:
                 cat_check = guild.get.spam
@@ -430,7 +453,7 @@ class checks:
 
             return None
 
-        def detect_insult(self, text: str) -> str:
+        def detect_insult(self, text: str):
             text_norm = self.normalize_text(text)
 
             for pattern in self.multi_word_patterns:
@@ -441,16 +464,30 @@ class checks:
 
             for i, word in enumerate(tokens):
                 check_word = word.replace("_", " ")
+
                 if check_word in self.insulting_words:
                     subject = self.find_subject(tokens, i)
-                    if subject == "other":
-                        return self.DELETE_BAD
-                    elif subject == "self":
-                        return self.ALLOW_SELF_DIRECTED
-                    else:
-                        return self.DELETE_PROBABLE
 
-            return self.ALLOW_OK
+                    # Grab small context window around the flagged word
+                    window = 3
+                    start = max(0, i - window)
+                    end = min(len(tokens), i + window + 1)
+                    context_snippet = " ".join(tokens[start:end]).replace("_", " ")
+
+                    result = {
+                        "flagged_word": check_word,
+                        "context": context_snippet,
+                        "original_text": text
+                    }
+
+                    if subject == "other":
+                        return self.DELETE_BAD, result
+                    elif subject == "self":
+                        return self.ALLOW_SELF_DIRECTED, result
+                    else:
+                        return self.DELETE_PROBABLE, result
+
+            return self.ALLOW_OK, None
 
     class ai_vision:
         """
@@ -533,10 +570,10 @@ class checks:
                 for bad_word in bad_word_list:
                     for word in text.split(" "):
                         if bad_word == word:
-                            return True
+                            return {'bad': True, 'word': bad_word}
                         else:
                             pass
-                return False
+                return {'bad': False, 'word': None}
 
             def symbol_check(text: str, guild_id: int = None) -> bool:
                 """
@@ -563,15 +600,15 @@ class checks:
 
                 translated_text = text.translate(leet_map)
 
-                guilty = checks.heuristics.low.equality(translated_text, guild_id=guild_id)
-                if guilty:
-                    return True
+                result = checks.heuristics.low.equality(translated_text, guild_id=guild_id)
+                if result['bad']:
+                    return result
                 
                 # Remove symbols and checks again
                 no_symb_text = checks.helpers.remove_symbols(text)
-                guilty = checks.heuristics.low.equality(no_symb_text, guild_id=guild_id)
-                if guilty:
-                    return True
+                result = checks.heuristics.low.equality(no_symb_text, guild_id=guild_id)
+                if result['bad']:
+                    return result
             
             def collapsed_check(text:str, guild_id:int=None) -> bool:
                 """
@@ -603,9 +640,9 @@ class checks:
                     combined = f"{w1}{w2}"
 
                     if combined in get_bad_word_list(guild_id):
-                        return True
+                        return {'bad': True, 'word': combined}
 
-                return False
+                return {'bad': False, 'word': None}
             
             def letter_stitch_check(text: str, guild_id:int=None) -> bool:
                 """
@@ -621,9 +658,9 @@ class checks:
                     for end in range(start, len(letters)):
                         combined += letters[end]
                         if combined in get_bad_word_list(guild_id):
-                            return True
+                            return {'bad': True, 'word': combined}
 
-                return False
+                return {'bad': False, 'word': None}
             
             def reverse_check(text:str, guild_id:int=None) -> bool:
                 """
@@ -632,25 +669,28 @@ class checks:
                 text = str(text)
                 for word in text.split():
                     for bad_word in get_bad_word_list(guild_id):
-                        if checks.helpers.reverse_text(word) == bad_word:
+                        reversed_word = checks.helpers.reverse_text(word)
+                        if reversed_word == bad_word:
                             return True
-                return False
+                return {'bad': False, 'word': bad_word}
         
         class high:
             def similarity_check(text:str, guild_id:int=None, threshold:float=0.80):
                 # Determines how similar 2 strings are by importing the SequenceMatcher class from difflib
                 bad_word_list = get_bad_word_list(guild_id)
                 for word in text.split(" "):
-                    for item in bad_word_list:
-                        similarity = SequenceMatcher(None, a=word, b=item).ratio()
+                    for bad_word in bad_word_list:
+                        similarity = SequenceMatcher(None, a=word, b=bad_word).ratio()
                         if similarity >= threshold:
                             return {
                                 "bad": True,
-                                "sim": similarity
+                                "sim": similarity,
+                                "word": bad_word 
                             }
                 return {
                     "bad": False,
-                    "sim": 0.0
+                    "sim": 0.0,
+                    "word": None
                 }
             
             def syntactic_analysis(text: str):
@@ -659,5 +699,6 @@ class checks:
                 bad = result not in [checker.ALLOW_OK, checker.ALLOW_SELF_DIRECTED]
                 return {
                     "bad": bad,
-                    "type": result
+                    "type": result,
+                    "word": result['result']['flagged_word']
                 }

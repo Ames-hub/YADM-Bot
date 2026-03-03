@@ -24,6 +24,8 @@ async def botfunction(event: hikari.GuildMessageCreateEvent):
     result = automod.text_check(message, guild_id=event.guild_id)    
     guilty = result[0]
     whistleblower = result[1]  # Which check tripped the 'alarms'
+    flagged_word = result[2]
+
     if whistleblower == "syntactic":
         flag_type = result[2]
         full_whistleblower = f"{whistleblower} | {flag_type().__str__()}"
@@ -46,6 +48,12 @@ async def botfunction(event: hikari.GuildMessageCreateEvent):
             description=desc
         )
 
-        await automod.handle_guilty(event, alert_embed=embed, automod_type=automod.automod_types.TEXT_FILTER, whistleblower=full_whistleblower)
+        await automod.handle_guilty(
+            event,
+            alert_embed=embed,
+            automod_type=automod.automod_types.TEXT_FILTER,
+            whistleblower=full_whistleblower,
+            flagged_word=flagged_word  # Text filter only arg
+        )
         return True
     return True
