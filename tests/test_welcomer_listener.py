@@ -15,7 +15,7 @@ async def test_welcome_disabled(mock_botapp, mock_welcomer):
     await handle_userjoin_event(
         guild_id=123,
         user_display_name="Ame",
-        system_channel_id=456
+        target_channel=456
     )
 
     mock_botapp.rest.create_message.assert_not_called()
@@ -36,7 +36,7 @@ async def test_welcome_sends_message(mock_botapp, mock_welcomer):
     await handle_userjoin_event(
         guild_id=123,
         user_display_name="Ame",
-        system_channel_id=456
+        target_channel=456
     )
 
     # Assert message was sent

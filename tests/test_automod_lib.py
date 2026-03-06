@@ -32,127 +32,67 @@ def mock_dbguild(monkeypatch):
 # ---------------------------
 
 def test_get_bad_word_list_includes_custom(mock_dbguild):
+    automod.ds.d["bad_word_list_cache"] = {}
+
     mock_dbguild.return_value.wordlist.get_list.return_value = ["custombad"]
     mock_dbguild.return_value.get.use_preset_word_ban_list.return_value = False
 
     result = automod.get_bad_word_list(guild_id=123)
-    assert "custombad" in result
+    assert "custombad" in result, f"custombad not in {result}"
 
 
 # ---------------------------
 # Low Level Heuristics
 # ---------------------------
 
-def test_equality_detects_bad_word(monkeypatch):
-    monkeypatch.setattr(
-        automod,
-        "get_bad_word_list",
-        lambda guild_id=None: ["badword"]
-    )
+def test_equality_detects_bad_word():
+    assert automod.checks.heuristics.low.equality("badword", set(["badword"])) == {'bad': True, 'word': "badword"}
+    assert automod.checks.heuristics.low.equality("clean", set(["badword"])) == {'bad': False, 'word': None}
 
-    assert automod.checks.heuristics.low.equality("badword") is True
-    assert automod.checks.heuristics.low.equality("clean") is False
+def test_symbol_check_detects_hidden_word():
+    assert automod.checks.heuristics.low.symbol_check("b@a#d$w%o^r&d", set(["badword"])) == {'bad': True, 'word': 'badword'}
+    assert automod.checks.heuristics.low.symbol_check("o@k#ay", set(["badword"])) == {'bad': False, 'word': None}
 
+def test_symbol_check_leetspeak():
+    assert automod.checks.heuristics.low.symbol_check("b@nn3d", set(["banned"])) == {'bad': True, 'word': "banned"}
+    assert automod.checks.heuristics.low.symbol_check("well ok@y", set(["banned"])) ==  {'bad': False, 'word': None}
 
-def test_symbol_check_detects_hidden_word(monkeypatch):
-    monkeypatch.setattr(
-        automod,
-        "get_bad_word_list",
-        lambda guild_id=None: ["badword"]
-    )
-
-    assert automod.checks.heuristics.low.symbol_check("b@a#d$w%o^r&d") is True
-
-
-def test_symbol_check_leetspeak(monkeypatch):
-    monkeypatch.setattr(
-        automod,
-        "get_bad_word_list",
-        lambda guild_id=None: ["banned"]
-    )
-
-    assert automod.checks.heuristics.low.symbol_check("b@nn3d") is True
-
-
-def test_collapsed_check_detects_stretched_word(monkeypatch):
-    monkeypatch.setattr(
-        automod,
-        "get_bad_word_list",
-        lambda guild_id=None: ["bad"]
-    )
-
-    assert automod.checks.heuristics.low.collapsed_check("baaaad") is True
-
+def test_collapsed_check_detects_stretched_word():
+    assert automod.checks.heuristics.low.collapsed_check("baaaad", set(["bad"])) == {'bad': True, 'word': "bad"}
+    assert automod.checks.heuristics.low.collapsed_check("ookkkkkk", set(["bad"])) == {'bad': False, 'word': None}
 
 # ---------------------------
 # Medium Level Heuristics
 # ---------------------------
-
-def test_spacehack_detects_combined_words(monkeypatch):
-    monkeypatch.setattr(
-        automod,
-        "get_bad_word_list",
-        lambda guild_id=None: ["foobar"]
-    )
-
-    assert automod.checks.heuristics.medium.spacehack_check("foo bar") is True
+def test_letter_stitch_detects_spaced_letters():
+    assert automod.checks.heuristics.medium.letter_stitch_check("okay", set(["bad"])) == {'bad': False, 'word': None}
+    assert automod.checks.heuristics.medium.letter_stitch_check("b a d", set(["bad"])) == {'bad': True, 'word': "bad"}
 
 
-def test_letter_stitch_detects_spaced_letters(monkeypatch):
-    monkeypatch.setattr(
-        automod,
-        "get_bad_word_list",
-        lambda guild_id=None: ["bad"]
-    )
+def test_reverse_check_detects_reverse():
+    assert automod.checks.heuristics.medium.reverse_check("dab", set(["bad"])) == {'bad': True, 'word': "bad"}
+    assert automod.checks.heuristics.medium.reverse_check("you're a dab", set(["bad"])) == {'bad': True, 'word': "bad"}
+    assert automod.checks.heuristics.medium.reverse_check("you're ok", set(["bad"])) == {'bad': False, 'word': None}
 
-    assert automod.checks.heuristics.medium.letter_stitch_check("b a d") is True
-
-
-def test_reverse_check_detects_reverse(monkeypatch):
-    monkeypatch.setattr(
-        automod,
-        "get_bad_word_list",
-        lambda guild_id=None: ["bad"]
-    )
-
-    assert automod.checks.heuristics.medium.reverse_check("dab") is True
+def test_letter_stitch_partial():
+    assert automod.checks.heuristics.medium.letter_stitch_check("b a x d", set(["bad"])) == {'bad': False, 'word': None}
+    assert automod.checks.heuristics.medium.letter_stitch_check("b a d", set(["bad"])) == {'bad': True, 'word': "bad"}
 
 
-def test_letter_stitch_partial(monkeypatch):
-    monkeypatch.setattr(
-        automod,
-        "get_bad_word_list",
-        lambda guild_id=None: ["bad"]
-    )
-
-    assert automod.checks.heuristics.medium.letter_stitch_check("b a x d") is False
-    assert automod.checks.heuristics.medium.letter_stitch_check("b a d") is True
-
-
-def test_spacehack_edge(monkeypatch):
-    monkeypatch.setattr(
-        automod,
-        "get_bad_word_list",
-        lambda guild_id=None: ["foobar"]
-    )
-
-    assert automod.checks.heuristics.medium.spacehack_check("f o o bar") is False
-    assert automod.checks.heuristics.medium.spacehack_check("foo bar") is True
-
+def test_spacehack_detects_combined_words():
+    assert automod.checks.heuristics.medium.spacehack_check("Y'all are just foo bar", set(["foobar"])) == {'bad': True, 'word': "foobar"}
+    assert automod.checks.heuristics.medium.spacehack_check("foo bar", set(["foobar"])) == {'bad': True, 'word': "foobar"}
+    assert automod.checks.heuristics.medium.spacehack_check("hello all!", set(["foobar"])) == {'bad': False, 'word': None}
+    assert automod.checks.heuristics.medium.spacehack_check("I love y'all :>", set(["foobar"])) == {'bad': False, 'word': None}
 
 # ---------------------------
 # High Level Similarity
 # ---------------------------
 
-def test_similarity_check_detects_similar_word(monkeypatch):
-    monkeypatch.setattr(
-        automod,
-        "get_bad_word_list",
-        lambda guild_id=None: ["banned"]
-    )
-
+def test_similarity_check_detects_similar_word():
     result = automod.checks.heuristics.high.similarity_check(
         "bann3d",
+        set(["banned"]),
         threshold=0.80
     )
 
@@ -239,7 +179,7 @@ def test_text_check_clean(monkeypatch):
     )
 
     result = automod.text_check("hello world")
-    assert result == (False, None), f"Got result {result}"
+    assert result == (False, None, None), f"Got result {result}"
 
 
 # ---------------------------

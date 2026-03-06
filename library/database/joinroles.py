@@ -1,4 +1,5 @@
 from library.database.manage import get_session, guild_join_role
+from library.database.auditing import server_logs
 from sqlalchemy.exc import SQLAlchemyError
 from library.botapp import botapp
 import logging
@@ -80,7 +81,16 @@ class joinroles:
                     role=on_join_role.role_id
                 )
             except (hikari.ForbiddenError, hikari.UnauthorizedError):
-                # TODO: Add logging that alerts of this
+                server_logs(self.guild_id).create_entry(
+                    hikari.Embed(
+                        title="Couldn't add Join-Role!",
+                        description=f"When <@{user_id}> joined, I was unable to add role <@&{on_join_role.role_id}> to the member."
+                    )
+                    .add_field(
+                        name="Troubleshooting",
+                        value="Please ensure that I have permission to add that role, by moving my top role above others and the role I need to add below my role"
+                    )
+                )
                 return False  # No permissions
             except hikari.NotFoundError:
                 # If it's not found, then we remove it

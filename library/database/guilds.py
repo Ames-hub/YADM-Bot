@@ -14,6 +14,7 @@ from library.database.manage import (
 )
 from library.database.auditing import logs_config
 from library.database.auditing import server_logs
+from library.database.welcomer import welcomer
 from sqlalchemy.exc import SQLAlchemyError
 from library import datastore as ds 
 from library.botapp import botapp
@@ -26,7 +27,7 @@ class muting:
         def __init__(self, guild_id:int):
             self.guild_id = int(guild_id)
 
-        async def mute_member(self, user_id:int, reason:str, duration_s:int=600, hardmute:bool=False):
+        async def mute_member(self, user_id:int, reason:str, moderator_id:int, duration_s:int=600, hardmute:bool=False):
             """
             Mute a member in a guild for a specific amount of seconds.
             
@@ -36,6 +37,8 @@ class muting:
             :type user_id: int
             :param duration_s: How many seconds the mute should last.
             :type duration_s: int
+            :param reason: Why they're being muted
+            :type reason: str
             :param hardmute: Remove ALL other rolls from the individual except "muted". Vaguelly destructive.
             :type hardmute: bool
             """
@@ -92,7 +95,8 @@ class muting:
                     user_id=user_id,
                     guild_id=guild_id,
                     scheduled_unmute=datetime.datetime.now().timestamp() + duration_s,
-                    reason=reason
+                    reason=reason,
+                    moderator_id=moderator_id
                 )
                 session.add(record)
                 session.commit()
@@ -954,6 +958,8 @@ class wordlist_modify:
             )
             session.add(record)
             session.commit()
+            if ds.d["bad_word_list_cache"].get(self.guild_id, None):
+                del ds.d["bad_word_list_cache"][self.guild_id]
             return True
         except SQLAlchemyError as err:
             logging.error("Encountered an error in adding a word to the list!", exc_info=err)
@@ -979,6 +985,8 @@ class wordlist_modify:
 
             session.delete(record)
             session.commit()
+            if ds.d["bad_word_list_cache"].get(self.guild_id, None):
+                del ds.d["bad_word_list_cache"][self.guild_id]
             return True
         except SQLAlchemyError:
             session.rollback()
@@ -1308,6 +1316,7 @@ class dbguild:
         self.warnings = guild_warnings(guild_id)
         self.bans = guild_bans(guild_id)
         self.logs_config = logs_config(guild_id)
+        self.welcomer = welcomer(guild_id)
 
     async def set_recommended_settings(self):
         await self.logs_config.mk_logs_channel()

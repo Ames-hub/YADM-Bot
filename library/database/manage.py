@@ -133,6 +133,7 @@ class mute_record(Base):
     scheduled_unmute = Column(Integer, nullable=False, default=-1)  # -1 is permanent
     active = Column(BOOLEAN, nullable=False, default=True)
     reason = Column(TEXT, nullable=False)
+    moderator_id = Column(BigInteger, nullable=False)
 
 class automod_nsfw_scan_feedback(Base):
     __tablename__ = "automod_nsfw_scan_feedback"
@@ -170,6 +171,12 @@ class guild_welcomer_enabled(Base):
 
     guild_id = Column(BigInteger, primary_key=True)
     enabled = Column(BOOLEAN, default=False)
+
+class guild_welcomer_channel(Base):
+    __tablename__ = "guild_welcomer_channels"
+
+    guild_id = Column(BigInteger, primary_key=True)
+    channel_id = Column(BigInteger)
 
 class guild_join_role(Base):
     __tablename__ = "guild_joinroles"
@@ -415,14 +422,12 @@ def modernize() -> None:
     model_tables = Base.metadata.tables
 
     with engine.begin() as conn:
-        # 1. Create missing tables
         for table_name, table in model_tables.items():
             if table_name not in existing_tables:
                 logging.info(f"Creating missing table: {table_name}")
                 table.create(bind=conn)
                 continue
 
-            # 2. Add missing columns
             existing_columns = {col["name"] for col in inspector.get_columns(table_name)}
 
             for column in table.columns:

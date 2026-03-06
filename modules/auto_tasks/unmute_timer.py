@@ -79,8 +79,12 @@ async def handle_task():
             log_embed = (
                 hikari.Embed(
                     title="Member Unmuted",
-                    description=f"{user.mention} ({user.username}) Has been unmuted as of <t:{mute_case.scheduled_unmute}:R>",
+                    description=f"{user.mention} ({user.username}) Has been unmuted as of <t:{int(mute_case.scheduled_unmute)}:R>",
                     colour=0x00ff00
+                )
+                .add_field(
+                    name="Original Mute Reason",
+                    value=f"The user was muted originally by {mute_case.moderator_id} for:\n\"{mute_case.reason}\""
                 )
             )
 

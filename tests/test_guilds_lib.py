@@ -1,6 +1,7 @@
-import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import patch, MagicMock
+from library import datastore as ds
 import datetime
+import pytest
 
 from library.database import guilds
 
@@ -70,6 +71,8 @@ def test_create_member_violation(mock_get_session):
 # ------------------------
 @patch("library.database.guilds.get_session")
 def test_add_word_and_remove_word(mock_get_session, wordlist_instance):
+    ds.d["bad_word_list_cache"] = {}
+
     mock_session = MagicMock()
     mock_get_session.return_value = mock_session
     mock_session.commit.return_value = None
@@ -81,6 +84,7 @@ def test_add_word_and_remove_word(mock_get_session, wordlist_instance):
 
     # Patch query return for remove_word
     mock_session.query.return_value.filter.return_value.one_or_none.return_value = MagicMock()
+
     result2 = wordlist_instance.remove_word("badword")
     assert result2 is True
     mock_session.delete.assert_called()

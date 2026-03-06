@@ -6,6 +6,7 @@ from library import datastore as ds
 from difflib import SequenceMatcher
 from library.botapp import botapp
 from library.settings import get
+from enum import Enum
 import imagehash
 import datetime
 import asyncio
@@ -41,49 +42,61 @@ def convert_duration_txt(seconds:int) -> str:
 
 # The default ones. Users can add their own.
 with open('library/less_nsfw_words.txt', 'r') as f:
-    less_nsfw_list = f.readlines()
+    less_nsfw_list = f.read().lower().splitlines()
 with open('library/nsfw_words.txt', 'r') as f:
-    hard_nsfw_list = f.readlines()
+    hard_nsfw_list = f.read().lower().splitlines()
 with open('library/slurs_list.txt', 'r') as f:
-    slurs_list = f.readlines()
+    slurs_list = f.read().lower().splitlines()
 with open('library/swears_list.txt', 'r') as f:
-    swears_list = f.readlines()
+    swears_list = f.read().lower().splitlines()
 
+# For the syntactic analysis check.
 with open('library/preset_insulting_words.txt', 'r') as f:
-    iw = f.readlines()
+    insulting_words_list = f.read().lower().splitlines()
 
-insulting_words_list = []
-for word in iw:
-    insulting_words_list.append(word.replace("\n", ""))
+with open("library/preset_word_whitelist.txt", "r") as f:
+    PRESET_WORD_WHITELIST = set(f.read().lower().splitlines())
 
 def get_bad_word_list(guild_id):
     if guild_id:
+        if ds.d["bad_word_list_cache"].get(guild_id, None) is not None:
+            cache_time = ds.d["bad_word_list_cache"][guild_id]["time"]
+
+            if datetime.datetime.now().timestamp() - cache_time < 300:
+                return ds.d["bad_word_list_cache"][guild_id]["list"]
+
         guild = dbguild(guild_id)
         custom_bad_words = guild.wordlist.get_list(blacklist_only=True)
 
-        bad_list = []
+        bad_list = set()
 
         if custom_bad_words:
-            bad_list += custom_bad_words
+            bad_list.update(custom_bad_words)
         if guild.get.text.use_preset_swears_list():
-            bad_list += swears_list
+            bad_list.update(swears_list)
         if guild.get.text.use_preset_slurs_list():
-            bad_list += slurs_list
+            bad_list.update(slurs_list)
         if guild.get.text.use_preset_lessnsfw_list():
-            bad_list += less_nsfw_list
+            bad_list.update(less_nsfw_list)
         if guild.get.text.use_preset_hardnsfw_list():
-            bad_list += hard_nsfw_list
+            bad_list.update(hard_nsfw_list)
+
+        ds.d["bad_word_list_cache"][guild_id] = {
+            "list": bad_list,
+            "time": datetime.datetime.now().timestamp()
+        }
 
         return bad_list
     else:
         # ALL
-        bad_list = swears_list.copy()
-        bad_list += slurs_list
-        bad_list += less_nsfw_list
-        bad_list += hard_nsfw_list
+        bad_list = set()
+        bad_list.update(swears_list)
+        bad_list.update(slurs_list)
+        bad_list.update(less_nsfw_list)
+        bad_list.update(hard_nsfw_list)
         return bad_list
 
-def text_check(text, guild_id=None):
+def text_check(text:str, guild_id=None):
     """
     Puts some text through any/all checks.
     Returns: (is_bad, check_name, flagged_word)
@@ -93,17 +106,23 @@ def text_check(text, guild_id=None):
     else:
         guild = dbguild(guild_id)
         threshold = guild.get.text.similarity_threshold()
+        custom_whitelist_words = guild.wordlist.get_list(whitelist_only=True)
+
+    original_text = text
+    lower_text = original_text.lower()
+
+    bad_word_list = get_bad_word_list(guild_id)
 
     # Define all checks in order
     check_pipeline = [
-        ("equality", lambda: checks.heuristics.low.equality(text, guild_id=guild_id)),
-        ("symbol", lambda: checks.heuristics.low.symbol_check(text, guild_id=guild_id)),
-        ("collapse", lambda: checks.heuristics.low.collapsed_check(text, guild_id=guild_id)),
-        ("spacehack", lambda: checks.heuristics.medium.spacehack_check(text, guild_id=guild_id)),
-        ("stitching", lambda: checks.heuristics.medium.letter_stitch_check(text, guild_id=guild_id)),
-        ("reversing", lambda: checks.heuristics.medium.reverse_check(text, guild_id=guild_id)),
-        ("similarity", lambda: checks.heuristics.high.similarity_check(text, guild_id=guild_id, threshold=threshold)),
-        ("syntactic", lambda: checks.heuristics.high.syntactic_analysis(text)),
+        ("equality", lambda: checks.heuristics.low.equality(lower_text, bad_word_list)),
+        ("symbol", lambda: checks.heuristics.low.symbol_check(lower_text, bad_word_list)),
+        ("collapse", lambda: checks.heuristics.low.collapsed_check(lower_text, bad_word_list)),
+        ("spacehack", lambda: checks.heuristics.medium.spacehack_check(lower_text, bad_word_list)),
+        ("stitching", lambda: checks.heuristics.medium.letter_stitch_check(lower_text, bad_word_list)),
+        ("reversing", lambda: checks.heuristics.medium.reverse_check(lower_text, bad_word_list)),
+        ("similarity", lambda: checks.heuristics.high.similarity_check(lower_text, bad_word_list, threshold=threshold)),
+        ("syntactic", lambda: checks.heuristics.high.syntactic_analysis(lower_text)),
     ]
 
     # If guild exists, respect its config
@@ -143,6 +162,13 @@ def text_check(text, guild_id=None):
 
         result = func()
 
+        if guild_id and result['bad']:
+            # Checks if the automod flagged word is okay with the guild and is to be allowed 
+            if result['word'] not in custom_whitelist_words:
+                break
+            else:  # ALL words are in the whitelist
+                return False, None, None
+
         if name == "syntactic":
             if result["bad"]:
                 return True, name, result.get("word", "unknown")
@@ -150,6 +176,13 @@ def text_check(text, guild_id=None):
                 return False, None, None
         elif name == "similarity":
             if result["bad"]:
+                # Similarity is a wild-card check, so we do one final check to verify their guilt or innocence.
+                for word in lower_text.split(" "):
+                    if word not in PRESET_WORD_WHITELIST:
+                        break
+                else:  # ALL words are in the whitelist
+                    return False, None, None
+
                 return True, name, result.get("word", "unknown")
             else:
                 return False, None, None
@@ -181,18 +214,30 @@ async def handle_guilty(
     ):
     """
     A Helper function to handle message content infractions.
-    
+    This function is strictly for automatic actions.
+
     :param event: The event listener event object.
     :type event: hikari.GuildMessageCreateEvent
     :param alert_embed: The embed to send to alert the user of their infraction
     :type alert_embed: hikari.Embed
+    :param automod_type: Which category triggered the automod? (1 = Text, 2 = spam, 3 = images)
+    :type automod_type: int
+    :param whistleblower: The check that flagged the automoderation system.
+    :type whistleblower: str
     :param get_msg_id: Return the Message ID for the message we respond with
     :type get_msg_id: bool
+    :param get_case_id: Return the Case ID for this violation
+    :type get_case_id: bool
+    :param flagged_word: Which word actually caused the automod to trigger?
+    :type flagged_word: str
     """
     user_key = (event.guild_id, event.author.id)
 
     if flagged_word is not None and automod_type != automod_types.TEXT_FILTER:
-        return ValueError("Only text filter can set a flagged word")
+        raise ValueError("Only text filter can set a flagged word")
+    else:
+        # IF the automod type is text filter, then flagged word MUST be provided.
+        flagged_word = flagged_word.replace("\n", "")
 
     if user_key not in _active_punishments:
         _active_punishments[user_key] = asyncio.Lock()
@@ -222,8 +267,7 @@ async def handle_guilty(
             if automod_type == automod_types.TEXT_FILTER:
                 cat_check = guild.get.text
                 violation = (
-                    f"User <@{event.author.id}> ({event.author.username}) broke messaging content moderation rules, which banned the word \"{flagged_word}\"\n"
-                    f"What they said in full was: || \"{event.message.content}\" ||"  # Censor if read on discord
+                    f"User <@{event.author.id}> ({event.author.username}) broke messaging content moderation rules, which banned the word \"{flagged_word}\"\n\n"
                 )
             elif automod_type == automod_types.SPAM_FILTER:
                 cat_check = guild.get.spam
@@ -256,8 +300,10 @@ async def handle_guilty(
             if not case_id:
                 return False
 
+            do_mute_member = cat_check.do_mute_member()
+
             # if we're not to mute, put them on cooldown if told to do so. (Cooldown is a short, short mute)
-            if cat_check.do_cooldown() and not cat_check.do_mute_member():
+            if cat_check.do_cooldown() and not do_mute_member:
                 await guild.muting.mute_member(
                     user_id=event.author.id,
                     reason="VIOLATION AUTO COOLDOWN: " + violation,
@@ -272,16 +318,15 @@ async def handle_guilty(
                     reason=violation,
                     mod_id=botapp.get_me().id,
                     user_id=event.author.id,
-                    guild_id=event.guild_id
                 )
-            if cat_check.do_mute_member():
+            if do_mute_member:
                 mute_duration = cat_check.get_mute_duration()
                 await guild.muting.mute_member(
                     user_id=event.author.id,
+                    reason=violation,
                     duration_s=mute_duration,
                 )
             if cat_check.do_kick_member():
-                # TODO: Make messaging on kick toggleable.
                 if cat_check.do_announce_kick():
                     try:
                         await event.member.send(
@@ -323,19 +368,20 @@ async def handle_guilty(
                                 description=f"I couldn't ban {event.author.mention} even though they broke rules!\nViolation: {violation}"
                             )
                         )
-                    
+
             logs_embed = (
                 hikari.Embed(
                     title="Rule Violation Detected",
                     description=violation,
                     colour=0xff0000
                 )
-                .add_field(
+                .set_author(name=event.author.display_name, icon=event.author.display_avatar_url)
+            )
+            if automod_type == automod_types.TEXT_FILTER:
+                logs_embed.add_field(
                     name="Violating Content",
                     value=f"{event.author.display_name} said:\n\"{event.message.content}\""
                 )
-                .set_author(name=event.author.display_name, icon=event.author.display_avatar_url)
-            )
             if automod_type == automod_types.SPAM_FILTER:
                 logs_embed.add_field(name="❄️ Time-out", value="User has been put in a 30 second time-out for spamming messages.")
 
@@ -359,6 +405,7 @@ def generate_hash(image_bytes: bytes) -> str:
 
 class checks:
     class helpers:
+        @staticmethod
         def remove_symbols(text:str) -> str:
             text = str(text)
             for symbol in [
@@ -368,10 +415,12 @@ class checks:
                 text = text.replace(symbol, "")
             return text
 
+        @staticmethod
         def collapse_text(text:str) -> str:
             # replace 2 or more repeated letters with 1
             return re.sub(r'(.)\1+', r'\1', text.lower())
 
+        @staticmethod
         def reverse_text(text:str):
             return text[::-1]
 
@@ -384,26 +433,11 @@ class checks:
         2. Checking if a banned word is in the message being scanned
         3. Determining by pronouns who is being referred to, eg "Omg I'm a dumbass" does not flag, but "You're a dumbass" gets flagged.
         """
-        class ALLOW_OK(Exception):
-            def __init__(self, *args):
-                super().__init__(*args)
-            def __str__(self):
-                return "ALLOW_OK"
-        class DELETE_BAD(Exception):
-            def __init__(self, *args):
-                super().__init__(*args)
-            def __str__(self):
-                return "DELETE_BAD"
-        class DELETE_PROBABLE(Exception):
-            def __init__(self, *args):
-                super().__init__(*args)
-            def __str__(self):
-                return "DELETE_PROBABLE"
-        class ALLOW_SELF_DIRECTED(Exception):
-            def __init__(self, *args):
-                super().__init__(*args)
-            def __str__(self):
-                return "ALLOW_SELF_DIRECTED"
+        class verdict(Enum):
+            ALLOW_OK = "ALLOW_OK"
+            DELETE_BAD = "DELETE_BAD"
+            DELETE_PROBABLE = "DELETE_PROBABLE"
+            ALLOW_SELF_DIRECTED = "ALLOW_SELF_DIRECTED"
 
         def __init__(self):
             self.insulting_words = insulting_words_list
@@ -481,13 +515,13 @@ class checks:
                     }
 
                     if subject == "other":
-                        return self.DELETE_BAD, result
+                        return self.verdict.DELETE_BAD, result
                     elif subject == "self":
-                        return self.ALLOW_SELF_DIRECTED, result
+                        return self.verdict.ALLOW_SELF_DIRECTED, result
                     else:
-                        return self.DELETE_PROBABLE, result
+                        return self.verdict.DELETE_PROBABLE, result
 
-            return self.ALLOW_OK, None
+            return self.verdict.ALLOW_OK, None
 
     class ai_vision:
         """
@@ -550,7 +584,7 @@ class checks:
                         return {"nsfw": False, "probability": probability}
             else:
                 return {"nsfw": is_nsfw, "probability": round(float(probability[0]), 2)}
-        
+
     class heuristics:
         """
         Use of heuristic methods to determine if a sentence is clean or not 
@@ -559,23 +593,21 @@ class checks:
             """
             Low level checks. Not very advanced, but reliable and almost never false-flagging.
             """
-            def equality(text:str, guild_id:int=None) -> bool:
+            @staticmethod
+            def equality(text: str, bad_word_list: set) -> bool:
                 """
                 Determines if a sentence is dirty/clean via comparing it to a list of words by matching it.
                 """
                 text = str(text)
 
-                bad_word_list = get_bad_word_list(guild_id)
+                for word in text.split(" "):
+                    if word in bad_word_list:
+                        return {'bad': True, 'word': word}
 
-                for bad_word in bad_word_list:
-                    for word in text.split(" "):
-                        if bad_word == word:
-                            return {'bad': True, 'word': bad_word}
-                        else:
-                            pass
                 return {'bad': False, 'word': None}
 
-            def symbol_check(text: str, guild_id: int = None) -> bool:
+            @staticmethod
+            def symbol_check(text: str, bad_word_list:set) -> bool:
                 """
                 Equality check, except with symbols removed and basic leetspeak normalized.
                 """
@@ -600,28 +632,32 @@ class checks:
 
                 translated_text = text.translate(leet_map)
 
-                result = checks.heuristics.low.equality(translated_text, guild_id=guild_id)
+                result = checks.heuristics.low.equality(translated_text, bad_word_list)
                 if result['bad']:
                     return result
                 
                 # Remove symbols and checks again
                 no_symb_text = checks.helpers.remove_symbols(text)
-                result = checks.heuristics.low.equality(no_symb_text, guild_id=guild_id)
+                result = checks.heuristics.low.equality(no_symb_text, bad_word_list)
                 if result['bad']:
                     return result
+                
+                return {'bad': False, 'word': None}
             
-            def collapsed_check(text:str, guild_id:int=None) -> bool:
+            @staticmethod
+            def collapsed_check(text:str, bad_word_list:set) -> bool:
                 """
                 Collapsed text check. Takes words like "fuuuuuuuuuuuuuuuuck" and converts it to "fuck" then runs it through the equality check.
                 """
                 collapsed_text = checks.helpers.collapse_text(text)
-                return checks.heuristics.low.equality(collapsed_text, guild_id=guild_id)
+                return checks.heuristics.low.equality(collapsed_text, bad_word_list)
 
         class medium:
             """
             Medium Level Checks. Semi-Advanced, smart or unique. Tend to be reliable, but slightly prone to false flagging in some specific cases.
             """
-            def spacehack_check(text:str, guild_id:int=None) -> bool:
+            @staticmethod
+            def spacehack_check(text:str, bad_word_list:set) -> bool:
                 """
                 Space Hack Check is a check used to detect when someone hides a banned word by adding a space, like "fo obar" instead of "foo bar"
                 """
@@ -631,7 +667,7 @@ class checks:
                 count_2 = 1
                 for _ in text_s:
                     if count_2 >= len(text_s):
-                        return False  # Reached the end with no violations.
+                        return {'bad': False, 'word': None}  # Reached the end with no violations.
                     w1 = text_s[count_1]
                     w2 = text_s[count_2]
                     count_1 += 1
@@ -639,12 +675,13 @@ class checks:
 
                     combined = f"{w1}{w2}"
 
-                    if combined in get_bad_word_list(guild_id):
+                    if combined in bad_word_list:
                         return {'bad': True, 'word': combined}
 
                 return {'bad': False, 'word': None}
             
-            def letter_stitch_check(text: str, guild_id:int=None) -> bool:
+            @staticmethod
+            def letter_stitch_check(text: str, bad_word_list:set) -> bool:
                 """
                 Letter Stitch Check. detects banned words hidden by separating letters with spaces,
                 e.g., "f u c k" or "s h i t".
@@ -657,27 +694,27 @@ class checks:
                     combined = ""
                     for end in range(start, len(letters)):
                         combined += letters[end]
-                        if combined in get_bad_word_list(guild_id):
+                        if combined in bad_word_list:
                             return {'bad': True, 'word': combined}
 
                 return {'bad': False, 'word': None}
             
-            def reverse_check(text:str, guild_id:int=None) -> bool:
+            @staticmethod
+            def reverse_check(text:str, bad_word_list:set) -> dict[bool, str]:
                 """
                 Reverse Check. Reverses text and sees if people tried to hide it that way.
                 """
-                text = str(text)
                 for word in text.split():
-                    for bad_word in get_bad_word_list(guild_id):
-                        reversed_word = checks.helpers.reverse_text(word)
-                        if reversed_word == bad_word:
-                            return True
-                return {'bad': False, 'word': bad_word}
+                    reversed_word = checks.helpers.reverse_text(word)
+                    if reversed_word in bad_word_list:
+                        return {'bad': True, 'word': reversed_word}
+
+                return {'bad': False, 'word': None}
         
         class high:
-            def similarity_check(text:str, guild_id:int=None, threshold:float=0.80):
+            @staticmethod
+            def similarity_check(text:str, bad_word_list:set, threshold:float=0.80):
                 # Determines how similar 2 strings are by importing the SequenceMatcher class from difflib
-                bad_word_list = get_bad_word_list(guild_id)
                 for word in text.split(" "):
                     for bad_word in bad_word_list:
                         similarity = SequenceMatcher(None, a=word, b=bad_word).ratio()
@@ -693,12 +730,13 @@ class checks:
                     "word": None
                 }
             
+            @staticmethod
             def syntactic_analysis(text: str):
                 checker = checks.syntax_analysis_check()
                 result = checker.detect_insult(text)
-                bad = result not in [checker.ALLOW_OK, checker.ALLOW_SELF_DIRECTED]
+                bad = result[0] not in [checker.verdict.ALLOW_OK, checker.verdict.ALLOW_SELF_DIRECTED]
                 return {
                     "bad": bad,
                     "type": result,
-                    "word": result['result']['flagged_word']
+                    "word": result[1]['flagged_word'],
                 }

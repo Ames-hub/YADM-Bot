@@ -1,4 +1,4 @@
-from library.database.manage import get_session, guild_welcomer_enabled, guild_welcome_msg
+from library.database.manage import get_session, guild_welcomer_enabled, guild_welcome_msg, guild_welcomer_channel
 from sqlalchemy.exc import SQLAlchemyError
 import datetime
 import logging
@@ -24,7 +24,7 @@ class welcomer:
                 # Insert new record
                 record = guild_welcomer_enabled(
                     guild_id=self.guild_id,
-                    enabled = bool(value)
+                    enabled=bool(value)
                 )
                 session.add(record)
 
@@ -98,6 +98,53 @@ class welcomer:
             return message
         except SQLAlchemyError as err:
             logging.error("Error getting the guild welcomer msg", exc_info=err)
+            return False
+        finally:
+            session.close()
+
+    def get_channel(self):
+        session = get_session()
+        try:
+            channel = (
+                session.query(guild_welcomer_channel.channel_id)
+                .filter(guild_welcomer_channel.guild_id == self.guild_id)
+                .one_or_none()
+            )
+            return channel
+        except SQLAlchemyError as err:
+            logging.error("Error getting the guild welcomer channel", exc_info=err)
+            return False
+        finally:
+            session.close()
+
+    def set_channel(self, channel_id:int):
+        session = get_session()
+        try:
+            record = (
+                session.query(guild_welcomer_channel)
+                .filter(guild_welcomer_channel.guild_id == self.guild_id)
+                .one_or_none()
+            )
+
+            if record:
+                # Update existing record
+                record.channel_id = channel_id
+            else:
+                # Insert new record
+                record = guild_welcomer_channel(
+                    guild_id=self.guild_id,
+                    channel_id=channel_id
+                )
+                session.add(record)
+
+            session.commit()
+            return True
+        except SQLAlchemyError as err:
+            logging.error(
+                "Error updating or inserting welcomer's set channel!",
+                exc_info=err
+            )
+            session.rollback()
             return False
         finally:
             session.close()

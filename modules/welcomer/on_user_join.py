@@ -1,11 +1,12 @@
 from library.database.welcomer import welcomer
+from library.database.guilds import dbguild
 from library.botapp import botapp
 import lightbulb
 import hikari
 
 loader = lightbulb.Loader()
 
-async def handle_userjoin_event(guild_id, user_display_name, system_channel_id):
+async def handle_userjoin_event(guild_id, user_display_name, target_channel):
     wc = welcomer(guild_id)
     if not wc.is_enabled():
         return
@@ -20,7 +21,7 @@ async def handle_userjoin_event(guild_id, user_display_name, system_channel_id):
 
     try:
         await botapp.rest.create_message(
-            channel=system_channel_id,
+            channel=target_channel,
             embed=embed
         )
     except (hikari.UnauthorizedError, hikari.ForbiddenError, hikari.NotFoundError):
@@ -28,13 +29,17 @@ async def handle_userjoin_event(guild_id, user_display_name, system_channel_id):
 
 @botapp.listen(hikari.events.MemberCreateEvent)
 async def listener(event: hikari.events.MemberCreateEvent):
-    channel = event.get_guild().system_channel_id
-    if not channel:
-        channel = await botapp.rest.fetch_guild(event.guild_id)
-        channel = channel.system_channel_id
+    guild = dbguild(event.guild_id)
+
+    welcomer_channel = guild.welcomer.get_channel()
+    if not welcomer_channel:
+        welcomer_channel = event.get_guild().system_channel_id
+        if not welcomer_channel:
+            channel = await botapp.rest.fetch_guild(event.guild_id)
+            welcomer_channel = channel.system_channel_id
 
     await handle_userjoin_event(
         event.guild_id,
         event.user.display_name,
-        channel
+        welcomer_channel
     )

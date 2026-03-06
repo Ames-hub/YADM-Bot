@@ -1,197 +1,271 @@
 # Nodeus Discord Bot
 
-A comprehensive moderation and server management bot for Discord, featuring advanced text filtering, image moderation, automated punishments, and extensive customization options.
+A comprehensive moderation and server management bot for Discord, featuring advanced text filtering, AI-powered image moderation, automated punishments, and extensive customization options.
 
-Nodeus is at its core, a moderation bot and that is what it is built for, but that's not to say it can't do anything else. This is the first moderation bot I've decided to take seriously, so here you go!
+Nodeus is, at its core, a moderation bot. That's what it's built for. But that's not to say it can't do anything else! This is the first moderation bot I've decided to take seriously, so here you go!
 
-## Features
+---
 
-### 🛡️ **Advanced Moderation**
+## Features at a Glance
 
-#### Text Content Filtering
-Multiple heuristic checks to catch inappropriate language:
-- **Equality Check** - Direct word matching against blacklist
-- **Symbol Removal** - Detects words hidden with symbols (eg, "f!oo@b#ar")
-- **Collapsed Text** - Catches exaggerated words ("foooobar" -> "foobar")
-- **Spacehack Detection** - Identifies words split with spaces (eg, "fo obar")
-- **Letter Stitching** - Detects spaced-out letters ("f o o b a r")
-- **Reverse Text** - Catches reversed words (raboof -> foobar)
-- **Similarity Matching** - 85%+ similarity threshold detection
-- **Syntactic Analysis** - Context-aware detection distinguishing self-directed vs. other-directed insults
+| Category | What Nodeus Does |
+|----------|------------------|
+| **Text Automod** | 8 different checks to catch bad words, even clever evasion attempts. Context-aware filtering understands the difference between "Omg I'm an idiot" and "Omg you're an idiot"! |
+| **Image Filtering** | Privacy-focused AI that detects NSFW images locally. You control the sensitivity! |
+| **Spam Protection** | Automatically detects and stops message spam with configurable actions. |
+| **Moderation Commands** | Mute, kick, ban, purge, lockdown, warnings -- all with temporary options and auto-expiry. |
+| **Welcomer** | Greet new members with custom messages and placeholders. |
+| **Join Roles** | Automatically assign roles to new members as soon as they join. |
+| **Audit Logging** | Detailed logs in a dedicated channel, plus database archives. |
+| **Interactive Menus** | Configure everything with buttons, no complicated commands to remember! |
+| **Easy Setup** | Run `/setup` once and Nodeus applies recommended settings, tweak them anytime later. |
 
-Additionally, each of these checks can be toggled on or off, so if you don't like one of the ones you see here? That's fine, just turn it off!
+---
 
-#### Image Moderation
-**Disclaimer**: There is much discourse regarding the topic of Generative AI. We do not use Gen AI, we use Discriminative AI. Discriminative AI exists everywhere, such as for example, your phone's camera. If you've ever wondered how your phone knows when a person is in the camera's frame and focuses on them, discriminative AI is the answer.
+## Advanced Moderation Features
 
-- **Discriminative AI Powered NSFW Detection** - Local, light PyTorch model for privacy and speed
-- **Perceptual Hashing** - Tracks images by hash to avoid re-scanning
-- **Community Review System** - Users can upvote/downvote detections
-- **Automatic Image Whitelisting/Blacklisting** - Based on vote thresholds
+### Text Content Filtering
 
-#### Spam Protection (WIP)
-When this feature is fully implemented, you will have:
-- Configurable spam detection and punishment
-- Message deletion, warnings, mutes, kicks, or bans
+Nodeus uses **8 different heuristic checks** to catch inappropriate language, even when users try to be clever and evade the system:
 
-### ⚖️ **Punishment System**
+| Check Level | Name | What It Catches |
+|-------------|------|-----------------|
+| **Low** | Equality Check | Direct word matching against a blacklist |
+| **Low** | Symbol Check | Words hidden with symbols (eg, "f!oo@b#ar") and basic leetspeak |
+| **Low** | Collapsed Check | Exaggerated words ("sweeeeeeeaarr" -> "swear") |
+| **Medium** | Spacehack Detection | Words split with spaces (eg, "s w e a r") |
+| **Medium** | Letter Stitching | Spaced-out letters reassembled into words |
+| **Medium** | Reverse Check | Reversed words ("ruls" -> "slur") |
+| **High** | Similarity Matching | 80%+ similarity threshold (catches "baddword" vs "badword") |
+| **High** | Syntactic Analysis | **Context-aware!** Distinguishes self-insults from attacks on others |
 
-#### Configurable Actions Per Violation
-- Delete message
-- Warn member
-- Mute member (temporary or permanent)
-- Kick member
-- Ban member (temporary or permanent)
-- Announce the violation (or just take action)
-- Announce their ban or kick
+Every single check can be toggled on or off. Don't like one? Just turn it off in the menu!
 
-#### Temporary Punishments
-- **Temporary Mutes** - Auto-unmute when timer expires
-- **Temporary Bans** - Auto-unban when timer expires
+### Image Moderation
 
-### 📋 **Warning System**
-- Issue official warnings to users
-- Revoke previous warnings
-- Complete warning history per user/server
+> **A note on AI:** There's much discourse about Generative AI. Nodeus uses **Discriminative AI**, the same technology your phone uses to focus on faces in photos. It's lightweight, private, and runs locally. If you're heavily against AI, I ask you at least read this section before leaving.
+
+- **Privacy-Focused** -- All image scanning happens on your machine, not the cloud
+- **Eco-Friendly** -- Being a small, discriminative AI, it does not harm the environment
+- **Configurable Threshold** -- Set how confident the AI must be (0-100%) before taking action
+- **Perceptual Hashing** -- Tracks images by hash to avoid re-scanning the same image
+- **Community Review System** -- Users can upvote/downvote detections to improve accuracy
+- **Auto Whitelisting/Blacklisting** -- Based on vote thresholds, images get automatically trusted or blocked
+
+### Spam Protection
+
+Nodeus includes a spam detection system with configurable punishments that works out of the box. Future updates will bring expanded options including per-channel exceptions, configurable message frequency thresholds, and duplicate content detection.
+
+---
+
+## Punishment System
+
+### Configurable Actions Per Violation
+
+For **each category** (text, images, spam), you can independently decide what happens:
+
+| Action | Description |
+|--------|-------------|
+| Delete Message | Remove the offending message |
+| Warn Member | Issue an official warning (stored in database) |
+| Mute Member | Temporarily or permanently mute |
+| Kick Member | Remove from server |
+| Ban Member | Temporarily or permanently ban |
+| Announce Violation | Send a message to the user (configurable per action) |
+
+### Temporary Punishments
+- **Temporary Mutes** -- Auto-unmute when timer expires
+- **Temporary Bans** -- Auto-unban when timer expires
+- **Cooldowns** -- Short mutes for spam without full punishment
+
+### Exemption System
+Need to let someone bypass the filters temporarily? Use `/automod exempt` to give them a pass, perfect for trusted users.
+
+---
+
+## Warning System
+
+- Issue official warnings to users with `/moderation warning add`
+- Revoke warnings if needed with `/moderation warning revoke`
+- Complete warning history per user and per server
 - Automatic DM notifications (configurable)
+- Warnings are logged in both Discord channel and database archive
 
-### 👋 **Join Roles (Auto-role)**
-- Automatically assign roles to new members
-- Add, remove, and list join roles via commands
-- Automatic cleanup of invalid roles
+---
 
-### 👋 **Welcomer System**
+## Welcomer & Join Roles
+
+### Welcomer System
 - Customizable welcome messages
-- Placeholder support: `<user_id>`, `<timestamp>`, `<display_name>`, `<username>`, `<mention>`
-- Can Toggle on/off
-- Posts in system channel
+- Placeholder support: `<mention>`, `<username>`, `<display_name>`, `<user_id>`, `<timestamp>`
+- Toggle on/off with `/welcomer enabled`
+- Choose any channel with `/welcomer channel`
 
-### **Audit Logging**
-- Dedicated log channels per guild
-- Comprehensive action logging
-- Database archive for historical reference
+### Join Roles (Auto-role)
+- Automatically assign roles to new members
+- Add roles with `/joinroles add`
+- Remove roles with `/joinroles remove`
+- List all join roles with `/joinroles list`
+- Automatic cleanup of invalid/deleted roles
 
-### **Custom Word Lists**
-- **Blacklist** - Add custom filtered words
-- **Whitelist** - Exempt words from filtering
-- **Preset Bad Words** - Built-in list included
+---
 
-### **Database Management**
+## Audit Logging
 
-#### Multi-Database Support
-- **SQLite** - Development/testing
-- **PostgreSQL** - Production (recommended)
+- **Dedicated log channel** -- All moderation actions posted here
+- **Comprehensive coverage** -- Mutes, bans, kicks, warnings, setting changes, and more
+- **Database archive** -- All logs saved for historical reference
+- **Color-coded embeds** -- Red for bad, green for good, orange for warnings
 
-#### Advanced Features
-- **Docker PostgreSQL Fallback** - Auto-creates Docker PostgreSQL instance if needed
-- **Backup/Restore System** - CLI tools for database backup/restore
-- **Migration Tools** - Transfer data between database types
+---
 
-### **Security**
+## Interactive Configuration
 
-- **Token Encryption** - All tokens and passwords are encrypted.
-- **Production Mode** - Enforces Python optimizations for stability
-- **Separate Tokens** - Different tokens for production/development
-- **Permission System** - Granular permission checks with cooldowns
+Forget complicated commands! Nodeus uses **button-based menus** for all configuration:
 
-### 🚀 **Performance**
+| Command | What You Can Configure |
+|--------|----------------------|
+| `/automod modules` | Turn on/off text, image, and spam filters |
+| `/automod text settings` | Configure punishments for text violations |
+| `/automod text checks` | Enable/disable specific detection methods |
+| `/automod text words_menu` | Choose which preset word lists to use |
+| `/automod imgscan settings` | Configure image filter punishments |
+| `/automod spam settings` | Configure spam filter punishments |
 
-- **uvloop Support** - Enhanced async performance on Linux
-- **Guild Name Caching** - Reduces API calls
-- **Efficient Database Queries** - Optimized SQLAlchemy usage
-- **Modular Architecture** - Load only what you need
+Just click the buttons to toggle settings!
 
-### **Utility Commands**
+---
 
-- **/uptime** - Check bot uptime
-- **Auto-welcome** - Setup guide when bot joins new server
-- **Comprehensive Help System** - Built into Discord's slash commands
+## Command Reference
 
-## **Technical Stack**
+All commands are slash commands -- just type `/` and start typing!
 
-- **Framework**: [Hikari](https://github.com/hikari-py/hikari) + [Lightbulb](https://github.com/tandemdude/hikari-lightbulb) + [Miru](https://github.com/hikari-py/miru)
-- **Database**: SQLAlchemy ORM with SQLite/PostgreSQL
-- **AI/ML**: PyTorch + TIMM for NSFW detection
-- **Performance**: uvloop for Linux systems
-- **Security**: Fernet encryption for sensitive data
+### Automod Commands
+| Command | Description |
+|--------|-------------|
+| `/automod modules` | Enable/disable core modules (text, image, spam) |
+| `/automod text settings` | Configure text filter punishments |
+| `/automod text checks` | Toggle specific text detection methods |
+| `/automod text words_menu` | Choose preset word lists |
+| `/automod text mutelength` | Set mute duration for text violations |
+| `/automod text ban_delete_time` | Set message deletion time on ban |
+| `/automod imgscan settings` | Configure image filter punishments |
+| `/automod imgscan threshold` | Set AI confidence threshold (0-100%) |
+| `/automod imgscan mutelength` | Set mute duration for image violations |
+| `/automod spam settings` | Configure spam filter punishments |
+| `/automod spam toggle` | Enable/disable spam filter |
+| `/automod wordlist add` | Add custom blacklisted/whitelisted word |
+| `/automod wordlist remove` | Remove word from custom list |
+| `/automod exempt` | Temporarily exempt user from filters |
+| `/automod unexempt` | Remove exemption |
 
-## **Installation**
+### Moderation Commands
+| Command | Description |
+|--------|-------------|
+| `/moderation mute` | Mute a user (temporary or permanent) |
+| `/moderation kick` | Kick a user from the server |
+| `/moderation ban` | Ban a user (temporary or permanent) |
+| `/moderation purge` | Bulk-delete messages in a channel |
+| `/moderation lockdown` | Lock a channel (no messages from members) |
+| `/moderation unlock` | Unlock a channel |
+| `/moderation warning add` | Issue official warning to user |
+| `/moderation warning revoke` | Remove a warning |
+| `/moderation livelog channel` | Set audit log channel |
 
-### Prerequisites
-- Python 3.13
-- PostgreSQL (optional, for production)
-- Docker (optional, for database fallback)
-- Discord Bot Token
+### Welcomer Commands
+| Command | Description |
+|--------|-------------|
+| `/welcomer enabled` | Turn welcomer on/off |
+| `/welcomer channel` | Set welcome message channel |
+| `/welcomer message` | Set welcome message text |
 
-### Environment Variables
+### Join Roles Commands
+| Command | Description |
+|--------|-------------|
+| `/joinroles add` | Add role given to new members |
+| `/joinroles remove` | Stop giving a role |
+| `/joinroles list` | List all join roles |
 
-If you wish, instead of using the programs setup wizard, you can create a .env file with the following keys and values and we will take data from here.
+### Utility Commands
+| Command | Description |
+|--------|-------------|
+| `/setup` | Apply recommended settings (one-time setup) |
+| `/uptime` | Check how long Nodeus has been online |
+| `/rtd` | Roll dice (just for fun!) |
 
-If you want to do this:<br>
-Create a `.env` file in the root directory and fill in this data:
-```env
-BOT_TOKEN=your_bot_token_here
-PROD_MODE=true/false
-PRIMARY_MAINTAINER=123456789012345678 (your user id)
-BOT_NAME=Nodeus (or whatever you want)
-ALLOW_DOCKER_FALLBACK=true/false
+---
 
-# Database (optional)
-DB_HOST=localhost
-DB_PORT=5430
-DB_NAME=nodeus
-DB_USER=nodeus
-DB_PASSWORD=secure_password
-```
+## Getting Started
 
-## **Configuration**
+### 1. Invite Nodeus
+Invite the bot with this link:
+https://discord.com/oauth2/authorize?client_id=1461801438446616618
 
-### Production Mode
-When enabled:
-- Enforces Python optimization flags (`-O` or `-OO`)
-- Uses PostgreSQL database
-- Stricter security enforcement
-- Enhanced logging
+### 2. Run One-Time Setup
+In any channel, have an administrator run: `/setup`
 
-### Development Mode
-- Uses SQLite database
-- More verbose logging
-- Debug-friendly
+Nodeus will:
+- Create a dedicated logs channel
+- Enable text, image, and spam filters
+- Set sensible default punishments
+- Enable preset word lists (swears, slurs, NSFW)
+- Configure audit logging
 
-## **Database Commands**
+### 3. Customize (Optional)
+Use the interactive menus to tweak anything to your liking!
+The menus are found under `/automod (automod category) settings`
 
-```bash
-# Backup PostgreSQL to SQLite
-python app.py --backup
+---
 
-# Restore from SQLite to PostgreSQL
-python app.py --restore
+## Self-Hosting
 
-# Configure existing PostgreSQL database
-python app.py --setup-db
-```
+Nodeus supports self-hosting for those who want full control over their setup. If you'd like to run your own instance, check the [GitHub repository](https://github.com) for setup instructions and configuration details.
 
-## **Development**
+### Database Options
+- **Development/Small Servers**: SQLite (built-in, no setup required)
+- **Production/Large Servers**: PostgreSQL (recommended for better performance)
 
-### Adding New Modules
-1. Create a new package in the `modules/` directory with `__init__.py`
-2. Create command files using Lightbulb's command structure
-3. The bot automatically discovers and loads modules
+### Security Features
+- **Token Encryption** -- All tokens and passwords are encrypted at rest
+- **Production Mode** -- Enables Python optimizations and stricter security
+- **Separate Tokens** -- Different tokens for production and development
 
-### Running Tests
-```bash
-pytest
-```
+---
 
-## **Contributing**
+## Questions & Answers
 
-Contributions are welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Submit a pull request
+**Q: Does Nodeus use generative AI?**
+A: No! Nodeus uses **discriminative AI** for image detection, the same technology your phone uses to recognize faces. It's lightweight, private, and runs locally.
 
-## **Support**
+**Q: Will Nodeus work on large servers?**
+A: Yes! With PostgreSQL and production mode enabled, Nodeus can handle hundreds of servers and thousands of messages efficiently.
 
-For issues or questions:
-- Open an issue on GitHub
-- Contact the maintainer through Discord
+**Q: Can I use my own banned word list?**
+A: Absolutely! Use `/automod wordlist add` to add custom words. You can also choose which preset lists to use.
+
+**Q: What happens if I don't want a specific check?**
+A: Just turn it off! Use `/automod text checks` to toggle any detection method on or off.
+
+**Q: Does Nodeus store message content?**
+A: Only violations are stored (for audit purposes). Normal messages are processed in memory and discarded.
+
+---
+
+## Need Help?
+
+If you run into any issues:
+- Contact the bot developer (usually listed on the bot's profile)
+- Open an issue on GitHub (if you're self-hosting)
+
+---
+
+## Acknowledgements
+
+Nodeus was built with love using:
+- [Hikari](https://github.com/hikari-py/hikari) -- Discord API framework
+- [Lightbulb](https://github.com/tandemdude/hikari-lightbulb) -- Command handler
+- [Miru](https://github.com/hikari-py/miru) -- Interactive components
+- [SQLAlchemy](https://www.sqlalchemy.org/) -- Database ORM
+- [PyTorch](https://pytorch.org/) & [TIMM](https://github.com/rwightman/pytorch-image-models) -- AI image detection
+
+Special thanks to the open-source community for making projects like this possible.

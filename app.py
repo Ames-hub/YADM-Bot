@@ -342,6 +342,7 @@ ds.d["guild_owner_ids_cache"] = {}
 ds.d["filter_exemptions"] = {}  # People who are not looked at by the automod. Assigned by admins, and its per-guild.
 ds.d["spam_cache"] = {}
 ds.d["spam_punish_cache"] = {}  # Cache to track when users were last punished for spam, to avoid punishing them multiple times in a short period
+ds.d["bad_word_list_cache"] = {}
 
 try:
     logging.info(f"OS Detected: {get_os_name()}")

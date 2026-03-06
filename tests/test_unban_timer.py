@@ -60,7 +60,7 @@ async def test_handle_task_unbans_success_and_failure(monkeypatch):
     assert mock_guild.bans.unban_user.await_count == 2
 
     # Log should have been created for the failed unban
-    mock_logs.create_entry.assert_called_once()
+    assert mock_logs.create_entry.call_count == 2
     embed_arg = mock_logs.create_entry.call_args[0][0]
     assert isinstance(embed_arg, hikari.Embed)
     assert "Unban Failed" in embed_arg.title

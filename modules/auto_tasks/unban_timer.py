@@ -19,11 +19,19 @@ async def handle_task():
                     user_id=ban.banned_id,
                     reason=reason
                 )
+                logs = server_logs(ban.guild_id)
                 if not success:
-                    server_logs(ban.guild_id).create_entry(
+                    logs.create_entry(
                         hikari.Embed(
                             title="Unban Failed",
                             description=f"While attempting to unban <@{ban.banned_id}>, we encountered an error. Please manually unban them."
+                        )
+                    )
+                else:
+                    logs.create_entry(
+                        hikari.Embed(
+                            title="Member Unbanned",
+                            description=f"<@{ban.banned_id}> Has been unbanned after their ban expired."
                         )
                     )
             except (hikari.ForbiddenError, hikari.UnauthorizedError, hikari.NotFoundError):
