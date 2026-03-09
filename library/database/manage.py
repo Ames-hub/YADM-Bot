@@ -208,6 +208,32 @@ class guild_ban_record(Base):
     time_to_unban = Column(DateTime, nullable=False)
     reason = Column(TEXT, nullable=False)
 
+class reaction_role_group(Base):
+    __tablename__ = "reaction_role_groups"
+
+    group_id = Column(Integer, primary_key=True, autoincrement=True)
+    guild_id = Column(BigInteger, nullable=False)
+    message_id = Column(BigInteger, nullable=True)
+    channel_id = Column(BigInteger, nullable=False)
+    embed_title = Column(TEXT, nullable=False)
+    embed_desc = Column(TEXT, nullable=False)
+
+class reaction_role_item(Base):
+    __tablename__ = "reaction_role_items"
+
+    item_id = Column(Integer, primary_key=True, autoincrement=True)
+    group_id = Column(Integer, nullable=False)
+    guild_id = Column(BigInteger, nullable=False)
+    message_id = Column(BigInteger, nullable=True)
+    
+    trigger_emoji_id = Column(TEXT, nullable=False)
+    trigger_emoji_name = Column(TEXT, nullable=False)
+    is_animated = Column(BOOLEAN, nullable=False)
+
+    reaction_role_id = Column(BigInteger, nullable=False)
+    allow_unreact = Column(BOOLEAN, nullable=False, default=True)
+    description = Column(TEXT, nullable=True)
+
 def get_session():
     if SessionLocal is None:
         initialize()

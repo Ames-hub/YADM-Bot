@@ -1019,7 +1019,8 @@ class wordlist_modify:
                 )
             # `records` is a list of tuples, so we extract the first element from each tuple
             return [r[0] for r in records]
-        except SQLAlchemyError:
+        except SQLAlchemyError as err:
+            logging.error("Error getting the word list", exc_info=err)
             return []  # Return an empty list if something goes wrong
         finally:
             session.close()

@@ -1,7 +1,6 @@
 from library.settings import get, set, getgroup, setgroup
 from library import datastore as ds
 import essentials
-import platform
 import datetime
 import logging
 import asyncio
@@ -282,27 +281,6 @@ if not get.bot_name() and not prod_mode:
     logging.warning("Bot name is not set. Using default 'Nodeus'.")
     set.bot_name("Nodeus")
 
-def get_os_name():
-    system = platform.system()
-
-    if system == "Linux":
-        try:
-            with open("/etc/os-release") as f:
-                for line in f:
-                    if line.startswith("PRETTY_NAME="):
-                        return line.strip().split("=", 1)[1].strip('"')
-        except FileNotFoundError:
-            return "Linux (unknown distro)"
-
-    elif system == "Windows":
-        ver = sys.getwindowsversion()
-        return "Windows 11" if ver.build >= 22000 else "Windows 10"
-
-    elif system == "Darwin":
-        return f"macOS {platform.mac_ver()[0]}"
-
-    return system
-
 # ----- BOT SETUP SECTION -----
 from library.botapp import botapp, client
 import importlib
@@ -334,6 +312,8 @@ async def on_shard_ready(event: hikari.ShardReadyEvent) -> None:
     print(msg)
     logging.info(msg)
 
+from library.other import get_os_name
+
 # ------- ds.d configuration ------- #
 ds.d["time_at_boot"] = datetime.datetime.now()
 ds.d["guild_name_cache"] = {}
@@ -343,6 +323,7 @@ ds.d["filter_exemptions"] = {}  # People who are not looked at by the automod. A
 ds.d["spam_cache"] = {}
 ds.d["spam_punish_cache"] = {}  # Cache to track when users were last punished for spam, to avoid punishing them multiple times in a short period
 ds.d["bad_word_list_cache"] = {}
+ds.d["rr_role_names_cache"] = {}
 
 try:
     logging.info(f"OS Detected: {get_os_name()}")
