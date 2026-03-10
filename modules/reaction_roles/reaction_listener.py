@@ -1,7 +1,5 @@
 from library.database.reaction_roles import rr_group, get_is_grouped_by_msg, rr_errors
-from library.botapp import botapp
 import lightbulb
-
 import hikari
 
 loader = lightbulb.Loader()

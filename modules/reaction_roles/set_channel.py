@@ -31,7 +31,8 @@ class command(
                     description=(
                         "The reaction role group you referred to does not exist.\n"
                         "To resolve this, please run `/reactionroles new` and create a group!"
-                    )
+                    ),
+                    colour=0xff0000
                 ),
                 flags=hikari.MessageFlag.EPHEMERAL
             )
@@ -42,13 +43,17 @@ class command(
             await ctx.respond(
                 hikari.Embed(
                     title="Channel set",
-                    description=f"When you publish this reaction role group, it will now be published in {self.channel.mention}"
-                )
+                    description=f"When you publish this reaction role group, it will now be published in {self.channel.mention}",
+                    colour=0x00ff00
+                ),
+                flags=hikari.MessageFlag.EPHEMERAL
             )
         else:
             await ctx.respond(
                 hikari.Embed(
                     title="Channel not set",
-                    description="We encountered a bug trying to set this channel. Please file a report!"
-                )
+                    description="We encountered a bug trying to set this channel. Please file a report!",
+                    colour=0xff0000
+                ),
+                flags=hikari.MessageFlag.EPHEMERAL
             )
