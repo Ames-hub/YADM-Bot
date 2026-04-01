@@ -17,7 +17,8 @@ async def botfunction(event: hikari.GuildMessageCreateEvent):
         return  # No attachments
 
     # if the admins have marked them as exempted, don't interact with them
-    if event.author.id in ds.d["filter_exemptions"].get(int(event.guild_id), []):
+    filter_exemptions = ds.d["filter_exemptions"].get(int(event.guild_id), [])
+    if event.author.id in filter_exemptions:
         return
 
     guild = dbguild(event.guild_id)
@@ -39,15 +40,22 @@ async def botfunction(event: hikari.GuildMessageCreateEvent):
         return
 
     if guilty:
+        msg_link = event.message.make_link(event.guild_id)
         embed=(
             hikari.Embed(
                 title=F"({result['probability']}) NSFW Image Detected 🔞",
-                description=f"{event.author.mention} We have detected that this image violates content rules."
+                description=f"{event.author.mention} We have detected that [this attached image]({msg_link}) violates content rules."
             )
             .set_footer("Did we get it right? If not, react to this message with 👎\nBut if this was an NSFW image, react with 👍")
         )
 
-        msg_id = await automod.handle_guilty(event, alert_embed=embed, get_msg_id=True, automod_type=automod.automod_types.IMAGE_FILTER)
+        msg_id = await automod.handle_guilty(
+            event,
+            alert_embed=embed,
+            get_msg_id=True,
+            automod_type=automod.automod_types.IMAGE_FILTER,
+            whistleblower="Image Filter"
+        )
         
         img_hash = automod.generate_hash(image_bytes)
         nsfw_scanner_reviews.track_msg(msg_id=msg_id, img_hash=img_hash)
@@ -58,6 +66,7 @@ async def botfunction(event: hikari.GuildMessageCreateEvent):
         # Remove the reaction if the msg isn't going to be deleted.
         if not guild.get.do_delete_msg():
             await event.message.remove_reaction("🔍", user=botapp.get_me().id)
+            await event.message.add_reaction("❌")
         return True
     else:
         await event.message.remove_reaction("🔍", user=botapp.get_me().id)

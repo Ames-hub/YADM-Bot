@@ -134,6 +134,7 @@ class mute_record(Base):
     active = Column(BOOLEAN, nullable=False, default=True)
     reason = Column(TEXT, nullable=False)
     moderator_id = Column(BigInteger, nullable=False)
+    is_cooldown = Column(BOOLEAN, nullable=False, default=False)
 
 class automod_nsfw_scan_feedback(Base):
     __tablename__ = "automod_nsfw_scan_feedback"

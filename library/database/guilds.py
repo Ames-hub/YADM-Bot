@@ -27,7 +27,7 @@ class muting:
         def __init__(self, guild_id:int):
             self.guild_id = int(guild_id)
 
-        async def mute_member(self, user_id:int, reason:str, moderator_id:int, duration_s:int=600, hardmute:bool=False):
+        async def mute_member(self, user_id:int, reason:str, moderator_id:int, duration_s:int=600, hardmute:bool=False, is_cooldown:bool=False):
             """
             Mute a member in a guild for a specific amount of seconds.
             
@@ -41,6 +41,7 @@ class muting:
             :type reason: str
             :param hardmute: Remove ALL other rolls from the individual except "muted". Vaguelly destructive.
             :type hardmute: bool
+            :param is_cooldown: Whether this mute is just a cooldown (meaning a very short cooldown that happens shortly after a rule violation)
             """
             guild_id = self.guild_id
             user_id = int(user_id)
@@ -96,7 +97,8 @@ class muting:
                     guild_id=guild_id,
                     scheduled_unmute=datetime.datetime.now().timestamp() + duration_s,
                     reason=reason,
-                    moderator_id=moderator_id
+                    moderator_id=moderator_id,
+                    is_cooldown=is_cooldown
                 )
                 session.add(record)
                 session.commit()

@@ -30,6 +30,12 @@ async def handle_task():
             except (hikari.ForbiddenError, hikari.NotFoundError):
                 unmute_failure = True
 
+            if mute_case.is_cooldown:
+                # If this is just a cooldown mute, we don't need to notify the user or log it.
+                # Cooldowns are for after a violation was committed, and only lasts about 30 seconds.
+                muting.set_mute_inactive(mute_case.case_id)
+                continue
+
             guild_name = ds.d["guild_name_cache"].get(int(guild_id), {}).get('name')
             if not guild_name:
                 try:
@@ -84,7 +90,11 @@ async def handle_task():
                 )
                 .add_field(
                     name="Original Mute Reason",
-                    value=f"The user was muted originally by {mute_case.moderator_id} for:\n\"{mute_case.reason}\""
+                    value=f"\"{mute_case.reason}\""
+                )
+                .add_field(
+                    name="Mute Case Details",
+                    value=f"Case ID: {mute_case.case_id}\nModerator ID: <@{mute_case.moderator_id}> ({mute_case.moderator_id})"
                 )
             )
 

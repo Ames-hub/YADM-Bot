@@ -236,8 +236,9 @@ async def handle_guilty(
     if flagged_word is not None and automod_type != automod_types.TEXT_FILTER:
         raise ValueError("Only text filter can set a flagged word")
     else:
-        # IF the automod type is text filter, then flagged word MUST be provided.
-        flagged_word = flagged_word.replace("\n", "")
+        if automod_type == automod_types.TEXT_FILTER:
+            # IF the automod type is text filter, then flagged word MUST be provided.
+            flagged_word = flagged_word.replace("\n", "")
 
     if user_key not in _active_punishments:
         _active_punishments[user_key] = asyncio.Lock()
@@ -289,14 +290,18 @@ async def handle_guilty(
                     return False
 
             # Always add the violation for the record.
-            case_id = violations.create_member_violation(
-                reporter_id=botapp.get_me().id,
-                offender_id=event.author.id,
-                time=datetime.datetime.now(),
-                violation=violation,
-                automated=True,
-                whistleblower=whistleblower
+            case_id = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda: violations.create_member_violation(
+                    reporter_id=botapp.get_me().id,
+                    offender_id=event.author.id,
+                    time=datetime.datetime.now(),
+                    violation=violation,
+                    automated=True,
+                    whistleblower=whistleblower
+                )
             )
+            # IF it so happens that the violation has a problem and doesn't get created, we should just return and not attempt any punishment actions.
             if not case_id:
                 return False
 
@@ -307,7 +312,9 @@ async def handle_guilty(
                 await guild.muting.mute_member(
                     user_id=event.author.id,
                     reason="VIOLATION AUTO COOLDOWN: " + violation,
+                    moderator_id=botapp.get_me().id,
                     duration_s=30,  # 30 sec mute for spam. TODO: Make this configurable.
+                    is_cooldown=True
                 )
 
             do_del_msg = cat_check.do_delete_msg()
@@ -323,6 +330,7 @@ async def handle_guilty(
                 mute_duration = cat_check.get_mute_duration()
                 await guild.muting.mute_member(
                     user_id=event.author.id,
+                    moderator_id=botapp.get_me().id,
                     reason=violation,
                     duration_s=mute_duration,
                 )

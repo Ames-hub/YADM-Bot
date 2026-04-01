@@ -2,7 +2,6 @@ from library.database.guilds import dbguild
 from library import datastore as ds
 from library import automod
 import lightbulb
-
 import hikari
 
 loader = lightbulb.Loader()
