@@ -39,7 +39,6 @@ class views:
                 emoji="✅"
             )
             async def confirm(self, ctx: miru.ViewContext, button: miru.Button) -> None:
-                await viewself.guild.set_recommended_settings()
                 await ctx.edit_response(
                     hikari.Embed(
                         title="Success",
@@ -62,7 +61,8 @@ class views:
                     ),
                     components=[]
                 )
-                server_logs(ctx.guild_id).create_entry(
+                await viewself.guild.set_recommended_settings()
+                await server_logs(ctx.guild_id).create_entry(
                     hikari.Embed(
                         title="Setup Overwritten",
                         description=f"{ctx.user.mention} Has set the bot to use the recommended settings, over-writing all old settings!",

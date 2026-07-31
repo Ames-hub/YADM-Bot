@@ -2,10 +2,11 @@ from library.database.manage import guild_text_automod_text_checks
 from library.database.guilds import dbguild, violations
 from library.database.db_automod import nsfw_scanner
 from library.database.auditing import server_logs
+from library.settings import get, observe_conf
 from library import datastore as ds
+from library import benchmark as bm
 from difflib import SequenceMatcher
 from library.botapp import botapp
-from library.settings import get
 from enum import Enum
 import imagehash
 import datetime
@@ -59,32 +60,37 @@ with open("library/preset_word_whitelist.txt", "r") as f:
 
 def get_bad_word_list(guild_id):
     if guild_id:
-        if ds.d["bad_word_list_cache"].get(guild_id, None) is not None:
-            cache_time = ds.d["bad_word_list_cache"][guild_id]["time"]
+        #if ds.d["bad_word_list_cache"].get(guild_id, None) is not None:
+        #    cache_time = ds.d["bad_word_list_cache"][guild_id]["time"]
 
-            if datetime.datetime.now().timestamp() - cache_time < 300:
-                return ds.d["bad_word_list_cache"][guild_id]["list"]
+        #    if datetime.datetime.now().timestamp() - cache_time < 300:
+        #        return ds.d["bad_word_list_cache"][guild_id]["list"]
 
         guild = dbguild(guild_id)
         custom_bad_words = guild.wordlist.get_list(blacklist_only=True)
 
         bad_list = set()
 
+        block_hardnsfw = guild.get.text.use_preset_hardnsfw_list()
+        block_lessnsfw = guild.get.text.use_preset_lessnsfw_list()
+        block_slurs = guild.get.text.use_preset_slurs_list()
+        block_swears = guild.get.text.use_preset_swears_list()
+
         if custom_bad_words:
             bad_list.update(custom_bad_words)
-        if guild.get.text.use_preset_swears_list():
+        if block_swears:
             bad_list.update(swears_list)
-        if guild.get.text.use_preset_slurs_list():
+        if block_slurs:
             bad_list.update(slurs_list)
-        if guild.get.text.use_preset_lessnsfw_list():
+        if block_lessnsfw:
             bad_list.update(less_nsfw_list)
-        if guild.get.text.use_preset_hardnsfw_list():
+        if block_hardnsfw:
             bad_list.update(hard_nsfw_list)
 
-        ds.d["bad_word_list_cache"][guild_id] = {
-            "list": bad_list,
-            "time": datetime.datetime.now().timestamp()
-        }
+        #ds.d["bad_word_list_cache"][guild_id] = {
+        #    "list": bad_list,
+        #    "time": datetime.datetime.now().timestamp()
+        #}
 
         return bad_list
     else:
@@ -96,7 +102,7 @@ def get_bad_word_list(guild_id):
         bad_list.update(hard_nsfw_list)
         return bad_list
 
-def text_check(text:str, guild_id=None):
+def text_check(text:str, guild_id=None, observing:bool=False):
     """
     Puts some text through any/all checks.
     Returns: (is_bad, check_name, flagged_word)
@@ -108,10 +114,17 @@ def text_check(text:str, guild_id=None):
         threshold = guild.get.text.similarity_threshold()
         custom_whitelist_words = guild.wordlist.get_list(whitelist_only=True)
 
-    original_text = text
+    bm.benchmark("Beginning to run a check on text.")
+    original_text = text.replace("​", "")  # This removes unicode U+200B. The zero-width unicode, used to break some checks.
     lower_text = original_text.lower()
 
-    bad_word_list = get_bad_word_list(guild_id)
+    # If its None, it'll set it as all words. It won't get anyone if they're meant to be just observed.
+    bad_word_list = get_bad_word_list(guild_id if not observing else None)
+
+    # TODO: Make this check per-guild preferences.
+    allow_self_insult = True
+
+    bm.benchmark("Got bad word list")
 
     # Define all checks in order
     check_pipeline = [
@@ -122,11 +135,11 @@ def text_check(text:str, guild_id=None):
         ("stitching", lambda: checks.heuristics.medium.letter_stitch_check(lower_text, bad_word_list)),
         ("reversing", lambda: checks.heuristics.medium.reverse_check(lower_text, bad_word_list)),
         ("similarity", lambda: checks.heuristics.high.similarity_check(lower_text, bad_word_list, threshold=threshold)),
-        ("syntactic", lambda: checks.heuristics.high.syntactic_analysis(lower_text)),
+        ("syntactic", lambda: checks.heuristics.high.syntactic_analysis(lower_text, allow_self_insult=allow_self_insult)),
     ]
 
     # If guild exists, respect its config
-    if guild_id:        
+    if guild_id:
         checks_allowed: guild_text_automod_text_checks = guild.get.text.checks._get_record()
 
         if checks_allowed is not None:
@@ -155,46 +168,73 @@ def text_check(text:str, guild_id=None):
         # If no guild, everything runs
         enabled_map = {name: True for name, _ in check_pipeline}
 
+    bm.benchmark("Enabled map determined.")
+
+    final_result = None
+    observation_data = {}
+
     # Run checks
     for name, func in check_pipeline:
         if not enabled_map.get(name):
+            if observing:
+                observation_data[name] = func()  # Run anyways for debug purposes
             continue
 
         result = func()
+        observation_data[name] = result
+        verdict = None
+
+        bm.benchmark(f"Check '{name}' has run.")
 
         if guild_id and result['bad']:
-            # Checks if the automod flagged word is okay with the guild and is to be allowed 
+            # Checks if the automod flagged word is okay with the guild and is to be allowed
             if result['word'] not in custom_whitelist_words:
-                break
+                verdict = (True, name, result["word"], observation_data)
             else:  # ALL words are in the whitelist
-                return False, None, None
+                verdict = (False, None, None, observation_data)
 
-        if name == "syntactic":
-            if result["bad"]:
-                return True, name, result.get("word", "unknown")
+        if verdict is None:
+            if name == "syntactic":
+                if result["bad"]:
+                    verdict = (True, name, result.get("word", "unknown"), observation_data)
+                else:
+                    verdict = (False, None, None, observation_data)
+            elif name == "similarity":
+                if result["bad"]:
+                    # Similarity is a wild-card check, so we do one final check to verify their guilt or innocence.
+                    all_whitelisted = True
+                    for word in lower_text.split(" "):
+                        if word not in PRESET_WORD_WHITELIST:
+                            all_whitelisted = False
+                            break
+
+                    if all_whitelisted:
+                        verdict = (False, None, None, observation_data)
+                    else:
+                        verdict = (True, name, result.get("word", "unknown"), observation_data)
+                else:
+                    verdict = (False, None, None, observation_data)
             else:
-                return False, None, None
-        elif name == "similarity":
-            if result["bad"]:
-                # Similarity is a wild-card check, so we do one final check to verify their guilt or innocence.
-                for word in lower_text.split(" "):
-                    if word not in PRESET_WORD_WHITELIST:
-                        break
-                else:  # ALL words are in the whitelist
-                    return False, None, None
+                # Handle checks that return a dictionary with 'bad' and 'word' keys
+                if isinstance(result, dict) and result.get("bad"):
+                    verdict = (True, name, result.get("word", "unknown"), observation_data)
+                # Handle boolean returns from older checks
+                elif isinstance(result, bool) and result:
+                    verdict = (True, name, "unknown", observation_data)
 
-                return True, name, result.get("word", "unknown")
-            else:
-                return False, None, None
-        else:
-            # Handle checks that return a dictionary with 'bad' and 'word' keys
-            if isinstance(result, dict) and result.get("bad"):
-                return True, name, result.get("word", "unknown")
-            # Handle boolean returns from older checks
-            elif isinstance(result, bool) and result:
-                return True, name, "unknown"
+        if verdict is not None:
+            if final_result is None:
+                final_result = verdict
+            if not observing:
+                return final_result
+            # else: observing, so keep looping to populate observation_data
 
-    return False, None, None
+    bm.benchmark("Result determined.")
+
+    if observing:
+        result = final_result if final_result is not None else (False, None, None, observation_data)
+        return result
+    return False, None, None, observation_data
 
 class automod_types:
     TEXT_FILTER = 1
@@ -231,6 +271,13 @@ async def handle_guilty(
     :param flagged_word: Which word actually caused the automod to trigger?
     :type flagged_word: str
     """
+    if observe_conf.get_enabled():
+        observe_only_list = observe_conf.get_list()
+        if event.guild_id in observe_only_list:
+            logging.info(f"Violation detected in guild {event.guild_id}, but its set to observe-only. Skipping.")
+            return True
+
+    bm.benchmark(f"Beginning penalty sequence for user {event.author.id}.")
     user_key = (event.guild_id, event.author.id)
 
     if flagged_word is not None and automod_type != automod_types.TEXT_FILTER:
@@ -247,6 +294,7 @@ async def handle_guilty(
 
     try:
         async with lock:
+            bm.benchmark("Lock established")
             # Check lightbulb cache (note: its practically useless since lightbulb's cache never seems to cache anything. Or I'm doing it wrong.)
             guild = dbguild(event.guild_id)
             guild_name = event.get_guild().name
@@ -264,6 +312,8 @@ async def handle_guilty(
                 discord_guild = await event.app.rest.fetch_guild(int(event.guild_id))
                 ds.d["guild_name_cache"][int(event.guild_id)] = {"name": discord_guild.name, "time": timestamp_now}
                 guild_name = discord_guild.name
+
+            bm.benchmark("Guild name found")
 
             if automod_type == automod_types.TEXT_FILTER:
                 cat_check = guild.get.text
@@ -283,6 +333,8 @@ async def handle_guilty(
                     f"User <@{event.author.id}> ({event.author.username}) sent an image that was flagged as NSFW by the {get.bot_name()} automod system."
                 )
 
+            bm.benchmark("Violation message created.")
+
             if cat_check.do_announce_infraction():
                 try:
                     msg = await event.message.respond(alert_embed)
@@ -301,6 +353,7 @@ async def handle_guilty(
                     whistleblower=whistleblower
                 )
             )
+            bm.benchmark("Member violation created.")
             # IF it so happens that the violation has a problem and doesn't get created, we should just return and not attempt any punishment actions.
             if not case_id:
                 return False
@@ -377,6 +430,8 @@ async def handle_guilty(
                             )
                         )
 
+            bm.benchmark("Penalty dispatched to user account.")
+
             logs_embed = (
                 hikari.Embed(
                     title="Rule Violation Detected",
@@ -394,6 +449,8 @@ async def handle_guilty(
                 logs_embed.add_field(name="❄️ Time-out", value="User has been put in a 30 second time-out for spamming messages.")
 
             await logs.create_entry(logs_embed)
+
+            bm.benchmark("Created logs entry. Now returning data, and ending lock.")
 
             if get_msg_id:
                 if get_case_id:
@@ -496,19 +553,23 @@ class checks:
             return None
 
         def detect_insult(self, text: str):
+            bm.benchmark("Insult detection started.")
             text_norm = self.normalize_text(text)
+            bm.benchmark("Possible insult message normalised.")
 
             for pattern in self.multi_word_patterns:
                 if pattern in text_norm:
                     text_norm = text_norm.replace(pattern, pattern.replace(" ", "_"))
 
             tokens = self.tokenize(text_norm)
+            bm.benchmark("Possible insult message tokenised.")
 
             for i, word in enumerate(tokens):
                 check_word = word.replace("_", " ")
 
                 if check_word in self.insulting_words:
                     subject = self.find_subject(tokens, i)
+                    bm.benchmark("Determined subject.")
 
                     # Grab small context window around the flagged word
                     window = 3
@@ -687,7 +748,7 @@ class checks:
                         return {'bad': True, 'word': combined}
 
                 return {'bad': False, 'word': None}
-            
+
             @staticmethod
             def letter_stitch_check(text: str, bad_word_list:set) -> bool:
                 """
@@ -706,7 +767,7 @@ class checks:
                             return {'bad': True, 'word': combined}
 
                 return {'bad': False, 'word': None}
-            
+
             @staticmethod
             def reverse_check(text:str, bad_word_list:set) -> dict[bool, str]:
                 """
@@ -718,7 +779,7 @@ class checks:
                         return {'bad': True, 'word': reversed_word}
 
                 return {'bad': False, 'word': None}
-        
+
         class high:
             @staticmethod
             def similarity_check(text:str, bad_word_list:set, threshold:float=0.80):
@@ -737,14 +798,18 @@ class checks:
                     "sim": 0.0,
                     "word": None
                 }
-            
+
             @staticmethod
-            def syntactic_analysis(text: str):
+            def syntactic_analysis(text: str, allow_self_insult:bool=True):
                 checker = checks.syntax_analysis_check()
                 result = checker.detect_insult(text)
-                bad = result[0] not in [checker.verdict.ALLOW_OK, checker.verdict.ALLOW_SELF_DIRECTED]
+                if allow_self_insult:
+                    bad = result[0] not in [checker.verdict.ALLOW_OK, checker.verdict.ALLOW_SELF_DIRECTED]
+                else:
+                    bad = result[0] != checker.verdict.ALLOW_OK
+
                 return {
                     "bad": bad,
                     "type": result,
-                    "word": result[1]['flagged_word'],
+                    "word": result[1]['flagged_word'] if bad else None,
                 }

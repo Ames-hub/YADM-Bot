@@ -1,5 +1,6 @@
 from library.settings import get, set, getgroup, setgroup
 from library import datastore as ds
+from library import benchmark as bm
 import essentials
 import datetime
 import logging
@@ -7,6 +8,8 @@ import asyncio
 import dotenv
 import sys
 import os
+
+bm.benchmark("Program start")
 
 os.makedirs("logs", exist_ok=True)
 
@@ -19,6 +22,8 @@ logging.basicConfig(
     format="%(asctime)s:%(levelname)s:%(name)s: %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
+
+bm.benchmark("Logging initialized")
 
 if "--backup" in sys.argv and "--restore" in sys.argv:
     msg = (
@@ -154,7 +159,7 @@ if not get.bot_token():
         elif allow_docker_fallback in ("n", "no", "false", "0"):
             set.allow_docker_fallback(False)
             print("Detected .env file, disabling Docker fallback from there.\n\n")
-        
+
         db_host = os.getenv("DB_HOST", "").strip()
         db_user = os.getenv("DB_USER", "").strip()
         db_password = os.getenv("DB_PASSWORD", "").strip()
@@ -207,7 +212,7 @@ if not get.bot_token():
         else:
             set.prod_mode(False)
             print("Production mode disabled. Running in development mode.\n\n")
-    
+
     if allow_docker_fallback is None:
         print("Do you want to allow me to make a local Docker PostgreSQL database in the case of a fallback? (y/n)")
         print("This will allow the bot to keep running even if the external DB is unreachable, but requires Docker to be installed and we'd need permissions for it.")
@@ -243,6 +248,8 @@ if not get.bot_token():
         print("To rerun the setup, delete the settings.json file and restart the bot.")
         raise ValueError("No DB configured and Docker fallback disabled.")
 
+bm.benchmark("Pre-launch checks completed")
+
 # ----- BOT ENVIRONMENT SETUP SECTION -----
 
 if __name__ == "__main__":
@@ -255,12 +262,14 @@ if __name__ == "__main__":
         raise ConnectionError("Database initialization failed.")
 
 # Always check to see if a DB can be reached or made.
-if get.allow_docker_fallback() is False and not get.db_host():
+if (get.allow_docker_fallback() is False and not get.db_host()) and get.prod_mode():
     logging.error("No external DB configured and Docker fallback is disabled. Cannot proceed.")
     print("Error: Without an external DB configured or Docker fallback enabled, the bot will not function properly.")
     print("Please re-run the setup and configure a database or allow Docker fallback.\n\n")
     print("To rerun the setup, delete the settings.json file and restart the bot.")
     raise ValueError("No DB configured and Docker fallback disabled.")
+else:
+    logging.warning("Nodeus is running with Sqlite3")
 
 prod_mode = get.prod_mode()
 
@@ -280,6 +289,8 @@ if prod_mode:
 if not get.bot_name() and not prod_mode:
     logging.warning("Bot name is not set. Using default 'Nodeus'.")
     set.bot_name("Nodeus")
+
+bm.benchmark("Bot environment estimation setup completed.")
 
 # ----- BOT SETUP SECTION -----
 from library.botapp import botapp, client
@@ -327,13 +338,15 @@ ds.d["rr_role_names_cache"] = {}
 
 try:
     logging.info(f"OS Detected: {get_os_name()}")
-    
+
     if os.name != "nt":
         # More efficient than usual event loop policy
         import uvloop
         logging.info(f"Using linux uvloop")
+        # VS Code reports the below as deprecated, but thats only on py3.14+. This bot is designed for py3.13.
         asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
+    bm.benchmark("All pre-flight checks completed, initalization of bot commencing.")
     botapp.run(
         shard_count=3 if prod_mode else 1
     )

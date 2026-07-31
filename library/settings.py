@@ -1,4 +1,5 @@
 from library.encryption import encryption
+from cachetools import TTLCache
 import logging
 import json
 import os
@@ -19,18 +20,75 @@ valid_settings = {
     "primary_maintainer": None,
     "ai_vision_enabled": True,
     "nonprod_bot_token": None,  # The token to use while the bot is not in "production" mode
+    "observation_mode": False,
+    "observed_guilds": []
 }
 
 def make_settings_file():
     with open(SETTINGS_PATH, "w") as f:
         json.dump(valid_settings, f, indent=4, separators=(",", ": "))
 
-def _get_value(key, default=None):
+class observe_conf:
+    @staticmethod
+    def set_enabled(value:bool):
+        with open(SETTINGS_PATH, "r") as f:
+            settings: dict = json.load(f)
+        settings["observation_mode"] = bool(value)  # Enforce bool
+        with open(SETTINGS_PATH, "w") as f:
+            json.dump(settings, f, indent=4)
+        return True
+
+    @staticmethod
+    def get_enabled():
+        with open(SETTINGS_PATH, "r") as f:
+            settings: dict = json.load(f)
+        return settings["observation_mode"]
+
+    @staticmethod
+    def add(guild_id:int):
+        with open(SETTINGS_PATH, "r") as f:
+            settings: dict = json.load(f)
+        # Don't let it double-up
+        if guild_id in settings['observed_guilds']:
+            return True
+        settings["observed_guilds"].append(guild_id)
+        with open(SETTINGS_PATH, "w") as f:
+            json.dump(settings, f, indent=4)
+        return True
+
+    @staticmethod
+    def remove(guild_id:int):
+        with open(SETTINGS_PATH, "r") as f:
+            settings: dict = json.load(f)
+        settings["observed_guilds"].remove(guild_id)
+        with open(SETTINGS_PATH, "w") as f:
+            json.dump(settings, f, indent=4)
+        return True
+
+    @staticmethod
+    def get_list():
+        with open(SETTINGS_PATH, "r") as f:
+            settings: dict = json.load(f)
+        return settings["observed_guilds"]
+
+cache = TTLCache(maxsize=100, ttl=300)
+
+def _get_value(key, default=None, do_cache: bool=True):
+    if do_cache and key in cache:
+        return cache[key]
+
+    # Load from file
     if not os.path.exists(SETTINGS_PATH):
-        return default
-    with open(SETTINGS_PATH, "r") as f:
-        settings:dict = json.load(f)
-        return settings.get(key, default)
+        result = default
+    else:
+        with open(SETTINGS_PATH, "r") as f:
+            settings: dict = json.load(f)
+            result = settings.get(key, default)
+
+    if do_cache:
+        cache[key] = result
+
+    return result
 
 def _save_value(key, value):
     settings = {}
@@ -83,46 +141,46 @@ class setgroup():
 
 class get:
     def bot_token():
-        value = _get_value("bot_token", valid_settings["bot_token"])
+        value = _get_value("bot_token", valid_settings["bot_token"], do_cache=True)
         if value is not None:
             value = encryption().decrypt(value)
         return value
     
     def prod_mode():
-        return _get_value("prod_mode", valid_settings["prod_mode"])
+        return _get_value("prod_mode", valid_settings["prod_mode"], do_cache=True)
     
     def db_username():
-        return _get_value("db_username", valid_settings["db_username"])
+        return _get_value("db_username", valid_settings["db_username"], do_cache=True)
     
     def db_password():
-        value = _get_value("db_password", valid_settings["db_password"])
+        value = _get_value("db_password", valid_settings["db_password"], do_cache=True)
         if value is not None:
             value = encryption().decrypt(value)
         return value
 
     def db_host():
-        return _get_value("db_host", valid_settings["db_host"])
+        return _get_value("db_host", valid_settings["db_host"], do_cache=True)
     
     def db_port():
-        return _get_value("db_port", valid_settings["db_port"])
+        return _get_value("db_port", valid_settings["db_port"], do_cache=True)
     
     def db_name():
-        return _get_value("db_name", valid_settings["db_name"])
+        return _get_value("db_name", valid_settings["db_name"], do_cache=True)
     
     def bot_name():
-        return _get_value("bot_name", valid_settings["bot_name"])
+        return _get_value("bot_name", valid_settings["bot_name"], do_cache=True)
     
     def allow_docker_fallback():
-        return _get_value("allow_docker_fallback", valid_settings["allow_docker_fallback"])
+        return _get_value("allow_docker_fallback", valid_settings["allow_docker_fallback"], do_cache=True)
 
     def primary_maintainer():
-        return _get_value("primary_maintainer", valid_settings["primary_maintainer"])
+        return _get_value("primary_maintainer", valid_settings["primary_maintainer"], do_cache=True)
 
     def ai_vision_enabled():
-        return _get_value("ai_vision_enabled", valid_settings["ai_vision_enabled"])
+        return _get_value("ai_vision_enabled", valid_settings["ai_vision_enabled"], do_cache=False)
 
     def nonprod_bot_token():
-        value = _get_value("nonprod_bot_token", valid_settings["nonprod_bot_token"])
+        value = _get_value("nonprod_bot_token", valid_settings["nonprod_bot_token"], do_cache=True)
         if value is not None:
             value = encryption().decrypt(value)
         return value

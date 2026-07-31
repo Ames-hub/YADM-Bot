@@ -37,7 +37,7 @@ class command(
         embeds = {
             "general": hikari.Embed(
                 title="📚 Text Automod System Overview",
-                description="Welcome to the Text Automod System! Think of it as a smart assistant that helps keep your server chat clean and friendly.",
+                description="Welcome to the Text Automod System! Its a system that helps keep your server chat clean and friendly.",
                 color=0x3498db
             ).add_field(
                 name="How It Works",
@@ -45,25 +45,26 @@ class command(
                 inline=False
             ).add_field(
                 name="The 3 Check Levels",
-                value="🔹 **Low Level** - Simple but reliable (like a basic spellcheck)\n🔹 **Medium Level** - Smarter checks that catch creative attempts\n🔹 **High Level** - Advanced analysis that understands context",
+                value="🔹 **Low Level** - Simple but reliable (like a basic match check)\n🔹 **Medium Level** - Smarter checks that catch creative attempts\n🔹 **High Level** - Advanced analysis that understands context, or are somewhat unstable in their wide broad-spectrum attempts to catch attempts.",
                 inline=False
             ).add_field(
                 name="What Happens When Flagged?",
-                value="Depending on server settings, the bot can:\n• Delete the message\n• Warn the user\n• Mute them temporarily\n• Kick or ban them\n• Log everything for moderators",
+                value="Depending on server settings, the bot can:\n• Delete the message\n• Warn the user\n• Mute them temporarily\n• Kick or ban them\n• Log everything for moderators\n• Give the user a very short mute, which we call a 'cooldown'",
                 inline=False
-            ),
+            )
+            .set_footer("(If you don't like configuring stuff, run /setup and we'll do it for you!)"),
             
             "checks": hikari.Embed(
                 title="What is a 'Check'?",
                 description="A 'check' is a word used to refer to a way that a computer can detect misbehavior.",
                 color=0x3498db
             ).add_field(
-                name="Simple Analogy",
+                name="Three Levels",
                 value=(
-                    "Imagine you're a bouncer at a club:\n"
-                    "- **Simple checks** = Checking IDs at the door\n"
-                    "- **Medium checks** = Watching for fake IDs"
-                    "- **Complex checks** = Spotting troublemakers by their behavior"
+                    "There's three levels for checking, 1 being simplest and 3 being the most complex."
+                    "- **Simple checks** = Basic matching, like 'this word is identical to this swear'\n"
+                    "- **Medium checks** = More complicated analysis, like 'd@mn' is leetspeek, and translates to 'damn'\n"
+                    "- **Complex checks** = Mostly understands context and can make decisions based on that context.\n"
                 ),
                 inline=False
             ).add_field(
@@ -185,7 +186,7 @@ class command(
                 inline=False
             ).add_field(
                 name="Important Note",
-                value="This check is more likely to have false positives (flagging innocent words), which is why it's a high-level check that's used carefully.",
+                value="This check is much more likely to have false positives (flagging innocent words), which is why it's a high-level check that's used carefully. Its advised you use other checks, like the symbol check. Only use this one if you really need thorough moderation.",
                 inline=False
             ),
             

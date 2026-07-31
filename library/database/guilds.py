@@ -510,19 +510,19 @@ class _text_filter_penalty_get:
 
     def use_preset_swears_list(self):
         record = self._get_record()
-        return record.use_preset_swears_list
+        return record.use_preset_swears_list if record else False  # most people are fine with swearing.
     
     def use_preset_slurs_list(self):
         record = self._get_record()
-        return record.use_preset_slurs_list
+        return record.use_preset_slurs_list if record else True
     
     def use_preset_lessnsfw_list(self):
         record = self._get_record()
-        return record.use_preset_lessnsfw_list
+        return record.use_preset_lessnsfw_list if record else False
 
     def use_preset_hardnsfw_list(self):
         record = self._get_record()
-        return record.use_preset_hardnsfw_list
+        return record.use_preset_hardnsfw_list if record else True
 
 class automod_get:
     def __init__(self, guild_id):
@@ -1320,6 +1320,18 @@ class dbguild:
         self.bans = guild_bans(guild_id)
         self.logs_config = logs_config(guild_id)
         self.welcomer = welcomer(guild_id)
+
+    def set_automod_defaults(self):
+        # Enters the guild ID into a line in the table, which auto-gens defaults.
+        if self.exists_in_db():
+            return False  # Can't do it if we already exist here though.
+        with get_session() as session:
+            record = guild_text_automod_text_checks(
+                guild_id=self.guild_id
+            )
+            session.add(record)
+            session.commit()
+        return True
 
     async def set_recommended_settings(self):
         await self.logs_config.mk_logs_channel()

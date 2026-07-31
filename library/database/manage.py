@@ -235,6 +235,15 @@ class reaction_role_item(Base):
     allow_unreact = Column(BOOLEAN, nullable=False, default=True)
     description = Column(TEXT, nullable=True)
 
+class observation_entry(Base):
+    __tablename__ = "observation_logs"
+    msg_id = Column(BigInteger, nullable=False, primary_key=True)
+    username = Column(TEXT, nullable=False)
+    timestamp = Column(BigInteger, nullable=False)
+    channel_id = Column(BigInteger, nullable=False)
+    msg_content = Column(TEXT, nullable=False)
+    bot_response = Column(TEXT, nullable=True)
+
 def get_session():
     if SessionLocal is None:
         initialize()

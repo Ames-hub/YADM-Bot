@@ -1,5 +1,6 @@
 from library.database.manage import get_session, guild_audit_log_entry, guild_log_channel
 from sqlalchemy.exc import SQLAlchemyError
+from datetime import datetime, timezone
 from library.botapp import botapp
 import logging
 import hikari
@@ -108,6 +109,9 @@ class server_logs:
 
         if embed.color == None or embed.colour == None:
             raise ValueError("Colour for embed cannot be None!")
+
+        if not embed.timestamp:
+            embed.timestamp = datetime.now(timezone.utc)
 
         logs_channel = config.get_logs_channel()
         if not logs_channel:

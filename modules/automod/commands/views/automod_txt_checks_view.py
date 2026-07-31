@@ -8,6 +8,7 @@ class views:
         self.guild = dbguild(self.guild_id)
         self.set_category = self.guild.set.text.checks
         self.get_category = self.guild.get.text.checks
+        self.guild.set_automod_defaults()  # This only effects things IF no settings have been made already.
         self.refresh_automod_data()
 
     def refresh_automod_data(self):
