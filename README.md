@@ -45,7 +45,7 @@ Every single check can be toggled on or off. Don't like one? Just turn it off in
 
 > **A note on AI:** There's much discourse about Generative AI. Nodeus uses **Discriminative AI**, the same technology your phone uses to focus on faces in photos. It's lightweight, private, and runs locally. If you're heavily against AI, I ask you at least read this section before leaving.
 
-- **Privacy-Focused** -- All image scanning happens on your machine, not the cloud
+- **Privacy-Focused** -- All image scanning happens on your machine, not the cloud, and not in some data-center.
 - **Eco-Friendly** -- Being a small, discriminative AI, it does not harm the environment
 - **Configurable Threshold** -- Set how confident the AI must be (0-100%) before taking action
 - **Perceptual Hashing** -- Tracks images by hash to avoid re-scanning the same image
@@ -219,7 +219,15 @@ The menus are found under `/automod (automod category) settings`
 
 ## Self-Hosting
 
-Nodeus supports self-hosting for those who want full control over their setup. If you'd like to run your own instance, check the [GitHub repository](https://github.com) for setup instructions and configuration details.
+Nodeus supports self-hosting for those who want full control over their setup. If you'd like to run your own instance, follow these steps:
+(If you need help, google "how to run python program with venv" or contact me on discord, @friendlyfox.exe)
+
+1. Clone the repository.
+2. Download python3.13
+3. Create a venv
+4. Install requirements.txt with pip
+5. Run app.py with python, using the venv.
+6. Optionally, hook this up to a panel like Pufferpanel for ease of management. From there, its done!
 
 ### Database Options
 - **Development/Small Servers**: SQLite (built-in, no setup required)
@@ -248,6 +256,7 @@ A: Just turn it off! Use `/automod text checks` to toggle any detection method o
 
 **Q: Does Nodeus store message content?**
 A: Only violations are stored (for audit purposes). Normal messages are processed in memory and discarded.
+When using the official instance, if you consent to it and are *SPECIFICALLY ASKED BY THE PROJECT MAINTAINER*, Nodeus will store all messages created on the server for manual review to check automod quality.
 
 ---
 
