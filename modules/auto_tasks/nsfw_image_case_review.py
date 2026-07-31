@@ -3,7 +3,7 @@ import lightbulb
 
 loader = lightbulb.Loader()
 
-vote_threshold = 1
+vote_threshold = 1 if __debug__ else 5
 
 async def handle_task(for_upvote:bool):
     if for_upvote:
