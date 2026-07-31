@@ -322,11 +322,13 @@ async def on_shard_ready(event: hikari.ShardReadyEvent) -> None:
     msg = f"Shard {event.shard.id} is ready and logged in as \"{event.my_user.username}\" to Discord!"
     print(msg)
     logging.info(msg)
+    ds.d["myid"] = event.my_user.id
 
 from library.other import get_os_name
 
 # ------- ds.d configuration ------- #
 ds.d["time_at_boot"] = datetime.datetime.now()
+ds.d["myid"] = None
 ds.d["guild_name_cache"] = {}
 ds.d["PRIMARY_MAINTAINER"] = get.primary_maintainer()
 ds.d["guild_owner_ids_cache"] = {}

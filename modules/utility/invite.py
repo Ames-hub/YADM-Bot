@@ -1,6 +1,4 @@
-from library import datastore as ds
 import lightbulb
-import datetime
 import hikari
 
 loader = lightbulb.Loader()
@@ -17,10 +15,10 @@ class command(
             hikari.Embed(
                 title=f"Welcome aboard!",
                 description=(
-                    f"Click this link to invite the bot to your server!",
-                    "https://discord.com/oauth2/authorize?client_id=1461801438446616618",
+                    f"Click this link to invite the bot to your server!\n"
+                    "https://discord.com/oauth2/authorize?client_id=1461801438446616618"
                 ),
-                colour=0x00ff00
+                colour=0x0000ff
             )
         )
 

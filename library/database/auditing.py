@@ -45,11 +45,11 @@ class logs_config:
             if not record:
                 record = guild_log_channel(
                     guild_id=self.guild_id,
-                    channel=int(channel)
+                    channel=channel
                 )
                 session.add(record)
             else:
-                record.channel = int(channel)
+                record.channel = channel
 
             session.commit()
             return True

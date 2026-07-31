@@ -1,4 +1,6 @@
+from library import automod
 import lightbulb
+import hikari
 
 loader = lightbulb.Loader()
 
@@ -14,6 +16,15 @@ class command(
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
         string = self.statement.strip()
+
+        result = automod.text_check(string)
+        bad = result[0]
+        if bad:
+            await ctx.respond(
+                content=string,
+                flags=hikari.MessageFlag.EPHEMERAL
+            )
+            return
 
         await ctx.respond(
             content=string,

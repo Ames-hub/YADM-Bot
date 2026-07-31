@@ -1,10 +1,25 @@
 from library.database.manage import get_session, automod_nsfw_scan_feedback, scanned_image_list
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from datetime import datetime, timedelta
 import logging
 
 
 class nsfw_scanner_reviews:
+    def is_tracked_hash(img_hash: int):
+        session = get_session()
+        try:
+            record = (
+                session.query(automod_nsfw_scan_feedback)
+                .filter(automod_nsfw_scan_feedback.related_img_hash == img_hash)
+                .one_or_none()
+            )
+            return record is not None
+        except SQLAlchemyError as err:
+            logging.error("Error checking if msg is tracked via hash", exc_info=err)
+            return False
+        finally:
+            session.close()
+
     def is_tracked_msg(msg_id: int):
         session = get_session()
         try:
@@ -27,10 +42,14 @@ class nsfw_scanner_reviews:
                 msg_id=msg_id,
                 upvote_count=0,
                 downvote_count=0,
-                related_img_hash=img_hash
+                related_img_hash=img_hash,
+                msg_creation_date=datetime.now()
             )
             session.add(record)
-            session.commit()
+            try:
+                session.commit()
+            except IntegrityError:  # Already was tracked in the past.
+                return True
             return True
         except SQLAlchemyError as err:
             logging.error("Error adding msg to db to be tracked!", exc_info=err)

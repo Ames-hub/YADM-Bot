@@ -41,13 +41,18 @@ async def botfunction(event: hikari.GuildMessageCreateEvent):
 
     if guilty:
         msg_link = event.message.make_link(event.guild_id)
+
+        img_hash = automod.generate_hash(image_bytes)
+        is_tracked = nsfw_scanner_reviews.is_tracked_hash(img_hash)
+
         embed=(
             hikari.Embed(
                 title=F"({result['probability']}) NSFW Image Detected 🔞",
                 description=f"{event.author.mention} We have detected that [this attached image]({msg_link}) violates content rules."
             )
-            .set_footer("Did we get it right? If not, react to this message with 👎\nBut if this was an NSFW image, react with 👍")
         )
+        if not is_tracked:  # New image we haven't seen before
+            embed.set_footer("Did we get it right? If not, react to this message with 👎\nBut if this was an NSFW image, react with 👍")
 
         msg_id = await automod.handle_guilty(
             event,
@@ -56,15 +61,27 @@ async def botfunction(event: hikari.GuildMessageCreateEvent):
             automod_type=automod.automod_types.IMAGE_FILTER,
             whistleblower="Image Filter"
         )
-        
-        img_hash = automod.generate_hash(image_bytes)
-        nsfw_scanner_reviews.track_msg(msg_id=msg_id, img_hash=img_hash)
-        nsfw_scanner.blacklist_image(
-            image_hash=img_hash
-        )
+
+        if not is_tracked:
+            nsfw_scanner_reviews.track_msg(msg_id=msg_id, img_hash=img_hash)
+            nsfw_scanner.blacklist_image(
+                image_hash=img_hash
+            )
+
+            # React to it with the emojis for user convenience.
+            await botapp.rest.add_reaction(
+                channel=event.channel_id,
+                message=msg_id,
+                emoji="👍"
+            )
+            await botapp.rest.add_reaction(
+                channel=event.channel_id,
+                message=msg_id,
+                emoji="👎"
+            )
 
         # Remove the reaction if the msg isn't going to be deleted.
-        if not guild.get.do_delete_msg():
+        if not guild.get.text.do_delete_msg():
             await event.message.remove_reaction("🔍", user=botapp.get_me().id)
             await event.message.add_reaction("❌")
         return True

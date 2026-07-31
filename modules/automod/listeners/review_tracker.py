@@ -1,4 +1,5 @@
 from library.database.db_automod import nsfw_scanner_reviews
+from library import datastore as ds
 import lightbulb
 import hikari
 
@@ -6,6 +7,8 @@ loader = lightbulb.Loader()
 
 @loader.listener(hikari.GuildReactionAddEvent)
 async def botfunction(event: hikari.GuildReactionAddEvent):
+    if event.user_id == ds.d["myid"]:
+        return
     if not nsfw_scanner_reviews.is_tracked_msg(event.message_id):
         return
     
@@ -17,6 +20,8 @@ async def botfunction(event: hikari.GuildReactionAddEvent):
 
 @loader.listener(hikari.GuildReactionDeleteEvent)
 async def botfunction(event: hikari.GuildReactionDeleteEvent):
+    if event.user_id == ds.d["myid"]:
+        return
     if not nsfw_scanner_reviews.is_tracked_msg(event.message_id):
         return
     

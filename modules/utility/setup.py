@@ -1,5 +1,4 @@
 from modules.utility.views.setup_view import views
-from library.database.guilds import dbguild
 from library.botapp import miru_client
 import lightbulb
 import hikari
