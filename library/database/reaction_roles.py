@@ -45,6 +45,9 @@ def get_is_grouped_by_msg(message_id:int, get_id:bool=False):
             .filter(reaction_role_group.message_id == message_id)
             .one_or_none()
         )
+        if record is None:
+            return False
+
         if get_id:
             return record.group_id
         else:

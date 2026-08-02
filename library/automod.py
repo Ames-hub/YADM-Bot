@@ -198,13 +198,9 @@ def text_check(text:str, guild_id=None, observing:bool=False):
             if name == "syntactic":
                 if result["bad"]:
                     verdict = (True, name, result.get("word", "unknown"), observation_data)
-                else:
-                    verdict = (False, None, None, observation_data)
             elif name == "similarity":
                 if result["bad"]:
                     verdict = (True, name, result.get("word", "unknown"), observation_data)
-                else:
-                    verdict = (False, None, None, observation_data)
             else:
                 # Handle checks that return a dictionary with 'bad' and 'word' keys
                 if isinstance(result, dict) and result.get("bad"):
