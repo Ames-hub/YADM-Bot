@@ -187,17 +187,10 @@ def text_check(text:str, guild_id=None, observing:bool=False):
 
         bm.benchmark(f"Check '{name}' has run.")
 
-        if guild_id and result['bad']:
-            # Checks if the automod flagged word is okay with the guild and is to be allowed
-            if result['word'] not in custom_whitelist_words:
-                verdict = (True, name, result["word"], observation_data)
-            else:  # ALL words are in the whitelist
-                verdict = (False, None, None, observation_data)
-
         if verdict is None:
             if name == "syntactic":
                 if result["bad"]:
-                    verdict = (True, name, result.get("word", "unknown"), observation_data)
+                    verdict = (True, name, result['type'], result.get("word", "unknown"), observation_data)
             elif name == "similarity":
                 if result["bad"]:
                     verdict = (True, name, result.get("word", "unknown"), observation_data)
@@ -208,6 +201,9 @@ def text_check(text:str, guild_id=None, observing:bool=False):
                 # Handle boolean returns from older checks
                 elif isinstance(result, bool) and result:
                     verdict = (True, name, "unknown", observation_data)
+
+            if result['word'] in custom_whitelist_words:
+                verdict = None  # over-ride
 
         if verdict is not None:
             if final_result is None:

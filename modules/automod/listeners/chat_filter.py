@@ -40,8 +40,9 @@ async def handle_incoming_event(event: hikari.GuildMessageCreateEvent):  # Could
     flagged_word = result[2]
 
     if whistleblower == "syntactic":
-        flag_type = result[2]
-        full_whistleblower = f"{whistleblower} | {flag_type().__str__()}"
+        flag_type = result[2][0]
+        flagged_word = result[3]
+        full_whistleblower = f"{whistleblower} | {flag_type.value}"
     else:
         full_whistleblower = whistleblower
 
