@@ -1,4 +1,6 @@
+from library.database.auditing import server_logs
 from library.database.welcomer import welcomer
+from library.permissions import prechecks
 from modules.welcomer.group import group
 import lightbulb
 import hikari
@@ -27,6 +29,13 @@ async def handle_setmsg_command(guild_id:int, new_msg:str, responder_func):
         )
     )
 
+    await server_logs(guild_id).create_entry(
+        hikari.Embed(
+            title="Welcomer Message",
+            description=f"On users joining, they will now be welcomed with the message:\n\"{new_msg}\"",
+            colour=0x00ff00
+        )
+    )
     await responder_func(embed)
 
 @group.register
@@ -40,4 +49,5 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
+        await prechecks("welcomer setmsg", ctx, hikari.Permissions.MANAGE_MESSAGES)
         return await handle_setmsg_command(ctx.guild_id, self.text, ctx.respond)

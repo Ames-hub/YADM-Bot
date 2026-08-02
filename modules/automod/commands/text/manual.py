@@ -1,5 +1,5 @@
 from modules.automod.commands.text.subgroup import text_subgroup
-from library.permissions import perms
+from library.permissions import prechecks
 from lightbulb import Choice
 import lightbulb
 import hikari
@@ -32,7 +32,7 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
-        await perms.perms_precheck(hikari.Permissions.MANAGE_MESSAGES, ctx)
+        await prechecks("prechecks", ctx, hikari.Permissions.ADMINISTRATOR)
         
         embeds = {
             "general": hikari.Embed(

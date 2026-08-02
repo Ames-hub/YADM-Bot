@@ -140,6 +140,12 @@ class setgroup():
         return True
 
 class get:
+    def appropriate_bot_token():
+        if get.prod_mode():
+            return get.bot_token()
+        else:
+            return get.nonprod_bot_token()
+
     def bot_token():
         value = _get_value("bot_token", valid_settings["bot_token"], do_cache=True)
         if value is not None:

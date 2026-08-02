@@ -10,7 +10,8 @@ async def prechecks(
         ctx:lightbulb.Context,
         permission:hikari.Permissions|None = None,
         cooldown_s:int|None = None,
-        bot_admin_only:bool=False
+        bot_admin_only:bool=False,
+        auto_defer=True,
     ):
     """
     Docstring for prechecks
@@ -25,9 +26,11 @@ async def prechecks(
     :type cooldown_s: int | None
     :param bot_admin_only: If the command is only for bot admins.
     :type bot_admin_only: bool
+    :param auto_defer: Should we defer on high-ping?
+    type auto_defer: bool
     """
     # High Latency behavior
-    if botapp.heartbeat_latency * 1000 > 300:  # ms
+    if botapp.heartbeat_latency * 1000 > 300 and auto_defer:  # ms
         await ctx.defer()
 
     guild_id = ctx.guild_id

@@ -1,7 +1,7 @@
 from library.database.reaction_roles import rr_group, rr_errors
 from library.database.auditing import server_logs
 from modules.reaction_roles.group import group
-from library.permissions import perms
+from library.permissions import prechecks
 import lightbulb
 import hikari
 import re
@@ -20,7 +20,7 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
-        await perms.perms_precheck(hikari.Permissions.MANAGE_ROLES, ctx)
+        await prechecks("rrg remove role", ctx, hikari.Permissions.MANAGE_ROLES)
 
         try:
             rrg = rr_group(self.group_id)
@@ -38,6 +38,7 @@ class command(
             return
 
         try:
+            rr_item = rrg.fetch_item(self.emoji)
             success = rrg.rm_item(emoji=self.emoji)
         except rr_errors.ItemNotFound:
             await ctx.respond(
@@ -65,6 +66,14 @@ class command(
                     description=f"This reaction role group now has had {self.emoji} removed as a reaction role"
                 ),
                 flags=hikari.MessageFlag.EPHEMERAL
+            )
+
+            await server_logs(ctx.guild_id).create_entry(
+                hikari.Embed(
+                    title="Reaction-Role Removed",
+                    description=f"{ctx.user.mention} Has removed the reaction role <@&{rr_item.reaction_role_id}> from reaction-role group {self.group_id}",
+                    colour=0xFFA500
+                )
             )
         else:
             await ctx.respond(

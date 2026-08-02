@@ -8,8 +8,7 @@ import hikari
 
 loader = lightbulb.Loader()
 
-@loader.listener(hikari.GuildMessageCreateEvent)
-async def botfunction(event: hikari.GuildMessageCreateEvent):
+async def handle_incoming_event(event: hikari.GuildMessageCreateEvent):  # Could also be the edit event
     if not event.is_human:
         return
     
@@ -96,3 +95,11 @@ async def botfunction(event: hikari.GuildMessageCreateEvent):
             bot_response=resp
         )
     return True
+
+@loader.listener(hikari.GuildMessageCreateEvent)
+async def botfunction(event: hikari.GuildMessageCreateEvent):
+    await handle_incoming_event(event)
+
+@loader.listener(hikari.events.GuildMessageUpdateEvent)
+async def botfunction(event: hikari.GuildMessageUpdateEvent):
+    await handle_incoming_event(event)

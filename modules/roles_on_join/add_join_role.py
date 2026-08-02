@@ -1,5 +1,7 @@
+from library.database.auditing import server_logs
 from library.database.joinroles import joinroles
 from modules.roles_on_join.group import group
+from library.permissions import prechecks
 import lightbulb
 import hikari
 
@@ -40,4 +42,13 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
-        return await handle_joinrole_add(int(self.role.id), int(ctx.guild_id), ctx.respond)
+        await prechecks("joinrole add", ctx, hikari.Permissions.MANAGE_ROLES)
+        result = await handle_joinrole_add(int(self.role.id), int(ctx.guild_id), ctx.respond)
+        await server_logs(ctx.guild_id).create_entry(
+            hikari.Embed(
+                title="Join-role added",
+                description=f"The role {self.role.mention} is now given to users on join.",
+                colour=0x00ff00
+            )
+        )
+        return result

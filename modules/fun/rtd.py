@@ -1,3 +1,4 @@
+from library.permissions import prechecks
 import lightbulb
 import random
 import hikari
@@ -18,6 +19,7 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
+        await prechecks("rtd", ctx)
         # Init value
         roll = 0
         roll_results = []

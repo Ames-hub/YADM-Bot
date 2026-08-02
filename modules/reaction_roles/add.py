@@ -106,6 +106,14 @@ class command(
                     )
                 )
             await ctx.respond(embed, flags=hikari.MessageFlag.EPHEMERAL)
+
+            await server_logs(ctx.guild_id).create_entry(
+                hikari.Embed(
+                    title="Reaction-Role Added",
+                    description=f"{ctx.user.mention} Has added the reaction role <@&{self.role.id}> to reaction-role group {self.group_id}",
+                    colour=0x00ff00
+                )
+            )
         else:
             await ctx.respond(
                 hikari.Embed(

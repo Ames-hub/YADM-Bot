@@ -1,6 +1,6 @@
 from modules.automod.commands.muting.subgroup import muting_subgroup
 from library.database.guilds import dbguild
-from library.permissions import perms
+from library.permissions import prechecks
 import lightbulb
 import hikari
 
@@ -14,7 +14,7 @@ class command(
 ):
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
-        await perms.perms_precheck(hikari.Permissions.ADMINISTRATOR, ctx)
+        await prechecks("get-mute-role", ctx, hikari.Permissions.ADMINISTRATOR)
 
         guild = dbguild(ctx.guild_id)
         role_id = guild.get.muted_role_id()

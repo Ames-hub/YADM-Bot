@@ -96,6 +96,8 @@ class nsfw_scanner_reviews:
                 .filter(automod_nsfw_scan_feedback.msg_id == msg_id)
                 .one_or_none()
             )
+            if not record:
+                return True
 
             if add:
                 new_downvote_count = record.downvote_count + 1

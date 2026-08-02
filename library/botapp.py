@@ -24,25 +24,40 @@ else:
     logging.info(".env file not found project root; skipping load.")
 
 DEBUG = os.getenv('DEBUG', 'false').lower() == 'true'
-BOT_TOKEN = get.bot_token()
+BOT_TOKEN = get.appropriate_bot_token()
 
 intents_list = [HKIntents.GUILD_MESSAGES, HKIntents.GUILDS, HKIntents.MESSAGE_CONTENT, HKIntents.GUILD_MESSAGE_REACTIONS, HKIntents.GUILD_MEMBERS]
 intents = 0
 for intent in intents_list:
     intents += intent
 
-botapp = hikari.GatewayBot(
-    intents=intents,
-    token=BOT_TOKEN,
-    logs={
-        "version": 1,
-        "incremental": True,
-        "loggers": {
-            "hikari": {"level": "INFO"},
-            "lightbulb": {"level": "DEBUG"},
+try:
+    botapp = hikari.GatewayBot(
+        intents=intents,
+        token=BOT_TOKEN,
+        logs={
+            "version": 1,
+            "incremental": True,
+            "loggers": {
+                "hikari": {"level": "INFO"},
+                "lightbulb": {"level": "DEBUG"},
+            },
         },
-    },
-)
+    )
+except AttributeError:
+    BOT_TOKEN = get.appropriate_bot_token()  # This sometimes fixes a minor bug.
+    botapp = hikari.GatewayBot(
+        intents=intents,
+        token=BOT_TOKEN,
+        logs={
+            "version": 1,
+            "incremental": True,
+            "loggers": {
+                "hikari": {"level": "INFO"},
+                "lightbulb": {"level": "DEBUG"},
+            },
+        },
+    )
 
 miru_client = miru.Client(botapp)
 

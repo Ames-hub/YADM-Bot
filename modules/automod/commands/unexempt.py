@@ -1,6 +1,6 @@
 from library.database.auditing import server_logs
 from modules.automod.commands.group import group
-from library.permissions import perms
+from library.permissions import prechecks
 from library import datastore as ds
 from datetime import datetime
 import lightbulb
@@ -19,7 +19,7 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
-        await perms.perms_precheck(hikari.Permissions.ADMINISTRATOR, ctx)
+        await prechecks("unexempt-user", ctx, hikari.Permissions.ADMINISTRATOR)
 
         # Setup the dict and list if its not existing for this guild
         guild_id = int(ctx.guild_id)

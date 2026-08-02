@@ -18,7 +18,7 @@ async def botfunction(event: hikari.GuildReactionAddEvent):
     
     is_custom = event.emoji_id != None
     
-    await rrg.give_member_role(event.user_id, event.message_id, emoji=event.emoji_name if not is_custom else event.emoji_id)
+    await rrg.give_member_role(event.user_id, emoji=event.emoji_name if not is_custom else event.emoji_id)
 
 @loader.listener(hikari.GuildReactionDeleteEvent)
 async def botfunction(event: hikari.GuildReactionDeleteEvent):
@@ -31,4 +31,4 @@ async def botfunction(event: hikari.GuildReactionDeleteEvent):
     
     is_custom = event.emoji_id != None
 
-    await rrg.take_member_role(event.user_id, event.message_id, emoji=event.emoji_name if not is_custom else event.emoji_id)
+    await rrg.take_member_role(event.user_id, emoji=event.emoji_name if not is_custom else event.emoji_id)

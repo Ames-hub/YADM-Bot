@@ -1,6 +1,6 @@
 from library.database.auditing import server_logs
 from modules.moderation.group import group
-from library.permissions import perms
+from library.permissions import prechecks
 from library.botapp import botapp
 from datetime import datetime
 import lightbulb
@@ -19,9 +19,9 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
-        await perms.perms_precheck(hikari.Permissions.MANAGE_CHANNELS, ctx)
+        await prechecks("channel unlock", ctx, hikari.Permissions.MANAGE_CHANNELS)
 
-        server_logs(ctx.guild_id).create_entry(
+        await server_logs(ctx.guild_id).create_entry(
             hikari.Embed(
                 title="Channel Unlock",
                 description=f"On {datetime.now().strftime('%Y-%b-%d %I:%M %p')} <#{self.channel}> has been unlocked by <@{ctx.user.id}>.",

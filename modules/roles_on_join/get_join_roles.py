@@ -1,5 +1,6 @@
 from library.database.joinroles import joinroles
 from modules.roles_on_join.group import group
+from library.permissions import prechecks
 import lightbulb
 import hikari
 
@@ -47,4 +48,5 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
+        await prechecks("get joinroles", ctx, permission=hikari.Permissions.MANAGE_ROLES)
         return await handle_joinroles_get(int(ctx.guild_id), ctx.respond)

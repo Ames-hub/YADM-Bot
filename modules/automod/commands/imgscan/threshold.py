@@ -1,7 +1,7 @@
 from modules.automod.commands.imgscan.subgroup import imgscan_subgroup
 from library.database.auditing import server_logs
 from library.database.guilds import dbguild
-from library.permissions import perms
+from library.permissions import prechecks
 import lightbulb
 import hikari
 
@@ -18,7 +18,7 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
-        await perms.perms_precheck(hikari.Permissions.ADMINISTRATOR, ctx)
+        await prechecks("img-am-threshold", ctx, hikari.Permissions.ADMINISTRATOR)
 
         embed = (
             hikari.Embed(

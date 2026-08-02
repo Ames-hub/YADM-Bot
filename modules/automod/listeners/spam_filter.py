@@ -58,8 +58,8 @@ async def botfunction(event: hikari.GuildMessageCreateEvent):
 
             await automod.handle_guilty(
                 event,
-                embed,
-                automod.automod_types.SPAM_FILTER,
+                alert_embed=embed,
+                automod_type=automod.automod_types.SPAM_FILTER,
                 whistleblower="Spam Filter"
             )
 

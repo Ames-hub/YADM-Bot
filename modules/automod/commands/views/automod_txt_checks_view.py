@@ -104,6 +104,7 @@ class views:
         active_style = hikari.ButtonStyle.SUCCESS
         inactive_style = hikari.ButtonStyle.SECONDARY
 
+        # TODO: Add server logging
         class Menu_Init(miru.View):
 
             @miru.button(label="Exit", style=hikari.ButtonStyle.DANGER, row=3)

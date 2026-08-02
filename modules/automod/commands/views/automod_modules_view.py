@@ -43,6 +43,7 @@ class views:
         active_style = hikari.ButtonStyle.PRIMARY
         inactive_style = hikari.ButtonStyle.SECONDARY
 
+        # TODO: Add server logging
         class Menu_Init(miru.View):
             @miru.button(
                 label="Toggle Text Scanner",

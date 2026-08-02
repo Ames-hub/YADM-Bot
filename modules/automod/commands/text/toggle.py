@@ -1,7 +1,7 @@
 from modules.automod.commands.text.subgroup import text_subgroup
 from library.database.auditing import server_logs
 from library.database.guilds import dbguild
-from library.permissions import perms
+from library.permissions import prechecks
 import lightbulb
 import hikari
 
@@ -18,7 +18,7 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
-        await perms.perms_precheck(hikari.Permissions.ADMINISTRATOR, ctx)
+        await prechecks("toggle-text-am", ctx, hikari.Permissions.ADMINISTRATOR)
 
         guild = dbguild(ctx.guild_id)
         success = guild.set.do_text_scan(self.enabled)

@@ -1,7 +1,7 @@
 from modules.automod.commands.wordlist.subgroup import wordlist_subgroup
 from library.database.auditing import server_logs
 from library.database.guilds import dbguild
-from library.permissions import perms
+from library.permissions import prechecks
 import lightbulb
 import hikari
 
@@ -19,7 +19,7 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
-        await perms.perms_precheck(hikari.Permissions.MANAGE_MESSAGES, ctx)
+        await prechecks("wordlist-add-word", ctx, [hikari.Permissions.MANAGE_MESSAGES, hikari.Permissions.MANAGE_GUILD])
 
         word = self.word.lower().strip()
         guild = dbguild(ctx.guild_id)

@@ -248,8 +248,8 @@ class rr_group:
         finally:
             session.close()
 
-    async def give_member_role(self, user_id:int, message_id:int, emoji):
-        item = self.fetch_item(message_id, emoji)
+    async def give_member_role(self, user_id:int, emoji):
+        item = self.fetch_item(emoji)
         
         try:
             user = await botapp.rest.fetch_member(self.guild_id, user_id)
@@ -301,8 +301,8 @@ class rr_group:
 
         return True
     
-    async def take_member_role(self, user_id:int, message_id:int, emoji):
-        item = self.fetch_item(message_id, emoji)
+    async def take_member_role(self, user_id:int, emoji):
+        item = self.fetch_item(emoji)
         
         try:
             user = await botapp.rest.fetch_member(self.guild_id, user_id)
@@ -515,12 +515,13 @@ class rr_group:
         finally:
             session.close()
 
-    def fetch_item(self, message_id:int, emoji) -> reaction_role_item:
+    def fetch_item(self, emoji) -> reaction_role_item:
         session = get_session()
         try:
             records = (
                 session.query(reaction_role_item)
-                .filter(reaction_role_item.message_id == message_id)
+                # TODO: Changed this to accept "group id" and not "message id". Need to check if that still lets it work.
+                .filter(reaction_role_item.group_id == self.group_id)
                 .filter(reaction_role_item.trigger_emoji_id == emoji)
             )
 

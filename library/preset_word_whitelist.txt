@@ -8225,6 +8225,8 @@ smoke
 smoking
 smooth
 sms
+smt
+smth
 smtp
 sn
 snake
@@ -9276,7 +9278,7 @@ twenty
 twice
 twiki
 twin
-twinks
+twinkie
 twins
 twist
 twisted
@@ -9987,3 +9989,4 @@ uwu
 D:
 :>
 :<
+racist

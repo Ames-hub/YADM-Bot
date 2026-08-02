@@ -1,3 +1,4 @@
+from library.database.auditing import server_logs
 from library.database.guilds import dbguild
 import datetime
 import hikari

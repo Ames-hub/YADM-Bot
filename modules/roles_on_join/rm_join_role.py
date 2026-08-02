@@ -1,5 +1,7 @@
+from library.database.auditing import server_logs
 from library.database.joinroles import joinroles
 from modules.roles_on_join.group import group
+from library.permissions import prechecks
 import lightbulb
 import hikari
 
@@ -40,4 +42,12 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
+        await prechecks("join-role remove", ctx, permission=hikari.Permissions.MANAGE_ROLES)
+        await server_logs(ctx.guild_id).create_entry(
+            hikari.Embed(
+                title="Join-role removed",
+                description=f"The role {self.role.mention} is no longer a join role.",
+                colour=0x00ff00
+            )
+        )
         return await handle_joinrole_rm(int(self.role.id), int(ctx.guild_id), ctx.respond)

@@ -1,7 +1,7 @@
 from library.database.reaction_roles import rr_group, rr_errors
 from library.database.auditing import server_logs
 from modules.reaction_roles.group import group
-from library.permissions import perms
+from library.permissions import prechecks
 import lightbulb
 import hikari
 import re
@@ -19,7 +19,7 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
-        await perms.perms_precheck(hikari.Permissions.MANAGE_ROLES, ctx)
+        await prechecks("new rr group", ctx, permission=hikari.permissions.MANAGE_ROLES)
 
         try:
             rrg = rr_group(self.group_id)
@@ -56,6 +56,14 @@ class command(
                     title="Published!",
                     description=f"Those reaction roles are now available in the linked channel at <#{rrg.channel_id}>!"
                 ),
+            )
+
+            await server_logs(ctx.guild_id).create_entry(
+                hikari.Embed(
+                    title="Reaction-Role Group Published",
+                    description=f"{ctx.user.mention} Has published the reaction role group, with the Group ID \"{self.group_id}\"",
+                    colour=0x00ff00
+                )
             )
         else:
             await ctx.edit_response(

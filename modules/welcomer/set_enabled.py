@@ -1,4 +1,6 @@
+from library.database.auditing import server_logs
 from library.database.welcomer import welcomer
+from library.permissions import prechecks
 from modules.welcomer.group import group
 from library.settings import get
 import lightbulb
@@ -28,6 +30,7 @@ async def handle_toggle_event(enabled:bool, guild_id:int, respond_func):
         )
     )
 
+    await server_logs(guild_id).create_entry(embed)
     await respond_func(embed)
 
 @group.register
@@ -41,4 +44,5 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
+        await prechecks("welcomer set-enabled", ctx, hikari.Permissions.MANAGE_MESSAGES)
         return await handle_toggle_event(self.enabled, ctx.guild_id, ctx.respond)

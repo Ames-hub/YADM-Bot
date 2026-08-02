@@ -106,6 +106,7 @@ def text_check(text:str, guild_id=None, observing:bool=False):
     """
     Puts some text through any/all checks.
     Returns: (is_bad, check_name, flagged_word)
+    returns observation_data at pos. 3 if observing is True.
     """
     if guild_id is None:
         threshold = 0.80
@@ -201,17 +202,7 @@ def text_check(text:str, guild_id=None, observing:bool=False):
                     verdict = (False, None, None, observation_data)
             elif name == "similarity":
                 if result["bad"]:
-                    # Similarity is a wild-card check, so we do one final check to verify their guilt or innocence.
-                    all_whitelisted = True
-                    for word in lower_text.split(" "):
-                        if word not in PRESET_WORD_WHITELIST:
-                            all_whitelisted = False
-                            break
-
-                    if all_whitelisted:
-                        verdict = (False, None, None, observation_data)
-                    else:
-                        verdict = (True, name, result.get("word", "unknown"), observation_data)
+                    verdict = (True, name, result.get("word", "unknown"), observation_data)
                 else:
                     verdict = (False, None, None, observation_data)
             else:
@@ -390,7 +381,7 @@ async def handle_guilty(
             if cat_check.do_kick_member():
                 if cat_check.do_announce_kick():
                     try:
-                        await event.member.send(
+                        msg = await event.member.send(
                             embed=hikari.Embed(
                                 title="Kicked",
                                 description=f"You've been detected as breaking the rules of {guild_name} and have been kicked.\nReason: {violation}"
@@ -402,12 +393,14 @@ async def handle_guilty(
                 try:
                     await event.member.kick(reason=violation)
                 except (hikari.ForbiddenError, hikari.UnauthorizedError):
-                    logs.create_entry(
+                    await logs.create_entry(
                         hikari.Embed(
                             title="Error Kicking User!",
                             description=f"I couldn't kick {event.author.mention} even though they broke rules!\nViolation: {violation}"
                         )
                     )
+                    await msg.delete()
+                del msg
             if cat_check.do_ban_member():
                 delete_msg_seconds = cat_check.get_ban_msg_purgetime()
 
@@ -423,7 +416,7 @@ async def handle_guilty(
                             announce_ban=announce_ban
                         )
                     except hikari.ForbiddenError:
-                        logs.create_entry(
+                        await logs.create_entry(
                             hikari.Embed(
                                 title="Error Banning User!",
                                 description=f"I couldn't ban {event.author.mention} even though they broke rules!\nViolation: {violation}"
@@ -506,9 +499,12 @@ class checks:
 
         def __init__(self):
             self.insulting_words = insulting_words_list
-            self.self_pronouns = {"i", "me", "my", "mine", "myself", "we", "us", "our", "ourselves"}
-            self.other_pronouns = {"you", "your", "yours", "yourself"}
-            self.third_person = {"he", "she", "they", "him", "her", "them", "his", "hers", "their", "that", "this", "those", "these", "guy", "gal", "person"}
+            self.self_subject = {"i", "me", "myself", "we", "us", "ourselves"}
+            self.self_possessive = {"my", "mine", "our", "ours"}
+            self.other_subject = {"you", "yourself"}
+            self.other_possessive = {"your", "yours"}
+            self.third_person_subject = {"he", "she", "they", "him", "her", "them", "that", "this", "those", "these", "guy", "gal", "person"}
+            self.third_person_possessive = {"his", "her", "hers", "their", "theirs"}
             self.imperative_start = {"do", "stop", "try", "don't", "never", "avoid"}
             self.multi_word_patterns = ["acting like", "looks like"]
 
@@ -539,12 +535,19 @@ class checks:
             start = max(0, banned_index - window)
             context = tokens[start:banned_index]
 
+            # A possessive pronoun directly before the flagged word (e.g. "your dog")
+            # marks the flagged word as something owned, not the target of an insult.
+            # Drop it and keep scanning further back for an actual subject/object pronoun.
+            possessives = self.self_possessive | self.other_possessive | self.third_person_possessive
+            if context and context[-1] in possessives:
+                context = context[:-1]
+
             for w in reversed(context):
-                if w in self.self_pronouns:
+                if w in self.self_subject or w in self.self_possessive:
                     return "self"
-                elif w in self.other_pronouns:
+                elif w in self.other_subject or w in self.other_possessive:
                     return "other"
-                elif w in self.third_person:
+                elif w in self.third_person_subject or w in self.third_person_possessive:
                     return "other"
 
             if tokens[0] in self.imperative_start:
@@ -788,6 +791,15 @@ class checks:
                     for bad_word in bad_word_list:
                         similarity = SequenceMatcher(None, a=word, b=bad_word).ratio()
                         if similarity >= threshold:
+                            # Similarity is a wild-card check, so we do one final check to verify their guilt or innocence.
+                            do_continue = False
+                            for word in text.lower().split(" "):
+                                if word in PRESET_WORD_WHITELIST:
+                                    do_continue = True  # Continue on with the check as its whitelisted. Go through the rest of the words in the text.
+
+                            if do_continue:
+                                continue  # Go to the next bad word
+
                             return {
                                 "bad": True,
                                 "sim": similarity,

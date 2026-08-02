@@ -1,8 +1,8 @@
 from modules.moderation.views.purge_view import views
 from modules.moderation.group import group
+from library.permissions import prechecks
 from datetime import datetime, timedelta
 from library.botapp import miru_client
-from library.permissions import perms
 import lightbulb
 import hikari
 
@@ -27,7 +27,7 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
-        await perms.perms_precheck(hikari.Permissions.MANAGE_MESSAGES, ctx)
+        await prechecks("purge channel", ctx, hikari.Permissions.MANAGE_MESSAGES)
 
         if self.purge_days == 0 and self.purge_hours == 0 and self.purge_minutes == 0 and self.purge_seconds == 0:
             await ctx.respond(

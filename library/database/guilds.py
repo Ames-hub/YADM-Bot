@@ -87,7 +87,23 @@ class muting:
                     reason="Member is being muted for: " + reason
                 )
             except (hikari.ForbiddenError, hikari.NotFoundError):
+                await server_logs(self.guild_id).create_entry(
+                    hikari.Embed(
+                        title="Cannot mute",
+                        description=f"User <@{user_id}> cannot be muted as I cannot add the muted role to their account.",
+                        colour=0x850101
+                    )
+                )
                 return False
+
+            if not is_cooldown:
+                await server_logs(self.guild_id).create_entry(
+                    hikari.Embed(
+                        title="Member muted",
+                        description=f"<@{user_id}> has been muted by <@{moderator_id}> until <t:{datetime.datetime.now().timestamp() + duration_s}>",
+                        colour=0x850101
+                    )
+                )
 
             # Make a record in the DB to say the person needs to be unmuted eventually
             session = get_session()
@@ -110,7 +126,6 @@ class muting:
                 return False
             finally:
                 session.close()
-
 
         async def create_muted_role(self):
             try:
@@ -1212,10 +1227,11 @@ class guild_bans:
                 guild_name = discord_guild.name
 
         if announce_ban:
+            msg_send_success = True
             try:
                 banned_user = await botapp.rest.fetch_member(self.guild_id, banned_id)
 
-                await banned_user.send(
+                msg = await banned_user.send(
                     embed=hikari.Embed(
                         title="Banished",
                         description=f"You've been detected as breaking the rules of {guild_name} and have been banned.\nReason: {reason}",
@@ -1223,7 +1239,7 @@ class guild_bans:
                     )
                 )
             except (hikari.ForbiddenError, hikari.BadRequestError, hikari.UnauthorizedError):
-                pass
+                msg_send_success = False
 
         try:
             await botapp.rest.ban_user(
@@ -1233,6 +1249,10 @@ class guild_bans:
                 reason=reason
             )
         except (hikari.ForbiddenError, hikari.BadRequestError, hikari.UnauthorizedError):
+            if announce_ban:
+                if msg_send_success:
+                    await msg.delete()
+                    del msg
             return False
 
         time_to_unban = datetime.datetime.now().timestamp() + ban_seconds
@@ -1333,17 +1353,165 @@ class dbguild:
             session.commit()
         return True
 
+    async def find_name(self):
+        # TODO: Make this cache the name for max 7 days.
+        guild = await botapp.rest.fetch_guild(self.guild_id)
+        return guild.name
+
+    async def handle_like_guilty(self, user_id:int, reason=None, mod_id:int=None, relevant_msg: tuple[int, int]=None, whistleblower:str=None):
+        """
+        A function that handles a user as if they are guilty and had tripped the automod.
+        It handles it like this even if they are not guilty of any misconduct. This bypasses observe-only.
+
+        relevant_msg must be provided as a tuple (if provided at all.) The tuple must be (channel_id, message_id)
+        """
+        # Check lightbulb cache (note: its practically useless since lightbulb's cache never seems to cache anything. Or I'm doing it wrong.)
+        guild = dbguild(self.guild_id)
+        guild_name = self.find_name()
+        logs = server_logs(self.guild_id)
+        guild_name = await self.find_name()
+        if not reason:
+            reason = "No reason provided for moderation actions."
+        violation = (
+            f"User <@{user_id}> (ID {user_id}) was prosecuted by <@{mod_id}> with reason: {reason}"
+        )
+
+        cat_check = guild.get.text
+        # Always add the violation for the record.
+        case_id = violations.create_member_violation(
+            reporter_id=mod_id,
+            offender_id=user_id,
+            time=datetime.datetime.now(),
+            violation=violation,
+            automated=True,
+            whistleblower="None" if not whistleblower else whistleblower
+        )
+
+        # IF it so happens that the violation has a problem and doesn't get created, we should just return and not attempt any punishment actions.
+        if not case_id:
+            return False
+
+        do_mute_member = cat_check.do_mute_member()
+
+        # if we're not to mute, put them on cooldown if told to do so. (Cooldown is a short, short mute)
+        if cat_check.do_cooldown() and not do_mute_member:
+            await guild.muting.mute_member(
+                user_id=user_id,
+                reason="VIOLATION AUTO COOLDOWN: " + violation,
+                moderator_id=mod_id,
+                duration_s=30,  # 30 sec mute for spam. TODO: Make this configurable.
+                is_cooldown=True
+            )
+
+        if relevant_msg:
+            do_del_msg = cat_check.do_delete_msg()
+            if do_del_msg:
+                if type(relevant_msg) is int:
+                    message = await botapp.rest.fetch_message(relevant_msg[0], relevant_msg[1])
+                    await message.delete()
+                else:  # Assume its the message object
+                    await relevant_msg.delete()
+
+        if cat_check.do_warn_member():
+            guild.warnings.add_warning(
+                reason=violation,
+                mod_id=mod_id,
+                user_id=user_id,
+            )
+        if do_mute_member:
+            mute_duration = cat_check.get_mute_duration()
+            await guild.muting.mute_member(
+                user_id=user_id,
+                moderator_id=mod_id,
+                reason=violation,
+                duration_s=mute_duration,
+            )
+
+        try:
+            member = await botapp.rest.fetch_member(self.guild_id, user_id)
+        except hikari.ForbiddenError:
+            await logs.create_entry(
+                hikari.Embed(
+                    title="Error muting User!",
+                    description=f"I couldn't fetch {member.mention} to handle the following violation!\nViolation: {violation}"
+                )
+            )
+            return False
+
+        if cat_check.do_kick_member():
+            msg_sent = True
+            if cat_check.do_announce_kick():
+                try:
+                    msg = await member.send(
+                        embed=hikari.Embed(
+                            title="Kicked",
+                            description=f"You've been detected as breaking the rules of {guild_name} and have been kicked.\nReason: {violation}"
+                        )
+                    )
+                except (hikari.ForbiddenError, hikari.BadRequestError, hikari.UnauthorizedError):
+                    msg_sent = False
+
+            try:
+                await member.kick(reason=violation)
+            except (hikari.ForbiddenError, hikari.UnauthorizedError):
+                await logs.create_entry(
+                    hikari.Embed(
+                        title="Error Kicking User!",
+                        description=f"I couldn't kick {member.mention} even though they broke rules!\nViolation: {violation}"
+                    )
+                )
+                if msg_sent:
+                    await msg.delete()
+                    del msg
+        if cat_check.do_ban_member():
+            delete_msg_seconds = cat_check.get_ban_msg_purgetime()
+
+            announce_ban = cat_check.do_announce_ban()
+            if announce_ban:
+                try:
+                    await guild.bans.ban_user(
+                        banned_id=user_id,
+                        moderator_id=botapp.get_me().id,
+                        msg_del_duration=delete_msg_seconds,
+                        ban_seconds=cat_check.ban_duration(),
+                        reason=violation,
+                        announce_ban=announce_ban
+                    )
+                except hikari.ForbiddenError:
+                    await logs.create_entry(
+                        hikari.Embed(
+                            title="Error Banning User!",
+                            description=f"I couldn't ban <@{user_id}> even though they broke rules!\nViolation: {violation}"
+                        )
+                    )
+
+        logs_embed = (
+            hikari.Embed(
+                title="Rule Violation Detected",
+                description=violation,
+                colour=0xff0000
+            )
+            .set_author(name=member.display_name, icon=member.display_avatar_url)
+        )
+
+        await logs.create_entry(logs_embed)
+
+        return case_id
+
     async def set_recommended_settings(self):
         await self.logs_config.mk_logs_channel()
 
         self.set.do_image_filtering(True)
         self.set.do_text_scan(True)
         self.set.do_filter_spam(True)
+
+        # Configure word lists
         self.set.text.use_preset_swears_list(True)
         self.set.text.use_preset_slurs_list(True)
         self.set.text.use_preset_lessnsfw_list(False)
         self.set.text.use_preset_hardnsfw_list(True)
-        
+
+        # Configure text punishments
         self.set.text.do_announce_infraction(True)
         self.set.text.do_delete_msg(True)
         self.set.text.do_warn_member(True)
@@ -1359,6 +1527,7 @@ class dbguild:
         self.set.text.checks.similarity_check(True)
         self.set.text.checks.syntactic_analysis(True)
 
+        # Set spam rule  settings
         self.set.spam.do_announce_infraction(True)
         self.set.spam.do_cooldown(True)
         self.set.spam.do_kick_member(False)
@@ -1366,6 +1535,7 @@ class dbguild:
         self.set.spam.do_delete_msg(True)
         self.set.spam.do_warn_member(True)
 
+        # Set image rule settings
         self.set.images.do_announce_infraction(True)
         self.set.images.do_cooldown(True)
         self.set.images.do_kick_member(False)

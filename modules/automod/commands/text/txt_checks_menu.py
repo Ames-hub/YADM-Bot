@@ -1,8 +1,7 @@
 from modules.automod.commands.views.automod_txt_checks_view import views
 from modules.automod.commands.text.subgroup import text_subgroup
-from library.automod import automod_types
+from library.permissions import prechecks
 from library.botapp import miru_client
-from library.permissions import perms
 import lightbulb
 import hikari
 
@@ -17,7 +16,7 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
-        await perms.perms_precheck(hikari.Permissions.ADMINISTRATOR, ctx)
+        await prechecks("text-am-menu", ctx, hikari.Permissions.ADMINISTRATOR)
 
         view = views(ctx.guild_id)
         embed = view.gen_embed()

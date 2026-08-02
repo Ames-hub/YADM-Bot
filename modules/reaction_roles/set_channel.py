@@ -1,7 +1,7 @@
 from library.database.reaction_roles import rr_group, rr_errors
 from library.database.auditing import server_logs
 from modules.reaction_roles.group import group
-from library.permissions import perms
+from library.permissions import prechecks
 import lightbulb
 import hikari
 import re
@@ -20,7 +20,7 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
-        await perms.perms_precheck(hikari.Permissions.MANAGE_ROLES, ctx)
+        await prechecks("set rrg channel", ctx, hikari.Permissions.MANAGE_ROLES)
 
         try:
             rrg = rr_group(self.group_id)
@@ -47,6 +47,14 @@ class command(
                     colour=0x00ff00
                 ),
                 flags=hikari.MessageFlag.EPHEMERAL
+            )
+
+            await server_logs(ctx.guild_id).create_entry(
+                hikari.Embed(
+                    title="Reaction-Role Channel",
+                    description=f"{ctx.user.mention} Has set the channel for reaction role group {self.group_id} to {self.channel.mention}",
+                    colour=0x00ff00
+                )
             )
         else:
             await ctx.respond(

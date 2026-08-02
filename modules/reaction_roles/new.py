@@ -1,7 +1,7 @@
 from library.database.reaction_roles import create_group
 from library.database.auditing import server_logs
 from modules.reaction_roles.group import group
-from library.permissions import perms
+from library.permissions import prechecks
 import lightbulb
 import hikari
 import re
@@ -20,7 +20,7 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
-        await perms.perms_precheck(hikari.Permissions.MANAGE_ROLES, ctx)
+        await prechecks("new rr group", ctx, permission=hikari.permissions.MANAGE_ROLES)
 
         group_id = await create_group(
             guild_id=ctx.guild_id,
@@ -49,4 +49,12 @@ class command(
                 value="Add some reaction roles with `/reactionrole add` and then run `/reactionrole publish` to send the reaction role out"
             ),
             flags=hikari.MessageFlag.EPHEMERAL
+        )
+
+        await server_logs(ctx.guild_id).create_entry(
+            hikari.Embed(
+                title="New Reaction-Role Group",
+                description=f"{ctx.user.mention} Has created a new reaction role group, titled \"{self.embed_title}\"",
+                colour=0x00ff00
+            )
         )
