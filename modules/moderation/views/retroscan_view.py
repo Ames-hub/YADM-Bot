@@ -2,11 +2,103 @@ from datetime import datetime, timezone, timedelta
 from library.database.auditing import server_logs
 from library.database.guilds import dbguild
 from datetime import datetime, timedelta
+from library.botapp import botapp
+from library.settings import get
 from library import automod
 import hikari
 import miru
 import io
 
+PRIM_MAINTAINER = get.primary_maintainer()
+
+async def do_retro_scan(
+        guild_id:int,
+        channel_id:int,
+        mod_id:int,
+        do_penalize:bool,
+        do_kick:bool=None,
+        do_ban:bool=None,
+        lookback_hours:int=335
+    ):
+    # We cannot delete msgs older than two weeks, so if they're older than that, do not delete.
+    do_delete = True
+    if lookback_hours > 335:
+        do_delete = False
+
+    guild = dbguild(guild_id)
+    if do_kick is None:
+        do_kick = guild.get.text.do_kick_member()
+    if do_ban is None:
+        do_ban = guild.get.text.do_ban_member()
+    if lookback_hours <= 335:
+        do_delete = guild.get.text.do_delete_msg()  # IF they can be deleted, get if the guild wants them deleted.
+    del guild
+
+    # Get all messages within the time frame.
+    target_timestamp = datetime.now(timezone.utc).timestamp() - timedelta(hours=lookback_hours).total_seconds()
+    target_time = datetime.fromtimestamp(target_timestamp)
+    try:
+        fetched_messages = await botapp.rest.fetch_messages(channel_id, after=target_time)
+    except (hikari.ForbiddenError, hikari.UnauthorizedError):
+        return False
+
+    log_msg = f"<#{channel_id}> Is currently undergoing a retro-scan as ordered by <@{mod_id}>, scanning onwards from <t:{target_timestamp}:f> to now."
+    if do_penalize:
+        log_msg += f"\nPenalties are being applied, users will be"
+        log_msg += f"{" banned," if do_ban else ""}{" and" if do_ban and do_kick else ""}{" kicked" if do_kick else ""}"
+
+    await server_logs(guild_id).create_entry(
+        hikari.Embed(
+            title="Retroscan",
+            description=log_msg,
+            colour=0xff0000
+        )
+    )
+
+    actions_log = []
+    noscan_list = []
+    for message in fetched_messages:
+        if message.author.is_system or message.author.is_bot:
+            continue
+        if not message.content:
+            continue
+        bad_msg, check_name, flagged_word, _ = automod.text_check(message.content, message.guild_id)
+        if bad_msg:
+            msg_link = f"message (link: {message.make_link(message.guild_id)})"
+            if do_penalize:
+                if do_kick or do_ban:
+                    noscan_list.append(message.author.id)  # Do not punish someone after being banned, they're already gone.
+                    if do_delete:
+                        try:
+                            await message.delete()
+                        except (hikari.ForbiddenError, hikari.NotFoundError):
+                            continue
+                    continue
+                time = int(datetime.now().timestamp() - message.timestamp.timestamp())
+                reason = (
+                    f"<t:{time}:R>, user <@{message.author.id}> sent a {msg_link} with the word '||{flagged_word}||', "
+                    f"triggering the '{check_name}' check which violates\n"
+                    "the new server chat policy, and is being retro-actively punished."
+                )
+                await dbguild(message.guild_id).handle_like_guilty(
+                    user_id=message.author.id,
+                    reason=reason,
+                    mod_id=mod_id,
+                    relevant_msg=message,
+                )
+                actions_log.append(
+                    f"Scanned a {msg_link} by {message.author.display_name} ({message.author.mention})"
+                    f"and the word {flagged_word} flagged from the {check_name} check.\n"
+                    f"Message content:\n{message.content}"
+                )
+                continue
+            actions_log.append(
+                f"Scanned a {msg_link} by {message.author.display_name} ({message.author.mention})"
+                f"and the word {flagged_word} flagged from the {check_name} check.\n"
+                f"Message content:\n{message.content}"
+            )
+
+    return actions_log
 
 class views:
     def __init__(self, guild_id:int, do_kick:bool, do_ban:bool, penalize:bool, channel:int, hours_back:int, mod_id:int):
@@ -35,9 +127,9 @@ class views:
 
     def init_view(viewself):
         class Menu_Init(miru.View):
-            @miru.button(label="Cancel", style=hikari.ButtonStyle.SECONDARY)
+            @miru.button(label="Cancel", style=hikari.ButtonStyle.SUCCESS)
             async def stop_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
-                if not ctx.author.id == viewself.mod_id:  # Prevnts others from clicking it
+                if not ctx.author.id == viewself.mod_id:  # Prevents others from clicking it
                     return
                 await ctx.edit_response(
                     hikari.Embed(
@@ -53,8 +145,8 @@ class views:
                 style=hikari.ButtonStyle.DANGER,
                 emoji="⚠️"
             )
-            async def delete(self, ctx: miru.ViewContext, button: miru.Button) -> None:
-                if not ctx.author.id == viewself.mod_id:  # Prevnts others from clicking it
+            async def do_scan(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if not ctx.author.id == viewself.mod_id:  # Prevents others from clicking it
                     return
 
                 await ctx.respond(
@@ -65,21 +157,9 @@ class views:
                     )
                 )
 
-                log_msg = f"<#{viewself.channel}> Is currently undergoing a retro-scan as ordered by {ctx.user.mention}, spanning two weeks backwards from now."
-                if viewself.penalize:
-                    log_msg += f"\nPenalties are being applied, users will be"
-                    log_msg += f"{" banned," if viewself.do_ban else ""}{" and" if viewself.do_ban and viewself.do_kick else ""}{" kicked" if viewself.do_kick else ""}"
-
-                # We cannot delete msgs older than two weeks, so if they're older than that, do not delete.
-                do_delete = True
-                if viewself.hours_back > 335:
-                    do_delete = False
-
-                # Get all messages within the time frame.
-                target_time = datetime.now(timezone.utc).timestamp() - timedelta(hours=viewself.hours_back).total_seconds()
                 try:
-                    fetched_messages = await ctx.client.rest.fetch_messages(viewself.channel, after=target_time)
-                except (hikari.ForbiddenError, hikari.UnauthorizedError):
+                    actions_log = await do_retro_scan()
+                except hikari.ForbiddenError:
                     await ctx.edit_response(
                         hikari.Embed(
                             title="Bad Bot Permissions",
@@ -88,57 +168,6 @@ class views:
                         )
                     )
                     return
-
-                await server_logs(ctx.guild_id).create_entry(
-                    hikari.Embed(
-                        title="Retroscan",
-                        description=log_msg,
-                        colour=0xff0000
-                    )
-                )
-
-                actions_log = []
-                noscan_list = []
-                for message in fetched_messages:
-                    if message.author.is_system or message.author.is_bot:
-                        continue
-                    if not message.content:
-                        continue
-                    bad_msg, check_name, flagged_word, _ = automod.text_check(message.content, ctx.guild_id)
-                    if bad_msg:
-                        msg_link = f"message (link: {message.make_link(message.guild_id)})"
-                        if viewself.penalize:
-                            if viewself.do_kick or viewself.do_ban:
-                                noscan_list.append(message.author.id)  # Do not punish someone after being banned, they're already gone.
-                                if do_delete:
-                                    try:
-                                        await message.delete()
-                                    except (hikari.ForbiddenError, hikari.NotFoundError):
-                                        continue
-                                continue
-                            time = int(datetime.now().timestamp() - message.timestamp.timestamp())
-                            reason = (
-                                f"<t:{time}:R>, user <@{message.author.id}> sent a {msg_link} with the word '||{flagged_word}||', "
-                                f"triggering the '{check_name}' check which violates\n"
-                                "the new server chat policy, and is being retro-actively punished."
-                            )
-                            await dbguild(ctx.guild_id).handle_like_guilty(
-                                user_id=message.author.id,
-                                reason=reason,
-                                mod_id=ctx.user.id,
-                                relevant_msg=message,
-                            )
-                            actions_log.append(
-                                f"Scanned a {msg_link} by {message.author.display_name} ({message.author.mention})"
-                                f"and the word {flagged_word} flagged from the {check_name} check.\n"
-                                f"Message content:\n{message.content}"
-                            )
-                            continue
-                        actions_log.append(
-                            f"Scanned a {msg_link} by {message.author.display_name} ({message.author.mention})"
-                            f"and the word {flagged_word} flagged from the {check_name} check.\n"
-                            f"Message content:\n{message.content}"
-                        )
 
                 if actions_log:
                     bytes = io.BytesIO("\n".join(actions_log).encode('utf-8'))
@@ -161,5 +190,15 @@ class views:
                     )
 
                     await ctx.edit_response(embed, attachment=file)
+
+            if viewself.mod_id == PRIM_MAINTAINER:
+                @miru.button(
+                    label="Observation Scan",
+                    style=hikari.ButtonStyle.SECONDARY,
+                    emoji="🔎"
+                )
+                async def do_scan(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                    if not ctx.author.id == viewself.mod_id:  # Prevents others from clicking it
+                        return
 
         return Menu_Init()

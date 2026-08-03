@@ -243,6 +243,7 @@ class observation_entry(Base):
     channel_id = Column(BigInteger, nullable=False)
     msg_content = Column(TEXT, nullable=False)
     bot_response = Column(TEXT, nullable=True)
+    reeval_date = Column(DateTime, nullable=True)
 
 def get_session():
     if SessionLocal is None:

@@ -2,6 +2,7 @@ from library.database.db_automod import nsfw_scanner_reviews, nsfw_scanner
 from library.database.guilds import dbguild
 from library import datastore as ds
 from library.botapp import botapp
+from library.settings import get
 from library import automod
 import lightbulb
 import hikari
@@ -20,6 +21,9 @@ async def botfunction(event: hikari.GuildMessageCreateEvent):
     filter_exemptions = ds.d["filter_exemptions"].get(int(event.guild_id), [])
     if event.author.id in filter_exemptions:
         return
+
+    if not get.ai_vision_enabled():
+        return  # No AI Vision
 
     guild = dbguild(event.guild_id)
     if not guild.get.do_image_filtering():

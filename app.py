@@ -13,15 +13,16 @@ bm.benchmark("Program start")
 
 os.makedirs("logs", exist_ok=True)
 
-if os.name == "nt":
-    set.ai_vision_enabled(False)
-
 logging.basicConfig(
     filename=f"logs/{datetime.datetime.now().strftime('%Y-%m-%d')}.log",
     level=logging.INFO,
     format="%(asctime)s:%(levelname)s:%(name)s: %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
+
+if os.name == "nt":
+    set.ai_vision_enabled(False)  # No AI Support for Windows.
+    logging.info("AI Vision has been disabled due to the OS being Windows.")
 
 bm.benchmark("Logging initialized")
 

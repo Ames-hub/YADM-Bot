@@ -202,8 +202,9 @@ def text_check(text:str, guild_id=None, observing:bool=False):
                 elif isinstance(result, bool) and result:
                     verdict = (True, name, "unknown", observation_data)
 
-            if result['word'] in custom_whitelist_words:
-                verdict = None  # over-ride
+            if guild_id:
+                if result['word'] in custom_whitelist_words:
+                    verdict = None  # over-ride
 
         if verdict is not None:
             if final_result is None:
@@ -504,16 +505,26 @@ class checks:
             text = text.lower()
             contractions = {
                 "you're": "you are",
+                "youre": "you are",
                 "i'm": "i am",
+                "im": "i am",
                 "he's": "he is",
+                "hes": "he is",
                 "she's": "she is",
+                "shes": "she is",
                 "they're": "they are",
                 "we're": "we are",
+                "were": "we are",
                 "it's": "it is",
                 "don't": "do not",
+                "dont": "do not",
                 "doesn't": "does not",
+                "doesnt": "does not",
                 "didn't": "did not",
-                "can't": "cannot"
+                "didnt": "did not",
+                "can't": "cannot",
+                "cant": "cannot",
+                "u": "you"
             }
             for c, full in contractions.items():
                 text = text.replace(c, full)
@@ -583,7 +594,7 @@ class checks:
                     elif subject == "self":
                         return self.verdict.ALLOW_SELF_DIRECTED, result
                     else:
-                        return self.verdict.DELETE_PROBABLE, result
+                        return self.verdict.ALLOW_OK, None  # Allow it, its inconclusive.
 
             return self.verdict.ALLOW_OK, None
 
@@ -714,6 +725,7 @@ class checks:
                 Collapsed text check. Takes words like "fuuuuuuuuuuuuuuuuck" and converts it to "fuck" then runs it through the equality check.
                 """
                 collapsed_text = checks.helpers.collapse_text(text)
+                collapsed_text = checks.helpers.remove_symbols(collapsed_text)  # Remove symbols too
                 return checks.heuristics.low.equality(collapsed_text, bad_word_list)
 
         class medium:
@@ -726,6 +738,7 @@ class checks:
                 Space Hack Check is a check used to detect when someone hides a banned word by adding a space, like "fo obar" instead of "foo bar"
                 """
                 text = str(text).lower()
+                text = checks.helpers.remove_symbols(text)  # Remove symbols
                 text_s = text.split(" ")
                 count_1 = 0
                 count_2 = 1
@@ -751,6 +764,7 @@ class checks:
                 e.g., "f u c k" or "s h i t".
                 """
                 text = str(text).lower()
+                text = checks.helpers.remove_symbols(text)
                 letters = text.split()  # split by spaces
 
                 # join consecutive letters and check for banned words
@@ -779,6 +793,7 @@ class checks:
             @staticmethod
             def similarity_check(text:str, bad_word_list:set, threshold:float=0.80):
                 # Determines how similar 2 strings are by importing the SequenceMatcher class from difflib
+                text = checks.helpers.remove_symbols(text)
                 for word in text.split(" "):
                     for bad_word in bad_word_list:
                         similarity = SequenceMatcher(None, a=word, b=bad_word).ratio()
