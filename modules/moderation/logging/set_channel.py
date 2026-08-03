@@ -35,7 +35,8 @@ async def handle_set_log_channel(guild_id:int, channel_id:int, user_id:int, resp
             await logs.create_entry(
                 hikari.Embed(
                     title="Logging channel changed",
-                    description=f"<@{user_id}> Has changed the logging channel to here!"
+                    description=f"<@{user_id}> Has changed the logging channel to here!",
+                    colour=0x0000ff
                 )
             )
 

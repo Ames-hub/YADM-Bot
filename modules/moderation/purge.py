@@ -18,9 +18,9 @@ class command(
     description="Purge messages from a channel!"
 ):
     
-    channel = lightbulb.channel("channel", "Which channel to purge")
+    channel = lightbulb.channel("channel", "Which channel to purge", default=None)
     reason = lightbulb.string("reason", "Reason for purging messages", default="No reason provided.")
-    purge_days = lightbulb.integer("days", "How many days worth of messages to purge?", min_value=0, default=0)
+    purge_days = lightbulb.integer("days", "How many days worth of messages to purge?", min_value=0, max_value=14, default=0)
     purge_hours = lightbulb.integer("hours", "How many hours worth of messages to purge?", min_value=0, default=0)
     purge_minutes = lightbulb.integer("minutes", "How many minutes worth of messages to purge?", min_value=0, default=0)
     purge_seconds = lightbulb.integer("seconds", "How many seconds worth of messages to purge?", min_value=0, default=0)
@@ -42,6 +42,13 @@ class command(
                 flags=hikari.MessageFlag.EPHEMERAL
             )
             return
+
+        if self.channel is None:
+            self.channel = ctx.channel_id
+        else:
+            self.channel = self.channel.id
+
+        # TODO: Make a guild config that lets admins choose if a reason is required.
 
         delete_after = datetime.now() - timedelta(
             days=self.purge_days,
@@ -67,7 +74,7 @@ class command(
         view = views(
             guild_id=ctx.guild_id,
             delete_after=delete_after,
-            channel=self.channel.id,
+            channel=self.channel,
             reason=self.reason
         )
         embed = view.gen_embed()
