@@ -1,6 +1,6 @@
 from modules.moderation.logging.subgroup import logging_subgroup
 from library.database.auditing import logs_config, server_logs
-from library.permissions import perms
+from library.permissions import prechecks
 import lightbulb
 import hikari
 
@@ -62,7 +62,7 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
-        await perms.perms_precheck(hikari.Permissions.ADMINISTRATOR, ctx)
+        await prechecks("set-logging-channel", ctx, [hikari.Permissions.VIEW_AUDIT_LOG, hikari.Permissions.MANAGE_GUILD])
         return await handle_set_log_channel(
             ctx.guild_id,
             self.channel.id,

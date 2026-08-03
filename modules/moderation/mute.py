@@ -1,6 +1,6 @@
 from library.database.guilds import dbguild
 from modules.moderation.group import group
-from library.permissions import perms
+from library.permissions import prechecks
 import lightbulb
 import hikari
 import time
@@ -42,7 +42,7 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
-        await perms.perms_precheck(hikari.Permissions.MANAGE_MESSAGES, ctx)
+        await prechecks("mute", ctx, hikari.Permissions.MANAGE_MESSAGES)
         
         duration_in_seconds = self.duration_minutes * 60
         

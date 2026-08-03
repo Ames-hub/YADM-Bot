@@ -1,3 +1,4 @@
+from library.permissions import prechecks
 import lightbulb
 import hikari
 
@@ -11,6 +12,7 @@ class command(
 ):
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
+        await prechecks("invite-bot", ctx)
         embed = (
             hikari.Embed(
                 title=f"Welcome aboard!",

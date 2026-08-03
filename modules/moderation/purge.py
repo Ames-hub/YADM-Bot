@@ -27,7 +27,7 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
-        await prechecks("purge channel", ctx, hikari.Permissions.MANAGE_MESSAGES)
+        await prechecks("purge-channel", ctx, hikari.Permissions.MANAGE_MESSAGES)
 
         if self.purge_days == 0 and self.purge_hours == 0 and self.purge_minutes == 0 and self.purge_seconds == 0:
             await ctx.respond(

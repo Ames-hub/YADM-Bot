@@ -1,6 +1,6 @@
 from modules.moderation.warnings.subgroup import warnings_subgroup
 from library.database.guilds import dbguild
-from library.permissions import perms
+from library.permissions import prechecks
 from library import datastore as ds
 from library.botapp import botapp
 import lightbulb
@@ -82,7 +82,7 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
-        await perms.perms_precheck(hikari.Permissions.ADMINISTRATOR, ctx)
+        await prechecks("add warning", ctx, hikari.Permissions.ADMINISTRATOR)
         return await handle_warn_user(
             ctx.guild_id,
             self.user,

@@ -1,9 +1,7 @@
 from modules.moderation.warnings.subgroup import warnings_subgroup
 from library.database.guilds import dbguild
-from library.permissions import perms
-from library import datastore as ds
+from library.permissions import prechecks
 import lightbulb
-import datetime
 import hikari
 
 loader = lightbulb.Loader()
@@ -44,7 +42,7 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
-        await perms.perms_precheck(hikari.Permissions.ADMINISTRATOR, ctx)
+        await prechecks("rm warning", ctx, hikari.Permissions.ADMINISTRATOR)
         return await handle_rm_warn(
             ctx.guild_id,
             self.warn_id,

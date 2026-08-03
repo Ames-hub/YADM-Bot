@@ -1,3 +1,4 @@
+from library.permissions import prechecks
 from library import datastore as ds
 import lightbulb
 import datetime
@@ -13,6 +14,7 @@ class command(
 ):
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
+        await prechecks("uptime", ctx)
         seconds_online = datetime.datetime.now().timestamp() - ds.d["time_at_boot"].timestamp()
         time_online = (seconds_online // 60) // 60  # Convert to hours
 

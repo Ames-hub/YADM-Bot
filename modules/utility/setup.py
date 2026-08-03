@@ -1,4 +1,5 @@
 from modules.utility.views.setup_view import views
+from library.permissions import prechecks
 from library.botapp import miru_client
 import lightbulb
 import hikari
@@ -13,6 +14,7 @@ class command(
 ):
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
+        await prechecks("setup-server", ctx)
         view = views(ctx.guild_id)
         embed = view.gen_embed()
         view_menu = view.init_view()

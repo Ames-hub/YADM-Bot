@@ -1,6 +1,6 @@
 from library.database.auditing import server_logs
 from modules.moderation.group import group
-from library.permissions import perms
+from library.permissions import prechecks
 from library.botapp import botapp
 from datetime import datetime
 import lightbulb
@@ -19,7 +19,7 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
-        await perms.perms_precheck(hikari.Permissions.MANAGE_CHANNELS, ctx)
+        await prechecks("lockdown-channel", ctx, hikari.Permissions.MANAGE_CHANNELS)
 
         server_logs(ctx.guild_id).create_entry(
             hikari.Embed(
