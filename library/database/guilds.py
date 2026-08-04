@@ -4,7 +4,7 @@ from library.database.manage import (
     guild_spam_automod_settings,
     guild_images_automod_settings,
     guild_automod_settings,
-    member_violations,
+    member_violation,
     guild_custom_wordlist,
     mute_record,
     guild_member_warnings,
@@ -22,6 +22,7 @@ from library.botapp import botapp
 import datetime
 import logging
 import hikari
+import io
 
 class muting:
     class guilds:
@@ -232,6 +233,7 @@ class violations:
         automated: bool,
         whistleblower: str,
         extra_info: str,
+        relevant_img: io.BytesIO = None
     ) -> int:
 
         reporter_id = int(reporter_id)
@@ -242,14 +244,15 @@ class violations:
 
         session = get_session()
         try:
-            record = member_violations(
+            record = member_violation(
                 reporter_id=reporter_id,
                 offender_id=offender_id,
                 time=time,
                 violation=violation,
                 automated=automated,
                 whistleblower=whistleblower,
-                extra_info=extra_info
+                extra_info=extra_info,
+                relevant_img=relevant_img
             )
             session.add(record)
             session.commit()
@@ -262,24 +265,25 @@ class violations:
         finally:
             session.close()
 
-    def get_violation_record(entry_id: int) -> member_violations | None:
+    def get_violation_record(entry_id: int) -> member_violation:
         session = get_session()
         try:
-            return (
-                session.query(member_violations)
-                .filter(member_violations.entry_id == entry_id)
+            record: member_violation = (
+                session.query(member_violation)
+                .filter(member_violation.entry_id == entry_id)
                 .one_or_none()
             )
+            return record
         finally:
             session.close()
 
-    def get_violations_by_offender(offender_id: int) -> list[member_violations]:
+    def get_violations_by_offender(offender_id: int) -> list[member_violation]:
         session = get_session()
         try:
             return (
-                session.query(member_violations)
-                .filter(member_violations.offender_id == offender_id)
-                .order_by(member_violations.time.desc())
+                session.query(member_violation)
+                .filter(member_violation.offender_id == offender_id)
+                .order_by(member_violation.time.desc())
                 .all()
             )
         finally:

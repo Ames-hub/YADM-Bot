@@ -64,7 +64,8 @@ async def botfunction(event: hikari.GuildMessageCreateEvent):
             get_msg_id=True,
             automod_type=automod.automod_types.IMAGE_FILTER,
             whistleblower="Image Filter",
-            automod_report={"img_hash": img_hash, "seen_before": is_tracked, "img_bytes": image_bytes, "certainty": result['probability']}
+            # We multiply probability by 100 so its human readable (0.95% to 95%)
+            automod_report={"img_hash": img_hash, "seen_before": is_tracked, "img_bytes": image_bytes, "certainty": result['probability'] * 100}
         )
 
         if not is_tracked:

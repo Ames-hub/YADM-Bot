@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, select, insert, Column, Integer, BigInteger, TEXT, TIMESTAMP, BOOLEAN, text, DateTime, FLOAT, inspect
+from sqlalchemy import create_engine, select, insert, Column, Integer, BigInteger, TEXT, TIMESTAMP, BOOLEAN, text, DateTime, FLOAT, inspect, LargeBinary
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.exc import OperationalError
 from library.settings import get
@@ -20,7 +20,7 @@ Base = declarative_base()
 engine = None
 SessionLocal = None
 
-class member_violations(Base):
+class member_violation(Base):
     """A Record of all the times guild members broke the rules."""
     __tablename__ = "member_violations"
 
@@ -32,6 +32,8 @@ class member_violations(Base):
     automated = Column(BOOLEAN, nullable=False)
     whistleblower = Column(TEXT, nullable=False)
     extra_info = Column(TEXT, nullable=False, default="No Info Stored.")
+    # This is a value that is unlikely to ever be accessed more than once, so Idk if you're not supposed to put it in the DB.
+    relevant_img = Column(LargeBinary, nullable=True)
 
 class guild_text_automod_escalation_settings(Base):
     __tablename__ = "guild_text_automod_escalation_settings"

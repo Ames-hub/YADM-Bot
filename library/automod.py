@@ -7,6 +7,7 @@ from library import datastore as ds
 from library import benchmark as bm
 from difflib import SequenceMatcher
 from library.botapp import botapp
+from library import mainydb
 from enum import Enum
 import imagehash
 import datetime
@@ -495,7 +496,15 @@ async def handle_guilty(
 
             await logs.create_entry(logs_embed)
 
-            bm.benchmark("Created logs entry. Now returning data, and ending lock.")
+            bm.benchmark("Created logs entry. ")
+
+            if automod_type == automod_types.IMAGE_FILTER:
+                mainydb.archive_img(
+                    violation_id=case_id,
+                    img_bytes=automod_report['img_bytes']
+                )
+
+            bm.benchmark("Now returning data, and ending lock.")
 
             if get_msg_id:
                 if get_case_id:

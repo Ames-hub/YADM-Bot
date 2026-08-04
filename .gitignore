@@ -6,4 +6,5 @@ certs
 *.bkp
 *.dtmp
 local.db
+automod-imgs.mdb
 .pytest_cache

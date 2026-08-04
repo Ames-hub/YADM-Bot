@@ -25,16 +25,17 @@ class command(
         if success:
             embed = (
                 hikari.Embed(
-                    title="Status Set",
-                    description="The AI will now check and flag NSFW images." if self.enabled else "The AI will no longer check for NSFW images."
+                    title="Img Scanner Set",
+                    description="The AI will now check and flag NSFW images." if self.enabled else "The AI will no longer check for NSFW images.",
+                    colour=0x00ff00
                 )
             )
 
             await ctx.respond(embed)
             
             # Once we've responded, add a footer and turn it into a log
-            embed.set_footer(
-                text=f"This was done by {ctx.user.mention}"
+            embed.add_field(
+                value=f"This was done by {ctx.user.mention}"
             )
 
             await server_logs(ctx.guild_id).create_entry(embed)
