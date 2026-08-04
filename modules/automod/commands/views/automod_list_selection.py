@@ -4,9 +4,10 @@ import hikari
 import miru
 
 class views:
-    def __init__(self, guild_id):
+    def __init__(self, guild_id:int, mod_id:int):
         self.guild_id = guild_id
         self.guild = dbguild(self.guild_id)
+        self.mod_id = mod_id
 
         # 🔹 Ensure guild row exists before doing anything else
         if not self.guild.exists_in_db():
@@ -70,6 +71,8 @@ class views:
 
             @miru.button(label="Exit", style=hikari.ButtonStyle.DANGER, row=4)
             async def stop_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if viewself.mod_id != ctx.user.id:
+                    return
                 await ctx.edit_response(
                     hikari.Embed(
                         title="Exitting menu.",
@@ -79,12 +82,24 @@ class views:
                 )
                 self.stop()
 
+            async def on_timeout(self) -> None:
+                await viewself.ctx.edit_response(
+                    viewself.resp,
+                    embed=hikari.Embed(
+                        title="Menu Exitted",
+                        description="This menu has closed itself after being left open for too long."
+                    ),
+                    components=[]
+                )
+
             @miru.button(
                 label="Delete Swear Words",
                 style=active_style if viewself.use_swears_list else inactive_style,
                 row=1
             )
             async def toggle_swears(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if viewself.mod_id != ctx.user.id:
+                    return
                 active = not viewself.use_swears_list
                 viewself.use_swears_list = active
                 viewself.guild.set.text.use_preset_swears_list(active)
@@ -109,6 +124,8 @@ class views:
                 row=1
             )
             async def toggle_slurs(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if viewself.mod_id != ctx.user.id:
+                    return
                 active = not viewself.use_slurs_list
                 viewself.use_slurs_list = active
                 viewself.guild.set.text.use_preset_slurs_list(active)
@@ -133,6 +150,8 @@ class views:
                 row=1
             )
             async def toggle_softnsfw(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if viewself.mod_id != ctx.user.id:
+                    return
                 active = not viewself.use_lessnsfw_list
                 viewself.use_lessnsfw_list = active
                 viewself.guild.set.text.use_preset_lessnsfw_list(active)
@@ -157,6 +176,8 @@ class views:
                 row=1
             )
             async def toggle_hard_nsfw(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if viewself.mod_id != ctx.user.id:
+                    return
                 active = not viewself.use_hardnsfw_list
                 viewself.use_hardnsfw_list = active
                 viewself.guild.set.text.use_preset_hardnsfw_list(active)
@@ -175,4 +196,4 @@ class views:
                     )
                 )
 
-        return Menu_Init()
+        return Menu_Init(timeout=60)

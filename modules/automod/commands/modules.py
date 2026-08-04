@@ -18,7 +18,7 @@ class command(
     async def invoke(self, ctx: lightbulb.Context) -> None:
         await prechecks("list-modules", ctx, hikari.Permissions.ADMINISTRATOR)
 
-        view = views(ctx.guild_id)
+        view = views(ctx.guild_id, ctx.user.id)
         embed = view.gen_embed()
         view_menu = view.init_view()
 

@@ -18,15 +18,17 @@ class command(
     async def invoke(self, ctx: lightbulb.Context) -> None:
         await prechecks("text-am-menu", ctx, hikari.Permissions.ADMINISTRATOR)
 
-        view = views(ctx.guild_id)
+        view = views(ctx.guild_id, ctx.user.id)
         embed = view.gen_embed()
         view_menu = view.init_view()
 
-        await ctx.respond(
+        resp = await ctx.respond(
             embed=embed,
             components=view_menu.build(),
             flags=hikari.MessageFlag.EPHEMERAL
         )
+        view.ctx = ctx
+        view.resp = resp
 
         miru_client.start_view(view_menu)
         await view_menu.wait()

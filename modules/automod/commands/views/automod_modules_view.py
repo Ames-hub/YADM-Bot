@@ -3,9 +3,10 @@ import hikari
 import miru
 
 class views:
-    def __init__(self, guild_id):
+    def __init__(self, guild_id:int, mod_id:int):
         self.guild_id = guild_id
         self.guild = dbguild(self.guild_id)
+        self.mod_id = mod_id
 
     def gen_embed(self):
         do_txt_scan = self.guild.get.do_text_scan()
@@ -50,6 +51,8 @@ class views:
                 style=active_style if viewself.guild.get.do_text_scan() else inactive_style
             )
             async def toggle_text_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if viewself.mod_id != ctx.user.id:
+                    return
                 current = viewself.guild.get.do_text_scan()
                 new_state = not current
 
@@ -63,6 +66,8 @@ class views:
                 style=active_style if viewself.guild.get.do_image_filtering() else inactive_style
             )
             async def toggle_nsfw_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if viewself.mod_id != ctx.user.id:
+                    return
                 current = viewself.guild.get.do_image_filtering()
                 new_state = not current
 
@@ -76,6 +81,8 @@ class views:
                 style=active_style if viewself.guild.get.do_filter_spam() else inactive_style,
             )
             async def toggle_spam_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if viewself.mod_id != ctx.user.id:
+                    return
                 current = viewself.guild.get.do_filter_spam()
                 new_state = not current
 
@@ -84,8 +91,20 @@ class views:
 
                 await ctx.edit_response(viewself.gen_embed(), components=self)
 
+            async def on_timeout(self) -> None:
+                await viewself.ctx.edit_response(
+                    viewself.resp,
+                    embed=hikari.Embed(
+                        title="Menu Exitted",
+                        description="This menu has closed itself after being left open for too long."
+                    ),
+                    components=[]
+                )
+
             @miru.button(label="Exit", style=hikari.ButtonStyle.DANGER, row=2)
             async def stop_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if viewself.mod_id != ctx.user.id:
+                    return
                 await ctx.edit_response(
                     hikari.Embed(
                         title="Exitting menu.",
@@ -95,4 +114,4 @@ class views:
                 )
                 self.stop()
 
-        return Menu_Init()
+        return Menu_Init(timeout=60)

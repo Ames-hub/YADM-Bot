@@ -1,7 +1,7 @@
 from library.database.reaction_roles import rr_group, rr_errors, get_emoji_type
 from library.database.auditing import server_logs
 from modules.reaction_roles.group import group
-from library.permissions import perms
+from library.permissions import prechecks
 import lightbulb
 import hikari
 
@@ -22,7 +22,7 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
-        await perms.perms_precheck(hikari.Permissions.MANAGE_ROLES, ctx)
+        await prechecks("add-rr", ctx, hikari.Permissions.MANAGE_ROLES)
 
         emoji_data = get_emoji_type(self.emoji)
         emoji_type = emoji_data['type']

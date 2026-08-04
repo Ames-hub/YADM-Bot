@@ -3,9 +3,10 @@ import hikari
 import miru
 
 class views:
-    def __init__(self, guild_id):
+    def __init__(self, guild_id, mod_id):
         self.guild_id = guild_id
         self.guild = dbguild(self.guild_id)
+        self.mod_id = mod_id
         self.set_category = self.guild.set.text.checks
         self.get_category = self.guild.get.text.checks
         self.guild.set_automod_defaults()  # This only effects things IF no settings have been made already.
@@ -109,6 +110,8 @@ class views:
 
             @miru.button(label="Exit", style=hikari.ButtonStyle.DANGER, row=3)
             async def stop_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if viewself.mod_id != ctx.user.id:
+                    return
                 await ctx.edit_response(
                     hikari.Embed(
                         title="Exiting menu.",
@@ -118,12 +121,24 @@ class views:
                 )
                 self.stop()
 
+            async def on_timeout(self) -> None:
+                await viewself.ctx.edit_response(
+                    viewself.resp,
+                    embed=hikari.Embed(
+                        title="Menu Exitted",
+                        description="This menu has closed itself after being left open for too long."
+                    ),
+                    components=[]
+                )
+
             @miru.button(
                 label="Toggle Equality",
                 style=active_style if viewself.get_category.equality_check() else inactive_style,
                 row=0
             )
             async def toggle_equality_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if viewself.mod_id != ctx.user.id:
+                    return
                 active = not viewself.get_category.equality_check()
                 viewself.set_category.equality_check(active)
                 button.style = active_style if active else inactive_style
@@ -135,6 +150,8 @@ class views:
                 row=0
             )
             async def toggle_symbol_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if viewself.mod_id != ctx.user.id:
+                    return
                 active = not viewself.get_category.symbol_check()
                 viewself.set_category.symbol_check(active)
                 button.style = active_style if active else inactive_style
@@ -146,6 +163,8 @@ class views:
                 row=0
             )
             async def toggle_collapsed_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if viewself.mod_id != ctx.user.id:
+                    return
                 active = not viewself.get_category.collapsed_check()
                 viewself.set_category.collapsed_check(active)
                 button.style = active_style if active else inactive_style
@@ -157,6 +176,8 @@ class views:
                 row=1
             )
             async def toggle_spacehack_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if viewself.mod_id != ctx.user.id:
+                    return
                 active = not viewself.get_category.spacehack_check()
                 viewself.set_category.spacehack_check(active)
                 button.style = active_style if active else inactive_style
@@ -168,6 +189,8 @@ class views:
                 row=1
             )
             async def toggle_letterstitch_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if viewself.mod_id != ctx.user.id:
+                    return
                 active = not viewself.get_category.letter_stitch_check()
                 viewself.set_category.letter_stitch_check(active)
                 button.style = active_style if active else inactive_style
@@ -179,6 +202,8 @@ class views:
                 row=1
             )
             async def toggle_reverse_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if viewself.mod_id != ctx.user.id:
+                    return
                 active = not viewself.get_category.reverse_check()
                 viewself.set_category.reverse_check(active)
                 button.style = active_style if active else inactive_style
@@ -190,6 +215,8 @@ class views:
                 row=2
             )
             async def toggle_similarity_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if viewself.mod_id != ctx.user.id:
+                    return
                 active = not viewself.get_category.similarity_check()
                 viewself.set_category.similarity_check(active)
                 button.style = active_style if active else inactive_style
@@ -201,9 +228,11 @@ class views:
                 row=2
             )
             async def toggle_syntactic_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if viewself.mod_id != ctx.user.id:
+                    return
                 active = not viewself.get_category.syntactic_analysis()
                 viewself.set_category.syntactic_analysis(active)
                 button.style = active_style if active else inactive_style
                 await ctx.edit_response(viewself.gen_embed(), components=self)
 
-        return Menu_Init()
+        return Menu_Init(timeout=60)

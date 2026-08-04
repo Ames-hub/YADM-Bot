@@ -234,7 +234,7 @@ async def handle_guilty(
         whistleblower:str,
         get_msg_id:bool=False,
         get_case_id:bool=False,
-        flagged_word:str=None
+        automod_report:dict=None
     ):
     """
     A Helper function to handle message content infractions.
@@ -252,8 +252,6 @@ async def handle_guilty(
     :type get_msg_id: bool
     :param get_case_id: Return the Case ID for this violation
     :type get_case_id: bool
-    :param flagged_word: Which word actually caused the automod to trigger?
-    :type flagged_word: str
     """
     if observe_conf.get_enabled():
         observe_only_list = observe_conf.get_list()
@@ -264,12 +262,11 @@ async def handle_guilty(
     bm.benchmark(f"Beginning penalty sequence for user {event.author.id}.")
     user_key = (event.guild_id, event.author.id)
 
-    if flagged_word is not None and automod_type != automod_types.TEXT_FILTER:
-        raise ValueError("Only text filter can set a flagged word")
-    else:
-        if automod_type == automod_types.TEXT_FILTER:
-            # IF the automod type is text filter, then flagged word MUST be provided.
-            flagged_word = flagged_word.replace("\n", "")
+    flagged_word = None
+    if automod_type == automod_types.TEXT_FILTER:
+        # IF the automod type is text filter, then flagged word MUST be provided.
+        flagged_word = automod_report['flagged_word']
+        flagged_word = flagged_word.replace("\n", "")
 
     if user_key not in _active_punishments:
         _active_punishments[user_key] = asyncio.Lock()
@@ -299,10 +296,20 @@ async def handle_guilty(
 
             bm.benchmark("Guild name found")
 
+            esc_window = guild.get.escalation_window()
+            current_warnings = len(guild.warnings.get_by_user(event.author.id, escalation_window=esc_window))
+
+            use_escalation = False
             if automod_type == automod_types.TEXT_FILTER:
                 cat_check = guild.get.text
                 violation = (
                     f"User <@{event.author.id}> ({event.author.username}) broke messaging content moderation rules, which banned the word \"{flagged_word}\"\n\n"
+                )
+                use_escalation = guild.get.do_escalate()
+                extra_info = (
+                    f"The word '{automod_report['suspected_word']}' was "
+                    f"compared against the word {automod_report['flagged_word']} with the {automod_report['whistleblower']} check, "
+                    "and the message was found to be in violation."
                 )
             elif automod_type == automod_types.SPAM_FILTER:
                 cat_check = guild.get.spam
@@ -310,11 +317,18 @@ async def handle_guilty(
                 violation = (
                     f"User <@{event.author.id}> ({event.author.username}) broke spam moderation rules by sending too many messages in a short period of time."
                 )
+                extra_info = (
+                    f"User was flagged for sending an average of {automod_report['mps']} messages per second, which was sustained for "
+                    f"{automod_report['sustained_for']} seconds."
+                )
             elif automod_type == automod_types.IMAGE_FILTER:
                 cat_check = guild.get.images
-                
                 violation = (
                     f"User <@{event.author.id}> ({event.author.username}) sent an image that was flagged as NSFW by the {get.bot_name()} automod system."
+                )
+                extra_info = (
+                    f"An image that {"has been seen before" if automod_report['seen_before'] else "has been newly catalogued"} "
+                    f"was detected by the Image-scanner for NSFW Content and flagged with {automod_report['certainty']}% certainty."
                 )
 
             bm.benchmark("Violation message created.")
@@ -322,6 +336,12 @@ async def handle_guilty(
             if cat_check.do_announce_infraction():
                 try:
                     msg = await event.message.respond(alert_embed)
+                except (hikari.ForbiddenError, hikari.NotFoundError, hikari.UnauthorizedError):
+                    return False
+            else:
+                # Send it privately
+                try:
+                    msg = await event.author.send(alert_embed)
                 except (hikari.ForbiddenError, hikari.NotFoundError, hikari.UnauthorizedError):
                     return False
 
@@ -334,7 +354,8 @@ async def handle_guilty(
                     time=datetime.datetime.now(),
                     violation=violation,
                     automated=True,
-                    whistleblower=whistleblower
+                    whistleblower=whistleblower,
+                    extra_info=extra_info
                 )
             )
             bm.benchmark("Member violation created.")
@@ -346,17 +367,31 @@ async def handle_guilty(
 
             # if we're not to mute, put them on cooldown if told to do so. (Cooldown is a short, short mute)
             if cat_check.do_cooldown() and not do_mute_member:
-                await guild.muting.mute_member(
-                    user_id=event.author.id,
-                    reason="VIOLATION AUTO COOLDOWN: " + violation,
-                    moderator_id=botapp.get_me().id,
-                    duration_s=30,  # 30 sec mute for spam. TODO: Make this configurable.
-                    is_cooldown=True
-                )
+                if use_escalation:
+                    if current_warnings == cat_check.escalation.cooldown_threshold():
+                        await guild.muting.mute_member(
+                            user_id=event.author.id,
+                            reason="VIOLATION AUTO COOLDOWN: " + violation,
+                            moderator_id=botapp.get_me().id,
+                            duration_s=30,  # 30 sec mute for spam. TODO: Make this configurable.
+                            is_cooldown=True
+                        )
+                else:
+                    await guild.muting.mute_member(
+                        user_id=event.author.id,
+                        reason="VIOLATION AUTO COOLDOWN: " + violation,
+                        moderator_id=botapp.get_me().id,
+                        duration_s=30,  # 30 sec mute for spam. TODO: Make this configurable.
+                        is_cooldown=True
+                    )
 
             do_del_msg = cat_check.do_delete_msg()
             if do_del_msg:
-                await event.message.delete()
+                if use_escalation:
+                    if current_warnings == cat_check.escalation.msg_deletion():
+                        await event.message.delete()
+                else:
+                    await event.message.delete()
             if cat_check.do_warn_member():
                 guild.warnings.add_warning(
                     reason=violation,
@@ -372,19 +407,29 @@ async def handle_guilty(
                     duration_s=mute_duration,
                 )
             if cat_check.do_kick_member():
+                kick_msg = hikari.Embed(
+                    title="Kicked",
+                    description=f"You've been detected as breaking the rules of {guild_name} and have been kicked.\nReason: {violation}"
+                )
                 if cat_check.do_announce_kick():
+                    if use_escalation:
+                        if current_warnings == cat_check.escalation.kick_member():
+                            try:
+                                msg = await event.member.send(kick_msg)
+                            except (hikari.ForbiddenError, hikari.BadRequestError, hikari.UnauthorizedError):
+                                pass
+                else:
                     try:
-                        msg = await event.member.send(
-                            embed=hikari.Embed(
-                                title="Kicked",
-                                description=f"You've been detected as breaking the rules of {guild_name} and have been kicked.\nReason: {violation}"
-                            )
-                        )
+                        msg = await event.member.send(kick_msg)
                     except (hikari.ForbiddenError, hikari.BadRequestError, hikari.UnauthorizedError):
                         pass
 
                 try:
-                    await event.member.kick(reason=violation)
+                    if use_escalation:
+                        if current_warnings == cat_check.escalation.kick_member():
+                            await event.member.kick(reason=violation)
+                    else:
+                        await event.member.kick(reason=violation)
                 except (hikari.ForbiddenError, hikari.UnauthorizedError):
                     await logs.create_entry(
                         hikari.Embed(
@@ -398,8 +443,18 @@ async def handle_guilty(
                 delete_msg_seconds = cat_check.get_ban_msg_purgetime()
 
                 announce_ban = cat_check.do_announce_ban()
-                if announce_ban:
-                    try:
+                try:
+                    if use_escalation:
+                        if current_warnings == cat_check.escalation.ban_member():
+                            await guild.bans.ban_user(
+                                banned_id=event.author.id,
+                                moderator_id=botapp.get_me().id,
+                                msg_del_duration=delete_msg_seconds,
+                                ban_seconds=cat_check.ban_duration(),
+                                reason=violation,
+                                announce_ban=announce_ban
+                            )
+                    else:
                         await guild.bans.ban_user(
                             banned_id=event.author.id,
                             moderator_id=botapp.get_me().id,
@@ -408,13 +463,13 @@ async def handle_guilty(
                             reason=violation,
                             announce_ban=announce_ban
                         )
-                    except hikari.ForbiddenError:
-                        await logs.create_entry(
-                            hikari.Embed(
-                                title="Error Banning User!",
-                                description=f"I couldn't ban {event.author.mention} even though they broke rules!\nViolation: {violation}"
-                            )
+                except hikari.ForbiddenError:
+                    await logs.create_entry(
+                        hikari.Embed(
+                            title="Error Banning User!",
+                            description=f"I couldn't ban {event.author.mention} even though they broke rules!\nViolation: {violation}"
                         )
+                    )
 
             bm.benchmark("Penalty dispatched to user account.")
 
@@ -433,6 +488,10 @@ async def handle_guilty(
                 )
             if automod_type == automod_types.SPAM_FILTER:
                 logs_embed.add_field(name="❄️ Time-out", value="User has been put in a 30 second time-out for spamming messages.")
+            logs_embed.add_field(
+                name="Review",
+                value=f"To review this incident in more detail, run `/automod violation` using **Case ID {case_id}**"
+            )
 
             await logs.create_entry(logs_embed)
 
@@ -461,7 +520,7 @@ class checks:
             text = str(text)
             for symbol in [
                 "!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "_", "+", ",", "\"", "'", "." ";", ":", "\\", "|", "{", "}",
-                "1", "2", "3", "4", "5", "6", "7", "8", "9", "0"
+                "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "?"
                 ]:
                 text = text.replace(symbol, "")
             return text
@@ -594,7 +653,7 @@ class checks:
                     elif subject == "self":
                         return self.verdict.ALLOW_SELF_DIRECTED, result
                     else:
-                        return self.verdict.ALLOW_OK, None  # Allow it, its inconclusive.
+                        continue  # Allow it, its inconclusive.
 
             return self.verdict.ALLOW_OK, None
 
@@ -782,6 +841,7 @@ class checks:
                 """
                 Reverse Check. Reverses text and sees if people tried to hide it that way.
                 """
+                text = checks.helpers.remove_symbols(text)
                 for word in text.split():
                     reversed_word = checks.helpers.reverse_text(word)
                     if reversed_word in bad_word_list:
@@ -799,23 +859,20 @@ class checks:
                         similarity = SequenceMatcher(None, a=word, b=bad_word).ratio()
                         if similarity >= threshold:
                             # Similarity is a wild-card check, so we do one final check to verify their guilt or innocence.
-                            do_continue = False
-                            for word in text.lower().split(" "):
-                                if word in PRESET_WORD_WHITELIST:
-                                    do_continue = True  # Continue on with the check as its whitelisted. Go through the rest of the words in the text.
-
-                            if do_continue:
-                                continue  # Go to the next bad word
+                            if word in PRESET_WORD_WHITELIST:
+                                continue  # Continue on with the check as its whitelisted. Go through the rest of the words in the text.
 
                             return {
                                 "bad": True,
                                 "sim": similarity,
-                                "word": bad_word 
+                                "word": bad_word,
+                                "flagged_word": word,
                             }
                 return {
                     "bad": False,
                     "sim": 0.0,
-                    "word": None
+                    "word": None,
+                    "flagged_word": None
                 }
 
             @staticmethod

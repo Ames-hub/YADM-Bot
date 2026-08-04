@@ -5,10 +5,11 @@ import hikari
 import miru
 
 class views:
-    def __init__(self, guild_id, automod_category:int):
+    def __init__(self, guild_id, automod_category:int, mod_id:int):
         self.guild_id = guild_id
         self.guild = dbguild(self.guild_id)
         self.automod_category = automod_category
+        self.mod_id = mod_id
 
         # 🔹 Ensure guild row exists before doing anything else
         if not self.guild.exists_in_db():
@@ -177,6 +178,8 @@ class views:
 
             @miru.button(label="Exit", style=hikari.ButtonStyle.DANGER, row=4)
             async def stop_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if viewself.mod_id != ctx.user.id:
+                    return
                 await ctx.edit_response(
                     hikari.Embed(
                         title="Exitting menu.",
@@ -186,12 +189,24 @@ class views:
                 )
                 self.stop()
 
+            async def on_timeout(self) -> None:
+                await viewself.ctx.edit_response(
+                    viewself.resp,
+                    embed=hikari.Embed(
+                        title="Menu Exitted",
+                        description="This menu has closed itself after being left open for too long."
+                    ),
+                    components=[]
+                )
+
             @miru.button(
                 label="Toggle Deleting",
                 style=active_style if viewself.get_category.do_delete_msg() else inactive_style,
                 row=1
             )
             async def toggle_del_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if viewself.mod_id != ctx.user.id:
+                    return
                 active = not viewself.get_category.do_delete_msg()
                 viewself.set_category.do_delete_msg(active)
                 button.style = active_style if active else inactive_style
@@ -215,6 +230,8 @@ class views:
                 row=1
             )
             async def toggle_warn_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if viewself.mod_id != ctx.user.id:
+                    return
                 active = not viewself.get_category.do_warn_member()
                 viewself.set_category.do_warn_member(active)
                 button.style = active_style if active else inactive_style
@@ -238,6 +255,8 @@ class views:
                 row=1
             )
             async def toggle_mute_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if viewself.mod_id != ctx.user.id:
+                    return
                 active = not viewself.get_category.do_mute_member()
                 viewself.set_category.do_mute_member(active)
                 button.style = active_style if active else inactive_style
@@ -261,6 +280,8 @@ class views:
                 row=2
             )
             async def toggle_kick_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if viewself.mod_id != ctx.user.id:
+                    return
                 active = not viewself.get_category.do_kick_member()
                 viewself.set_category.do_kick_member(active)
                 button.style = active_style if active else inactive_style
@@ -284,6 +305,8 @@ class views:
                 row=2
             )
             async def toggle_ban_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if viewself.mod_id != ctx.user.id:
+                    return
                 active = not viewself.get_category.do_ban_member()
                 viewself.set_category.do_ban_member(active)
                 button.style = active_style if active else inactive_style
@@ -307,6 +330,8 @@ class views:
                 row=2
             )
             async def toggle_cooldown_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if viewself.mod_id != ctx.user.id:
+                    return
                 active = not viewself.get_category.do_cooldown()
                 viewself.set_category.do_cooldown(active)
                 button.style = active_style if active else inactive_style
@@ -330,6 +355,8 @@ class views:
                 row=3
             )
             async def toggle_announce_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if viewself.mod_id != ctx.user.id:
+                    return
                 active = not viewself.get_category.do_announce_infraction()
                 viewself.set_category.do_announce_infraction(active)
                 button.style = active_style if active else inactive_style
@@ -338,7 +365,9 @@ class views:
                     hikari.Embed(
                         title=f"{viewself.category_text.capitalize()} Setting Changed",
                         description=(
-                            f"User violations will now {'be announced' if active else 'not be announced'} on {viewself.category_text} infractions."
+                            f"User violations will now be announced on {viewself.category_text} infractions."
+                            if active else
+                            f"User violations will not be announced on {viewself.category_text} infractions, and will be sent as a DM to the offender."
                         ),
                         colour=0x00FF00 if active else 0xFFA500
                     )
@@ -353,6 +382,8 @@ class views:
                 row=3
             )
             async def toggle_announce_kick_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if viewself.mod_id != ctx.user.id:
+                    return
                 active = not viewself.get_category.do_announce_kick()
                 viewself.set_category.do_announce_kick(active)
                 button.style = active_style if active else inactive_style
@@ -376,6 +407,8 @@ class views:
                 row=3
             )
             async def toggle_announce_ban_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if viewself.mod_id != ctx.user.id:
+                    return
                 active = not viewself.get_category.do_announce_ban()
                 viewself.set_category.do_announce_ban(active)
                 button.style = active_style if active else inactive_style
@@ -393,4 +426,4 @@ class views:
                     )
                 )
 
-        return Menu_Init()
+        return Menu_Init(timeout=60)

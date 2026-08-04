@@ -63,7 +63,8 @@ async def botfunction(event: hikari.GuildMessageCreateEvent):
             alert_embed=embed,
             get_msg_id=True,
             automod_type=automod.automod_types.IMAGE_FILTER,
-            whistleblower="Image Filter"
+            whistleblower="Image Filter",
+            automod_report={"img_hash": img_hash, "seen_before": is_tracked, "img_bytes": image_bytes, "certainty": result['probability']}
         )
 
         if not is_tracked:

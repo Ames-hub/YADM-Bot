@@ -11,23 +11,25 @@ loader = lightbulb.Loader()
 @spam_subgroup.register
 class command(
     lightbulb.SlashCommand,
-    name="settings",
-    description="Menu for changing your automod's anti-spam settings!"
+    name="penalties",
+    description="Menu for changing your automod's anti-spam penalty settings!"
 ):
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
         await prechecks("spam-am-settings", ctx, hikari.Permissions.ADMINISTRATOR)
 
-        view = views(ctx.guild_id, automod_types.SPAM_FILTER)
+        view = views(ctx.guild_id, automod_types.SPAM_FILTER, ctx.user.id)
         embed = view.gen_embed()
         view_menu = view.init_view()
 
-        await ctx.respond(
+        resp = await ctx.respond(
             embed=embed,
             components=view_menu.build(),
             flags=hikari.MessageFlag.EPHEMERAL
         )
+        view.ctx = ctx
+        view.resp = resp
 
         miru_client.start_view(view_menu)
         await view_menu.wait()

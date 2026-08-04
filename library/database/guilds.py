@@ -10,7 +10,8 @@ from library.database.manage import (
     guild_member_warnings,
     guild_imagescan_threshold,
     guild_ban_record,
-    guild_text_automod_text_checks
+    guild_text_automod_text_checks,
+    guild_text_automod_escalation_settings
 )
 from library.database.auditing import logs_config
 from library.database.auditing import server_logs
@@ -100,7 +101,7 @@ class muting:
                 await server_logs(self.guild_id).create_entry(
                     hikari.Embed(
                         title="Member muted",
-                        description=f"<@{user_id}> has been muted by <@{moderator_id}> until <t:{datetime.datetime.now().timestamp() + duration_s}>",
+                        description=f"<@{user_id}> has been muted by <@{moderator_id}> until <t:{int(datetime.datetime.now().timestamp() + duration_s)}>",
                         colour=0x850101
                     )
                 )
@@ -229,7 +230,8 @@ class violations:
         time: datetime,
         violation: str,
         automated: bool,
-        whistleblower: str
+        whistleblower: str,
+        extra_info: str,
     ) -> int:
 
         reporter_id = int(reporter_id)
@@ -246,7 +248,8 @@ class violations:
                 time=time,
                 violation=violation,
                 automated=automated,
-                whistleblower=whistleblower
+                whistleblower=whistleblower,
+                extra_info=extra_info
             )
             session.add(record)
             session.commit()
@@ -360,6 +363,14 @@ class _spam_filter_penalty_get:
         finally:
             session.close()
 
+    def mps_time_limit(self):
+        record = self._get_record()
+        return record.mps_time_limit if record else False
+
+    def mps_limit(self):
+        record = self._get_record()
+        return record.mps_limit if record else False
+
     def do_delete_msg(self):
         record = self._get_record()
         return record.penalty_delete_message if record else False
@@ -455,21 +466,75 @@ class _text_filter_checks_enabled_get:
         record = self._get_record()
         return record.syntactic_analysis if record else False
 
+class text_filter_penalties_escalation_get:
+    def __init__(self, guild_id):
+        self.guild_id = guild_id
+
+    def _get_record(self) -> guild_text_automod_escalation_settings:
+        with get_session() as session:
+            record = (
+                session.query(guild_text_automod_escalation_settings)
+                .filter(guild_text_automod_escalation_settings.guild_id == self.guild_id)
+                .one_or_none()
+            )
+            if not record:
+                record = guild_text_automod_escalation_settings(
+                    guild_id=self.guild_id
+                )
+                session.add(record)
+                session.commit()
+                record = (
+                    session.query(guild_text_automod_escalation_settings)
+                    .filter(guild_text_automod_escalation_settings.guild_id == self.guild_id)
+                    .one_or_none()
+                )
+            return record
+
+    def msg_deletion(self):
+        record = self._get_record()
+        return record.del_msg_threshold
+
+    def cooldown_threshold(self):
+        record = self._get_record()
+        return record.cooldown_threshold
+
+    def mute_threshold(self):
+        record = self._get_record()
+        return record.mute_threshold
+
+    def kick_member(self):
+        record = self._get_record()
+        return record.kick_member_threshold
+
+    def ban_member(self):
+        record = self._get_record()
+        return record.ban_member_threshold
+
 class _text_filter_penalty_get:
     def __init__(self, guild_id):
         self.guild_id = guild_id
         self.checks = _text_filter_checks_enabled_get(guild_id)
+        self.escalation = text_filter_penalties_escalation_get(guild_id)
 
     def _get_record(self):
-        session = get_session()
-        try:
-            return (
+        with get_session() as session:
+            record = (
                 session.query(guild_text_automod_settings)
                 .filter(guild_text_automod_settings.guild_id == self.guild_id)
                 .one_or_none()
             )
-        finally:
-            session.close()
+            if not record:
+                record = guild_text_automod_settings(
+                    guild_id=self.guild_id
+                )
+                session.add(record)
+                session.commit()
+                record = (
+                    session.query(guild_text_automod_settings)
+                    .filter(guild_text_automod_settings.guild_id == self.guild_id)
+                    .one_or_none()
+                )
+            return record
 
     def do_delete_msg(self):
         record = self._get_record()
@@ -557,6 +622,14 @@ class automod_get:
         finally:
             session.close()
 
+    def do_escalate(self):
+        record = self._get_record()
+        return record.do_escalate
+
+    def escalation_window(self):
+        record = self._get_record()
+        return record.escalation_window
+
     def muted_role_id(self):
         record = self._get_record()
         return record.muted_role_id if record else None
@@ -640,10 +713,58 @@ class _text_filter_checks_set:
     def syntactic_analysis(self, value: bool):
         return self._update(syntactic_analysis=value)
 
+class text_filter_penalties_escalation_set:
+    def __init__(self, guild_id):
+        self.guild_id = guild_id
+
+    def _update(self, **fields):
+        session = get_session()
+        try:
+            record = (
+                session.query(guild_text_automod_escalation_settings)
+                .filter(guild_text_automod_escalation_settings.guild_id == self.guild_id)
+                .one_or_none()
+            )
+
+            if not record:
+                record = guild_text_automod_escalation_settings(
+                    guild_id=self.guild_id,
+                    **fields
+                )
+                session.add(record)
+            else:
+                for key, value in fields.items():
+                    setattr(record, key, value)
+
+            session.commit()
+            return True
+        except SQLAlchemyError as err:
+            logging.error("Error updating text automod settings!", exc_info=err)
+            session.rollback()
+            return False
+        finally:
+            session.close()
+
+    def msg_deletion(self, value:int):
+        return self._update(del_msg_threshold=value)
+
+    def cooldown_threshold(self, value:int):
+        return self._update(cooldown_threshold=value)
+
+    def mute_threshold(self, value:int):
+        return self._update(mute_threshold=value)
+
+    def kick_member(self, value:int):
+        return self._update(kick_member_threshold=value)
+
+    def ban_member(self, value:int):
+        return self._update(ban_member_threshold=value)
+
 class _text_filter_penalties_set:
     def __init__(self, guild_id):
         self.guild_id = guild_id
         self.checks = _text_filter_checks_set(guild_id)
+        self.escalation = text_filter_penalties_escalation_set(guild_id)
 
     def _update(self, **fields):
         session = get_session()
@@ -756,6 +877,12 @@ class _spam_filter_set:
         finally:
             session.close()
 
+    def mps_time_limit(self, value:int):
+        return self._update(mps_time_limit=value)
+
+    def mps_limit(self, value:int):
+        return self._update(mps_limit=value)
+
     def do_delete_msg(self, value: bool):
         return self._update(penalty_delete_message=value)
 
@@ -866,6 +993,44 @@ class automod_set:
         self.text = _text_filter_penalties_set(guild_id)
         self.spam = _spam_filter_set(guild_id)
         self.images = _image_filter_set(guild_id)
+
+    def do_escalate(self, value:bool):
+        value = bool(value)
+        with get_session() as session:
+            record = (
+                session.query(guild_automod_settings)
+                .filter(guild_automod_settings.guild_id == self.guild_id)
+                .one_or_none()
+            )
+            if not record:
+                record = guild_automod_settings(
+                    guild_id=self.guild_id,
+                    do_escalate=value
+                )
+                session.add(record)
+            else:
+                record.do_escalate = value
+            session.commit()
+        return True
+
+    def escalation_window(self, value:int):
+        value = int(value)
+        with get_session() as session:
+            record = (
+                session.query(guild_automod_settings)
+                .filter(guild_automod_settings.guild_id == self.guild_id)
+                .one_or_none()
+            )
+            if not record:
+                record = guild_automod_settings(
+                    guild_id=self.guild_id,
+                    escalation_window=value
+                )
+                session.add(record)
+            else:
+                record.escalation_window = value
+            session.commit()
+        return True
 
     def nsfw_scan_threshold(self, threshold:float):
         session = get_session()
@@ -1115,7 +1280,7 @@ class guild_warnings:
         finally:
             session.close()
 
-    def get_by_user(self, user_id):
+    def get_by_user(self, user_id, escalation_window:int=None):
         session = get_session()
         try:
             records = (
@@ -1124,8 +1289,14 @@ class guild_warnings:
                     guild_member_warnings.user_id == user_id,
                     guild_member_warnings.guild_id == self.guild_id
                 )
-                .all()
             )
+            if escalation_window:
+                escalation_window_start = datetime.datetime.fromtimestamp(
+                    (datetime.datetime.now().timestamp() - escalation_window)
+                )
+                records = records.filter(guild_member_warnings.time >= escalation_window_start)
+            records = records.all()
+            return records
         except SQLAlchemyError:
             return {}
         finally:
@@ -1518,6 +1689,8 @@ class dbguild:
         self.set.text.do_cooldown(True)
         self.set.text.do_kick_member(False)
         self.set.text.do_ban_member(False)
+        self.set.text.do_mute_member(True)
+        self.set.text.set_mute_duration(604800)
         self.set.text.checks.equality_check(True)
         self.set.text.checks.symbol_check(True)
         self.set.text.checks.collapsed_check(True)
@@ -1526,6 +1699,11 @@ class dbguild:
         self.set.text.checks.reverse_check(True)
         self.set.text.checks.similarity_check(True)
         self.set.text.checks.syntactic_analysis(True)
+
+        # Configure text punishment escalation
+        self.set.text.escalation.msg_deletion(1)
+        self.set.text.escalation.cooldown_threshold(2)
+        self.set.text.escalation.mute_threshold(3)
 
         # Set spam rule  settings
         self.set.spam.do_announce_infraction(True)

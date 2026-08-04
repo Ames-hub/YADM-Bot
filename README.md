@@ -198,7 +198,7 @@ All commands are slash commands -- just type `/` and start typing!
 ## Getting Started
 
 ### 1. Invite Nodeus
-Invite the bot with this link:
+Invite the bot with this link:<br>
 https://discord.com/oauth2/authorize?client_id=1461801438446616618
 
 ### 2. Run One-Time Setup
@@ -246,7 +246,7 @@ Nodeus supports self-hosting for those who want full control over their setup. I
 A: No! Nodeus uses **discriminative AI** for image detection, the same technology your phone uses to recognize faces. It's lightweight, private, and runs locally.
 
 **Q: Will Nodeus work on large servers?**
-A: Yes! With PostgreSQL and production mode enabled, Nodeus can handle hundreds of servers and thousands of messages efficiently.
+A: Yes! With PostgreSQL and production mode enabled, Nodeus can handle hundreds of servers and thousands of messages efficiently. In fact, under testing, Nodeus could read, and check one thousand messages against all 8 security layers in a little under 8 seconds.
 
 **Q: Can I use my own banned word list?**
 A: Absolutely! Use `/automod wordlist add` to add custom words. You can also choose which preset lists to use.
@@ -256,7 +256,8 @@ A: Just turn it off! Use `/automod text checks` to toggle any detection method o
 
 **Q: Does Nodeus store message content?**
 A: Only violations are stored (for audit purposes). Normal messages are processed in memory and discarded.
-When using the official instance, if you consent to it and are *SPECIFICALLY ASKED BY THE PROJECT MAINTAINER*, Nodeus will store all messages created on the server for manual review to check automod quality.
+
+However, when using the official instance, if you consent to it and are *SPECIFICALLY ASKED BY THE PROJECT MAINTAINER*, Nodeus will store all messages created on the server for manual review to check automod quality. Nodeus will not store messages like this unless you are okay with it.
 
 ---
 

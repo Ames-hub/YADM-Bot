@@ -5,7 +5,6 @@ idiot
 moron
 imbecile
 retard
-slow
 brainless
 dense
 ugly
@@ -36,7 +35,6 @@ chicken
 worm
 simp
 incel
-karen
 snowflake
 boomer
 poon

@@ -31,6 +31,17 @@ class member_violations(Base):
     violation = Column(TEXT, nullable=False)
     automated = Column(BOOLEAN, nullable=False)
     whistleblower = Column(TEXT, nullable=False)
+    extra_info = Column(TEXT, nullable=False, default="No Info Stored.")
+
+class guild_text_automod_escalation_settings(Base):
+    __tablename__ = "guild_text_automod_escalation_settings"
+    
+    guild_id = Column(BigInteger, nullable=False, primary_key=True)
+    del_msg_threshold = Column(Integer, nullable=False, default=1)
+    cooldown_threshold = Column(Integer, nullable=False, default=1)
+    mute_threshold = Column(Integer, nullable=False, default=2)
+    kick_member_threshold = Column(Integer, nullable=False, default=3)
+    ban_member_threshold = Column(Integer, nullable=False, default=4)
 
 class guild_text_automod_settings(Base):
     __tablename__ = "guild_text_automod_settings"
@@ -83,6 +94,8 @@ class guild_spam_automod_settings(Base):
     announce_infraction = Column(BOOLEAN, nullable=False, default=True)
     announce_kick = Column(BOOLEAN, nullable=False, default=True)
     announce_ban = Column(BOOLEAN, nullable=False, default=True)
+    mps_limit = Column(Integer, nullable=False, default=1)
+    mps_time_limit = Column(Integer, nullable=False, default=2)  # How many seconds the MPS limit can be exceeded before its a violation.
 
 class guild_images_automod_settings(Base):
     __tablename__ = "guild_images_automod_settings"
@@ -109,6 +122,8 @@ class guild_automod_settings(Base):
     do_filter_spam = Column(BOOLEAN, nullable=False, default=False)
     do_text_scan = Column(BOOLEAN, nullable=False, default=False)
     muted_role_id = Column(BigInteger, nullable=True, default=None)
+    do_escalate = Column(BOOLEAN, nullable=False, default=True)
+    escalation_window = Column(BigInteger, nullable=False, default=1_209_600)  # 14 Days in seconds. The window is how many seconds must've passed.
 
 class guild_imagescan_threshold(Base):
     __tablename__ = "guild_imagescan_threshold"

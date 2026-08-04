@@ -1,6 +1,7 @@
 from library.database.observations import generate_automod_report
 from library.settings import observe_conf, get
 import lightbulb
+import logging
 import hikari
 
 loader = lightbulb.Loader()
@@ -14,6 +15,7 @@ async def botfunction(event: hikari.GuildMessageCreateEvent):
     if not get.primary_maintainer() == event.author.id:
         return
 
+    logging.info("Developer requested a automod qa report. Providing...")
     pdf_bytes = generate_automod_report()
     file = hikari.Bytes(pdf_bytes, "report.pdf")
 

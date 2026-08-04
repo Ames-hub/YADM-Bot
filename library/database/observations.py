@@ -8,7 +8,7 @@ from reportlab.lib.units import inch
 from reportlab.lib import colors
 import io
 
-def reeval_entry(msg_id:int, new_conclusion: dict|None):
+def reeval_entry(msg_id:int, new_conclusion: str|None):
     with get_session() as session:
         result = (
             session.query(observation_entry)
@@ -18,7 +18,7 @@ def reeval_entry(msg_id:int, new_conclusion: dict|None):
         if not result:
             return False
 
-        result.action = new_conclusion
+        result.bot_response = new_conclusion
         result.reeval_date = datetime.now(timezone.utc)
         session.commit()
     return True

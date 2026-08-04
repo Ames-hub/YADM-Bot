@@ -52,6 +52,7 @@ class views:
                             "• Spam Protection has been enabled\n"
                             "• Image filtering has been enabled\n"
                             "• Text scanning will now a) announce infractions, b) delete messages, c) warn users, d) put users on cooldown.\n"
+                            "• On 3 warnings, the user will be muted temporarily for a span of 1 week."
                             "• Spam protection will now a) announce infractions, b) delete messages, c) warn users, d) put users on cooldown.\n"
                             "• Image filtering will now a) announce infractions, b) delete messages, c) warn users, d) put users on cooldown.\n"
                             "• NSFW image scan threshold has been set to 95% Certainty before action taken\n"

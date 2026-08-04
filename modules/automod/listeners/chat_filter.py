@@ -49,10 +49,13 @@ async def handle_incoming_event(event: hikari.GuildMessageCreateEvent):  # Could
     if guilty:
         desc = f"{event.author.mention}, your message was {"deleted as it was " if guild.get.text.do_delete_msg() else ""}found to violate the rules"
         if whistleblower == "syntactic":
+            suspected_word = result[2]
             desc += "\nInsults against other members will not be tolerated."
         elif whistleblower in ['reversing', 'stitching', 'spacehack']:
+            suspected_word = result[2]
             desc += "\nAttempts to bypass the automoderation are not accepted."
         else:
+            suspected_word = result[2]
             desc += "."  # Adds the full stop at the end.
 
         embed = hikari.Embed(
@@ -66,7 +69,8 @@ async def handle_incoming_event(event: hikari.GuildMessageCreateEvent):  # Could
                 alert_embed=embed,
                 automod_type=automod.automod_types.TEXT_FILTER,
                 whistleblower=full_whistleblower,
-                flagged_word=flagged_word  # Text filter only arg
+                # Text filter only arg. Flagged word = word that is banned, suspected_word = word in users message that tripped the automod.
+                automod_report={'guilty': guilty, 'whistleblower': whistleblower, 'flagged_word': flagged_word, 'suspected_word': suspected_word}
             )
         if do_observe:
             observation = result[3]

@@ -351,7 +351,7 @@ try:
 
     bm.benchmark("All pre-flight checks completed, initalization of bot commencing.")
     botapp.run(
-        shard_count=3 if prod_mode else 1
+        shard_count=5 if prod_mode else 1
     )
 except KeyboardInterrupt:
     print("Interrupt signal received, shutting down...")
