@@ -350,6 +350,7 @@ async def handle_guilty(
             case_id = await asyncio.get_event_loop().run_in_executor(
                 None,
                 lambda: violations.create_member_violation(
+                    guild_id=event.guild_id,
                     reporter_id=botapp.get_me().id,
                     offender_id=event.author.id,
                     time=datetime.datetime.now(),

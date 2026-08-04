@@ -13,7 +13,7 @@ loader = lightbulb.Loader()
 class command(
     lightbulb.SlashCommand,
     name="violation",
-    description="View an individual case/violation ID record from the bot audit logs."
+    description="View an individual case/violation ID record from the internal bot audit logs to see the specifics."
 ):
 
     entry_id = lightbulb.integer("case_id", "The ID of the infraction that was recorded.", min_value=1)
@@ -24,14 +24,17 @@ class command(
 
         item = violations.get_violation_record(self.entry_id)
 
+        not_found_embed = hikari.Embed(
+            title="Not found",
+            description="This violation has not been logged, please check the ID and try again."
+        )
         if item is None:
-            await ctx.respond(
-                hikari.Embed(
-                    title="Not found",
-                    description="This violation has not been logged, please check the ID and try again."
-                )
-            )
+            await ctx.respond(not_found_embed)
             return
+        if item.guild_id != ctx.guild_id:
+            await ctx.respond(not_found_embed)
+            return
+        del not_found_embed
 
         whistleblower_txt = f"\n\nRecorded whistleblower: {item.whistleblower}" if item.whistleblower else ""
         embed = (

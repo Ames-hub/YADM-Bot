@@ -226,6 +226,7 @@ class muting:
 
 class violations:
     def create_member_violation(
+        guild_id:int,
         reporter_id: int,
         offender_id: int,
         time: datetime,
@@ -245,6 +246,7 @@ class violations:
         session = get_session()
         try:
             record = member_violation(
+                guild_id=guild_id,
                 reporter_id=reporter_id,
                 offender_id=offender_id,
                 time=time,
@@ -1554,6 +1556,7 @@ class dbguild:
         cat_check = guild.get.text
         # Always add the violation for the record.
         case_id = violations.create_member_violation(
+            guild_id=self.guild_id,
             reporter_id=mod_id,
             offender_id=user_id,
             time=datetime.datetime.now(),
