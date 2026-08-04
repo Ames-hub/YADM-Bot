@@ -3,6 +3,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from library.database.manage import get_session, observation_entry
 from reportlab.lib.enums import TA_LEFT, TA_CENTER
 from reportlab.lib.pagesizes import letter
+from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timezone
 from reportlab.lib.units import inch
 from reportlab.lib import colors
@@ -26,17 +27,20 @@ def reeval_entry(msg_id:int, new_conclusion: str|None):
 def add_entry(msg_id:int, channel_id:int, username:int, msg_content:str, bot_response:str|None):
     if not isinstance(msg_content, str) or not msg_content:
         return False
-    with get_session() as session:
-        record = observation_entry(
-            timestamp=datetime.now().timestamp(),
-            msg_id=msg_id,
-            username=username,
-            channel_id=channel_id,
-            msg_content=msg_content,
-            bot_response=bot_response,
-        )
-        session.add(record)
-        session.commit()
+    try:
+        with get_session() as session:
+            record = observation_entry(
+                timestamp=datetime.now().timestamp(),
+                msg_id=msg_id,
+                username=username,
+                channel_id=channel_id,
+                msg_content=msg_content,
+                bot_response=bot_response,
+            )
+            session.add(record)
+            session.commit()
+    except IntegrityError:
+        return True  # Already added
     return True
 
 def get_all_entries():
@@ -82,10 +86,11 @@ def generate_automod_report() -> io.BytesIO:
     styles.add(ParagraphStyle(
         name='TableCell',
         parent=styles['Normal'],
-        fontSize=9,
-        leading=12,
+        fontSize=8,
+        leading=10,
         alignment=TA_LEFT,
-        wordWrap='CJK',  # Enables better word wrapping
+        wordWrap='CJK',
+        splitLongWords=True,
         allowWidows=0,
         allowOrphans=0,
     ))
@@ -145,18 +150,33 @@ def generate_automod_report() -> io.BytesIO:
     return buffer
 
 
+def _truncate(text: str, limit: int = 1200) -> str:
+    """Truncate very long table cells so a single row cannot exceed page height."""
+    if not text:
+        return ""
+
+    text = str(text)
+
+    if len(text) <= limit:
+        return text
+
+    return text[:limit] + "<br/><br/><i>[truncated]</i>"
+
+
 def _build_table(entries, styles):
-    """Build a formatted table with proper text wrapping."""
+    """Build a formatted table that safely fits within page bounds."""
+
     table_data = []
-    
+
     # Headers
     headers = ["ID", "Timestamp", "User", "Message", "Bot Response"]
     table_data.append([Paragraph(h, styles["TableHeader"]) for h in headers])
-    
+
     # Data rows
     for entry in entries:
         entry: observation_entry
-        # Format the bot_response nicely if it's a dictionary
+
+        # Format bot response
         bot_response_text = ""
         if entry.bot_response:
             if isinstance(entry.bot_response, dict):
@@ -164,44 +184,69 @@ def _build_table(entries, styles):
             else:
                 bot_response_text = str(entry.bot_response)
 
+        # Truncate very large cells
+        message_text = _truncate(entry.msg_content or "", 800)
+        bot_response_text = _truncate(bot_response_text, 1200)
+
         row = [
             Paragraph(str(entry.msg_id), styles["TableCell"]),
-            Paragraph(datetime.fromtimestamp(entry.timestamp).strftime('%Y-%m-%d %H:%M'), styles["TableCell"]),
-            Paragraph(entry.username or "N/A", styles["TableCell"]),
-            Paragraph(entry.msg_content or "", styles["TableCell"]),
+            Paragraph(
+                datetime.fromtimestamp(entry.timestamp).strftime("%Y-%m-%d %H:%M"),
+                styles["TableCell"]
+            ),
+            Paragraph(_truncate(entry.username or "N/A", 120), styles["TableCell"]),
+            Paragraph(message_text, styles["TableCell"]),
             Paragraph(bot_response_text, styles["TableCell"]),
         ]
+
         table_data.append(row)
-    
-    # Create table with column widths
+
+    # Total width = 7.5in (fits inside letter page with 0.5in margins)
     col_widths = [
-        0.8 * inch,   # ID
-        1.2 * inch,   # Timestamp
-        1.0 * inch,   # User
-        2.5 * inch,   # Message
-        2.5 * inch,   # Bot Response
+        0.7 * inch,  # ID
+        1.1 * inch,  # Timestamp
+        0.9 * inch,  # User
+        2.2 * inch,  # Message
+        2.6 * inch,  # Bot Response
     ]
-    
-    table = Table(table_data, colWidths=col_widths, repeatRows=1)
-    
-    # Style the table
+
+    table = Table(
+        table_data,
+        colWidths=col_widths,
+        repeatRows=1,
+        splitByRow=1,
+    )
+
     table.setStyle(TableStyle([
+        # Header
         ('BACKGROUND', (0, 0), (-1, 0), colors.gray),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ('BOX', (0, 0), (-1, -1), 1, colors.black),
-        ('WORDWRAP', (0, 0), (-1, -1), True),  # Explicitly enable wordwrap
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, 0), 'MIDDLE'),
+
+        # Body
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('ALIGN', (0, 1), (-1, -1), 'LEFT'),
+        ('VALIGN', (0, 1), (-1, -1), 'TOP'),
+
+        # Padding
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
         ('LEFTPADDING', (0, 0), (-1, -1), 4),
         ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+
+        # Grid
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('BOX', (0, 0), (-1, -1), 1, colors.black),
+
+        # Alternate row shading
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1),
+            [colors.white, colors.HexColor('#F7F7F7')]),
     ]))
-    
+
     return table
 
 
