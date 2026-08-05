@@ -24,7 +24,7 @@ class member_violation(Base):
     """A Record of all the times guild members broke the rules."""
     __tablename__ = "member_violations"
 
-    guild_id = Column(BigInteger, nullable=False)
+    guild_id = Column(BigInteger, nullable=True, default=None)
     reporter_id = Column(BigInteger, nullable=False)
     offender_id = Column(BigInteger, nullable=False)
     time = Column(TIMESTAMP, nullable=False)
