@@ -135,7 +135,8 @@ class views:
                     await server_logs(ctx.guild_id).create_entry(
                         hikari.Embed(
                             title="Escalation Settings Changed",
-                            description=f"After {cycle_no} warnings, offending messages will be deleted."
+                            description=f"After {cycle_no} warnings, offending messages will be deleted.",
+                            colour=0x00ff00
                         )
                         .set_footer("'Escalation' is what we refer to as the system we use to punish users harsher and harsher based on recent warnings.")
                     )
@@ -158,7 +159,8 @@ class views:
                     await server_logs(ctx.guild_id).create_entry(
                         hikari.Embed(
                             title="Escalation Settings Changed",
-                            description=f"After {cycle_no} warnings, we will place the user on a cooldown."
+                            description=f"After {cycle_no} warnings, we will place the user on a cooldown.",
+                            colour=0x00ff00
                         )
                         .set_footer("'Escalation' is what we refer to as the system we use to punish users harsher and harsher based on recent warnings.")
                     )
@@ -181,7 +183,8 @@ class views:
                     await server_logs(ctx.guild_id).create_entry(
                         hikari.Embed(
                             title="Escalation Settings Changed",
-                            description=f"After {cycle_no} warnings, users will be muted for violations."
+                            description=f"After {cycle_no} warnings, users will be muted for violations.",
+                            colour=0x00ff00
                         )
                         .set_footer("'Escalation' is what we refer to as the system we use to punish users harsher and harsher based on recent warnings.")
                     )
@@ -204,7 +207,8 @@ class views:
                     await server_logs(ctx.guild_id).create_entry(
                         hikari.Embed(
                             title="Escalation Settings Changed",
-                            description=f"After {cycle_no} warnings, we will kick the user from the server."
+                            description=f"After {cycle_no} warnings, we will kick the user from the server.",
+                            colour=0x00ff00
                         )
                         .set_footer("'Escalation' is what we refer to as the system we use to punish users harsher and harsher based on recent warnings.")
                     )
@@ -227,7 +231,8 @@ class views:
                     await server_logs(ctx.guild_id).create_entry(
                         hikari.Embed(
                             title="Escalation Settings Changed",
-                            description=f"After {cycle_no} warnings, we will ban the user from the server."
+                            description=f"After {cycle_no} warnings, we will ban the user from the server.",
+                            colour=0x00ff00
                         )
                         .set_footer("'Escalation' is what we refer to as the system we use to punish users harsher and harsher based on recent warnings.")
                     )
@@ -248,7 +253,8 @@ class views:
                 await server_logs(ctx.guild_id).create_entry(
                     hikari.Embed(
                         title="Escalation Toggled",
-                        description=f"Escalation has been {"turned off." if not viewself.do_escalate else "enabled."}"
+                        description=f"Escalation has been {"turned off." if not viewself.do_escalate else "enabled."}",
+                        colour=0x00ff00
                     )
                     .set_footer("'Escalation' is what we refer to as the system we use to punish users harsher and harsher based on recent warnings.")
                 )
@@ -271,7 +277,8 @@ class views:
                     await server_logs(ctx.guild_id).create_entry(
                         hikari.Embed(
                             title="Text filtering Setting Changed",
-                            description=f"Warnings will now be issued to users on text filtering infractions."
+                            description=f"Warnings will now be issued to users on text filtering infractions.",
+                            colour=0x00ff00
                         )
                         .set_footer("'Escalation' is what we refer to as the system we use to punish users harsher and harsher based on recent warnings.")
                     )
