@@ -632,11 +632,13 @@ class automod_get:
                 session.add(record)
                 session.commit()
                 # Re-fetch item
-                record = (
+                return (
                     session.query(guild_automod_settings)
                     .filter(guild_automod_settings.guild_id == self.guild_id)
                     .one_or_none()
                 )
+            else:
+                return record
         finally:
             session.close()
 
