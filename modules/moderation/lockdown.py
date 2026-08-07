@@ -21,7 +21,7 @@ class command(
     async def invoke(self, ctx: lightbulb.Context) -> None:
         await prechecks("lockdown-channel", ctx, hikari.Permissions.MANAGE_CHANNELS)
 
-        server_logs(ctx.guild_id).create_entry(
+        await server_logs(ctx.guild_id).create_entry(
             hikari.Embed(
                 title="Channel Lockdown",
                 description=f"On {datetime.now().strftime('%Y-%b-%d %I:%M %p')} <#{self.channel}> has been locked by <@{ctx.user.id}>.",

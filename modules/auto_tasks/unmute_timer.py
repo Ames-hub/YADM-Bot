@@ -75,11 +75,12 @@ async def handle_task():
                 log_embed = (
                     hikari.Embed(
                         title="Member Unmuted",
-                        description=f"<@{mute_case.user_id}> Has been unmuted as of <t:{mute_case.scheduled_unmute}:R>"
+                        description=f"<@{mute_case.user_id}> Has been unmuted as of <t:{mute_case.scheduled_unmute}:R>",
+                        colour=0x00ff00
                     )
                 )
 
-                server_logs(mute_case.guild_id).create_entry(log_embed)
+                await server_logs(mute_case.guild_id).create_entry(log_embed)
                 continue
 
             log_embed = (
@@ -106,5 +107,5 @@ async def handle_task():
                 continue
 
 @loader.task(lightbulb.uniformtrigger(seconds=10, wait_first=False), auto_start=True)
-async def task() -> None:
+async def unmute_timer_task() -> None:
     await handle_task()

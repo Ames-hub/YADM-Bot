@@ -1347,8 +1347,7 @@ class guild_warnings:
 def list_all_bans() -> list[guild_ban_record]:
     session = get_session()
     try:
-        records = (session.query(guild_ban_record))
-        # `records` is a list of tuples, so we extract the first element from each tuple
+        records = (session.query(guild_ban_record)).all()
         return records
     except SQLAlchemyError as err:
         logging.error("Failed listing all bans!", exc_info=err)
@@ -1385,7 +1384,15 @@ class guild_bans:
             )
         )
 
-    async def ban_user(self, banned_id:int, moderator_id:int, msg_del_duration:int, ban_seconds:int, reason:str, announce_ban:bool) -> bool:
+    async def ban_user(
+            self, banned_id:int,
+            moderator_id:int,
+            msg_del_duration:int,
+            ban_seconds:int,
+            reason:str,
+            announce_ban:bool,
+            infraction_id:int=None
+        ) -> bool:
         if ban_seconds <= 0:
             return -1
 
@@ -1402,6 +1409,19 @@ class guild_bans:
                 discord_guild = await botapp.rest.fetch_guild(self.guild_id)
                 ds.d["guild_name_cache"][self.guild_id] = {"name": discord_guild.name, "time": timestamp_now}
                 guild_name = discord_guild.name
+
+        if not infraction_id:
+            automated = moderator_id == ds.d['myid']
+            case_id = violations.create_member_violation(
+                guild_id=self.guild_id,
+                reporter_id=moderator_id,
+                offender_id=banned_id,
+                time=datetime.datetime.now(),
+                violation=reason,
+                automated=automated,
+                whistleblower="Unknown" if automated else "User-triggered",
+                extra_info=None
+            )
 
         if announce_ban:
             msg_send_success = True
@@ -1436,6 +1456,7 @@ class guild_bans:
 
         # Add an entry to the database to track their unban timer
         case_id = self.track_ban(
+            infraction_id=infraction_id,
             banned_id=banned_id,
             moderator_id=moderator_id,
             time_to_unban=time_to_unban,
@@ -1446,15 +1467,17 @@ class guild_bans:
         await server_logs(self.guild_id).create_entry(
             hikari.Embed(
                 title=f"User Banned (Case {case_id})",
-                description=f"<@{banned_id}> Has been banned until <t:{time_to_unban}> for:\n{reason}"
+                description=f"<@{banned_id}> Has been banned until <t:{time_to_unban}> for:\n{reason}",
+                colour=0xff0000
             )
         )
         return True
 
-    def track_ban(self, banned_id:int, moderator_id, time_to_unban:int, reason:str, return_case_id:bool=False):
+    def track_ban(self, infraction_id:int, banned_id:int, moderator_id, time_to_unban:int, reason:str, return_case_id:bool=False):
         session = get_session()
         try:
             record = guild_ban_record(
+                case_id=infraction_id,
                 guild_id=self.guild_id,
                 banned_id=banned_id,
                 moderator_id=moderator_id,
@@ -1611,7 +1634,8 @@ class dbguild:
             await logs.create_entry(
                 hikari.Embed(
                     title="Error muting User!",
-                    description=f"I couldn't fetch {member.mention} to handle the following violation!\nViolation: {violation}"
+                    description=f"I couldn't fetch {member.mention} to handle the following violation!\nViolation: {violation}",
+                    colour=0xff0000
                 )
             )
             return False
@@ -1635,7 +1659,8 @@ class dbguild:
                 await logs.create_entry(
                     hikari.Embed(
                         title="Error Kicking User!",
-                        description=f"I couldn't kick {member.mention} even though they broke rules!\nViolation: {violation}"
+                        description=f"I couldn't kick {member.mention} even though they broke rules!\nViolation: {violation}",
+                        colour=0xff0000
                     )
                 )
                 if msg_sent:
@@ -1648,6 +1673,7 @@ class dbguild:
             if announce_ban:
                 try:
                     await guild.bans.ban_user(
+                        case_id=case_id,
                         banned_id=user_id,
                         moderator_id=botapp.get_me().id,
                         msg_del_duration=delete_msg_seconds,
@@ -1659,7 +1685,8 @@ class dbguild:
                     await logs.create_entry(
                         hikari.Embed(
                             title="Error Banning User!",
-                            description=f"I couldn't ban <@{user_id}> even though they broke rules!\nViolation: {violation}"
+                            description=f"I couldn't ban <@{user_id}> even though they broke rules!\nViolation: {violation}",
+                            colour=0xff0000
                         )
                     )
 

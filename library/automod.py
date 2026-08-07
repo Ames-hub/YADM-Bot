@@ -436,7 +436,8 @@ async def handle_guilty(
                     await logs.create_entry(
                         hikari.Embed(
                             title="Error Kicking User!",
-                            description=f"I couldn't kick {event.author.mention} even though they broke rules!\nViolation: {violation}"
+                            description=f"I couldn't kick {event.author.mention} even though they broke rules!\nViolation: {violation}",
+                            colour=0xff0000
                         )
                     )
                     await msg.delete()
@@ -449,6 +450,7 @@ async def handle_guilty(
                     if use_escalation:
                         if current_warnings == cat_check.escalation.ban_member():
                             await guild.bans.ban_user(
+                                infraction_id=case_id,
                                 banned_id=event.author.id,
                                 moderator_id=botapp.get_me().id,
                                 msg_del_duration=delete_msg_seconds,
@@ -458,6 +460,7 @@ async def handle_guilty(
                             )
                     else:
                         await guild.bans.ban_user(
+                            infraction_id=case_id,
                             banned_id=event.author.id,
                             moderator_id=botapp.get_me().id,
                             msg_del_duration=delete_msg_seconds,
@@ -469,7 +472,8 @@ async def handle_guilty(
                     await logs.create_entry(
                         hikari.Embed(
                             title="Error Banning User!",
-                            description=f"I couldn't ban {event.author.mention} even though they broke rules!\nViolation: {violation}"
+                            description=f"I couldn't ban {event.author.mention} even though they broke rules!\nViolation: {violation}",
+                            colour=0xff0000
                         )
                     )
 

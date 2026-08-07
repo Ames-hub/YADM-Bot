@@ -24,7 +24,7 @@ class command(
         success = guild.set.do_filter_spam(self.enabled)
 
         logs = server_logs(ctx.guild_id)
-        logs.create_entry(
+        await logs.create_entry(
             hikari.Embed(
                 title="Spam Filter Toggled",
                 description=f"User {ctx.user.mention} has {'enabled' if self.enabled else 'disabled'} the spam filter.",

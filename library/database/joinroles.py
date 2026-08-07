@@ -81,10 +81,11 @@ class joinroles:
                     role=on_join_role.role_id
                 )
             except (hikari.ForbiddenError, hikari.UnauthorizedError):
-                server_logs(self.guild_id).create_entry(
+                await server_logs(self.guild_id).create_entry(
                     hikari.Embed(
                         title="Couldn't add Join-Role!",
-                        description=f"When <@{user_id}> joined, I was unable to add role <@&{on_join_role.role_id}> to the member."
+                        description=f"When <@{user_id}> joined, I was unable to add role <@&{on_join_role.role_id}> to the member.",
+                        colour=0xff0000
                     )
                     .add_field(
                         name="Troubleshooting",

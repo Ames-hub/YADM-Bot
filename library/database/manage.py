@@ -1,4 +1,7 @@
-from sqlalchemy import create_engine, select, insert, Column, Integer, BigInteger, TEXT, TIMESTAMP, BOOLEAN, text, DateTime, FLOAT, inspect, LargeBinary
+from sqlalchemy import (
+    create_engine, select, insert, inspect, 
+    Column, Integer, BigInteger, TEXT, TIMESTAMP, BOOLEAN, text, DateTime, FLOAT, LargeBinary, ForeignKey
+)
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.exc import OperationalError
 from library.settings import get
@@ -220,7 +223,7 @@ class guild_log_channel(Base):
 class guild_ban_record(Base):
     __tablename__ = "guild_ban_records"
     
-    case_id = Column(Integer, primary_key=True, autoincrement=True)
+    case_id = Column(Integer, ForeignKey("member_violations.entry_id"), primary_key=True)
     guild_id = Column(BigInteger, nullable=False)
     banned_id = Column(BigInteger, nullable=False)
     moderator_id = Column(BigInteger, nullable=False)

@@ -17,7 +17,8 @@ async def handle_set_log_channel(guild_id:int, channel_id:int, user_id:int, resp
             await logs.create_entry(
                 hikari.Embed(
                     title="Logging channel removed",
-                    description=f"<@{user_id}> Has removed the logging channel"
+                    description=f"<@{user_id}> Has removed the logging channel",
+                    colour=0xff0000
                 )
             )
 

@@ -23,7 +23,8 @@ class command(
         embed = (
             hikari.Embed(
                 title="Threshold Set",
-                description=f"The AI will now only flag images at {self.threshold}% certainty."
+                description=f"The AI will now only flag images at {self.threshold}% certainty.",
+                colour=0x0000ff
             )
         )
 
