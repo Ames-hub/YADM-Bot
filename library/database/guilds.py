@@ -620,11 +620,23 @@ class automod_get:
     def _get_record(self):
         session = get_session()
         try:
-            return (
+            record = (
                 session.query(guild_automod_settings)
                 .filter(guild_automod_settings.guild_id == self.guild_id)
                 .one_or_none()
             )
+            if not record:
+                record = guild_automod_settings(
+                    guild_id=self.guild_id
+                )
+                session.add(record)
+                session.commit()
+                # Re-fetch item
+                record = (
+                    session.query(guild_automod_settings)
+                    .filter(guild_automod_settings.guild_id == self.guild_id)
+                    .one_or_none()
+                )
         finally:
             session.close()
 
