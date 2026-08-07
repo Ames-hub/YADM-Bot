@@ -61,7 +61,7 @@ class guild_text_automod_settings(Base):
     penalty_ban_member = Column(BOOLEAN, nullable=False, default=False)
     ban_duration = Column(Integer, nullable=False, default=86400)  # 1 day
     ban_msg_purgetime = Column(Integer, nullable=False, default=600)  # 10 minutes
-    sim_check_threshold = Column(FLOAT, nullable=False, default=0.80)
+    sim_check_threshold = Column(FLOAT, nullable=False, default=0.85)
     do_cooldown = Column(BOOLEAN, nullable=False, default=True)
     announce_infraction = Column(BOOLEAN, nullable=False, default=True)
     announce_kick = Column(BOOLEAN, nullable=False, default=True)

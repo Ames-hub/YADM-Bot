@@ -59,13 +59,32 @@ with open('library/preset_insulting_words.txt', 'r') as f:
 with open("library/preset_word_whitelist.txt", "r") as f:
     PRESET_WORD_WHITELIST = set(f.read().lower().splitlines())
 
-def get_bad_word_list(guild_id):
-    if guild_id:
-        #if ds.d["bad_word_list_cache"].get(guild_id, None) is not None:
-        #    cache_time = ds.d["bad_word_list_cache"][guild_id]["time"]
+def _bucket_words_by_length(words) -> dict[int, list[str]]:
+    """
+    Buckets a collection of words by their length, so length-aware checks
+    (like similarity_check) can narrow their search space instead of
+    scanning every bad word for every word in a message.
+    """
+    buckets: dict[int, list[str]] = {}
+    for word in words:
+        buckets.setdefault(len(word), []).append(word)
+    return buckets
 
-        #    if datetime.datetime.now().timestamp() - cache_time < 300:
-        #        return ds.d["bad_word_list_cache"][guild_id]["list"]
+def get_bad_word_list(guild_id:int):
+    """
+    Returns (bad_word_set, length_buckets) for a guild, or for the global
+    preset lists if guild_id is None.
+
+    Guild results are cached in ds.d["bad_word_list_cache"] by their guild id and
+    are only rebuilt when explicitly invalidated. On guild custom wordlist edits
+    or on preset-list toggle changes (both in guilds.py). There is no time-based expiry;
+    if you add a new way to change a guild's effective bad word list, make sure it
+    also busts this cache entry, or checks will keep using stale data.
+    """
+    if guild_id:
+        cached = ds.d["bad_word_list_cache"].get(guild_id, None)
+        if cached is not None:
+            return cached["list"], cached["buckets"]
 
         guild = dbguild(guild_id)
         custom_bad_words = guild.wordlist.get_list(blacklist_only=True)
@@ -88,12 +107,14 @@ def get_bad_word_list(guild_id):
         if block_hardnsfw:
             bad_list.update(hard_nsfw_list)
 
-        #ds.d["bad_word_list_cache"][guild_id] = {
-        #    "list": bad_list,
-        #    "time": datetime.datetime.now().timestamp()
-        #}
+        buckets = _bucket_words_by_length(bad_list)
 
-        return bad_list
+        ds.d["bad_word_list_cache"][guild_id] = {
+            "list": bad_list,
+            "buckets": buckets,
+        }
+
+        return bad_list, buckets
     else:
         # ALL
         bad_list = set()
@@ -101,7 +122,14 @@ def get_bad_word_list(guild_id):
         bad_list.update(slurs_list)
         bad_list.update(less_nsfw_list)
         bad_list.update(hard_nsfw_list)
-        return bad_list
+        return bad_list, _bucket_words_by_length(bad_list)
+
+def verdict_whitelist_overwrite(verdict: tuple[bool, str, str, dict]) -> bool:
+    """ Returns True if it should be over-ridden, false if not. """
+    if verdict[2] in PRESET_WORD_WHITELIST:
+        return True
+    else:
+        return False
 
 def text_check(text:str, guild_id=None, observing:bool=False):
     """
@@ -110,18 +138,18 @@ def text_check(text:str, guild_id=None, observing:bool=False):
     returns observation_data at pos. 3 if observing is True.
     """
     if guild_id is None:
-        threshold = 0.80
+        threshold = 0.85
     else:
         guild = dbguild(guild_id)
         threshold = guild.get.text.similarity_threshold()
-        custom_whitelist_words = guild.wordlist.get_list(whitelist_only=True)
+        guild_whitelist_words = guild.wordlist.get_list(whitelist_only=True)
 
     bm.benchmark("Beginning to run a check on text.")
     original_text = text.replace("​", "")  # This removes unicode U+200B. The zero-width unicode, used to break some checks.
     lower_text = original_text.lower()
 
     # If its None, it'll set it as all words. It won't get anyone if they're meant to be just observed.
-    bad_word_list = get_bad_word_list(guild_id if not observing else None)
+    bad_word_list, bad_word_buckets = get_bad_word_list(guild_id if not observing else None)
 
     # TODO: Make this check per-guild preferences.
     allow_self_insult = True
@@ -136,7 +164,7 @@ def text_check(text:str, guild_id=None, observing:bool=False):
         ("spacehack", lambda: checks.heuristics.medium.spacehack_check(lower_text, bad_word_list)),
         ("stitching", lambda: checks.heuristics.medium.letter_stitch_check(lower_text, bad_word_list)),
         ("reversing", lambda: checks.heuristics.medium.reverse_check(lower_text, bad_word_list)),
-        ("similarity", lambda: checks.heuristics.high.similarity_check(lower_text, bad_word_list, threshold=threshold)),
+        ("similarity", lambda: checks.heuristics.high.similarity_check(lower_text, bad_word_list, buckets=bad_word_buckets, threshold=threshold)),
         ("syntactic", lambda: checks.heuristics.high.syntactic_analysis(lower_text, allow_self_insult=allow_self_insult)),
     ]
 
@@ -195,16 +223,22 @@ def text_check(text:str, guild_id=None, observing:bool=False):
             elif name == "similarity":
                 if result["bad"]:
                     verdict = (True, name, result.get("word", "unknown"), observation_data)
+                    if verdict_whitelist_overwrite(verdict):
+                        verdict = None
             else:
                 # Handle checks that return a dictionary with 'bad' and 'word' keys
                 if isinstance(result, dict) and result.get("bad"):
                     verdict = (True, name, result.get("word", "unknown"), observation_data)
+                    if verdict_whitelist_overwrite(verdict):
+                        verdict = None
                 # Handle boolean returns from older checks
                 elif isinstance(result, bool) and result:
                     verdict = (True, name, "unknown", observation_data)
+                    if verdict_whitelist_overwrite(verdict):
+                        verdict = None
 
             if guild_id:
-                if result['word'] in custom_whitelist_words:
+                if result['word'] in guild_whitelist_words:
                     verdict = None  # over-ride
 
         if verdict is not None:
@@ -363,6 +397,7 @@ async def handle_guilty(
             bm.benchmark("Member violation created.")
             # IF it so happens that the violation has a problem and doesn't get created, we should just return and not attempt any punishment actions.
             if not case_id:
+                logging.error("WARNING: FAILED TO CREATE CASE ID. IMMEDIATE INSPECTION REQUIRED.")
                 return False
 
             do_mute_member = cat_check.do_mute_member()
@@ -370,7 +405,8 @@ async def handle_guilty(
             # if we're not to mute, put them on cooldown if told to do so. (Cooldown is a short, short mute)
             if cat_check.do_cooldown() and not do_mute_member:
                 if use_escalation:
-                    if current_warnings == cat_check.escalation.cooldown_threshold():
+                    cooldown_threshold = cat_check.escalation.cooldown_threshold()
+                    if current_warnings == cooldown_threshold:
                         await guild.muting.mute_member(
                             user_id=event.author.id,
                             reason="VIOLATION AUTO COOLDOWN: " + violation,
@@ -390,7 +426,8 @@ async def handle_guilty(
             do_del_msg = cat_check.do_delete_msg()
             if do_del_msg:
                 if use_escalation:
-                    if current_warnings == cat_check.escalation.msg_deletion():
+                    msg_deletion_threshold = cat_check.escalation.msg_deletion()
+                    if current_warnings == msg_deletion_threshold:
                         await event.message.delete()
                 else:
                     await event.message.delete()
@@ -402,20 +439,32 @@ async def handle_guilty(
                 )
             if do_mute_member:
                 mute_duration = cat_check.get_mute_duration()
-                await guild.muting.mute_member(
-                    user_id=event.author.id,
-                    moderator_id=botapp.get_me().id,
-                    reason=violation,
-                    duration_s=mute_duration,
-                )
+                if use_escalation:
+                    mute_threshold = cat_check.escalation.mute_threshold()
+                    if current_warnings == mute_threshold:
+                        await guild.muting.mute_member(
+                            user_id=event.author.id,
+                            moderator_id=botapp.get_me().id,
+                            reason=violation,
+                            duration_s=mute_duration,
+                        )
+                else:
+                    await guild.muting.mute_member(
+                        user_id=event.author.id,
+                        moderator_id=botapp.get_me().id,
+                        reason=violation,
+                        duration_s=mute_duration,
+                    )
             if cat_check.do_kick_member():
                 kick_msg = hikari.Embed(
                     title="Kicked",
                     description=f"You've been detected as breaking the rules of {guild_name} and have been kicked.\nReason: {violation}"
                 )
+                if use_escalation:
+                    kick_member_threshold = cat_check.escalation.kick_member()
                 if cat_check.do_announce_kick():
                     if use_escalation:
-                        if current_warnings == cat_check.escalation.kick_member():
+                        if current_warnings == kick_member_threshold:
                             try:
                                 msg = await event.member.send(kick_msg)
                             except (hikari.ForbiddenError, hikari.BadRequestError, hikari.UnauthorizedError):
@@ -428,7 +477,7 @@ async def handle_guilty(
 
                 try:
                     if use_escalation:
-                        if current_warnings == cat_check.escalation.kick_member():
+                        if current_warnings == kick_member_threshold:
                             await event.member.kick(reason=violation)
                     else:
                         await event.member.kick(reason=violation)
@@ -547,6 +596,18 @@ class checks:
         @staticmethod
         def reverse_text(text:str):
             return text[::-1]
+
+        @staticmethod
+        def bucket_by_length(words: set) -> dict[int, list[str]]:
+            """
+            Buckets a collection of words by their length, so length-aware checks
+            (like similarity_check) can narrow their search space instead of
+            scanning every bad word for every word in a message.
+            """
+            buckets: dict[int, list[str]] = {}
+            for word in words:
+                buckets.setdefault(len(word), []).append(word)
+            return buckets
 
     class syntax_analysis_check:
         """
@@ -865,17 +926,24 @@ class checks:
 
         class high:
             @staticmethod
-            def similarity_check(text:str, bad_word_list:set, threshold:float=0.80):
-                # Determines how similar 2 strings are by importing the SequenceMatcher class from difflib
+            def similarity_check(text: str, bad_word_list: set, buckets: dict[int, list[str]] = None, threshold: float = 0.85):
                 text = checks.helpers.remove_symbols(text)
+                if buckets is None:
+                    buckets = _bucket_words_by_length(bad_word_list)
+
                 for word in text.split(" "):
-                    for bad_word in bad_word_list:
+                    char_count = len(word)
+                    # Only compare against bad words of similar length.
+                    # ratios drop off fast once lengths diverge, so this prunes the search space without missing realistic matches. Hopefully.
+                    candidates = (
+                        buckets.get(char_count - 1, [])
+                        + buckets.get(char_count, [])
+                        + buckets.get(char_count + 1, [])
+                    )
+
+                    for bad_word in candidates:
                         similarity = SequenceMatcher(None, a=word, b=bad_word).ratio()
                         if similarity >= threshold:
-                            # Similarity is a wild-card check, so we do one final check to verify their guilt or innocence.
-                            if word in PRESET_WORD_WHITELIST:
-                                continue  # Continue on with the check as its whitelisted. Go through the rest of the words in the text.
-
                             return {
                                 "bad": True,
                                 "sim": similarity,

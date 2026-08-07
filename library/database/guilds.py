@@ -840,16 +840,29 @@ class _text_filter_penalties_set:
         return self._update(announce_ban=value)
 
     def use_preset_swears_list(self, value: bool):
-        return self._update(use_preset_swears_list=value)
-    
+        result = self._update(use_preset_swears_list=value)
+        # Make sure this is consistent everywhere to avoid stale data, the moment it changes, its got to be deleted.
+        if result and ds.d["bad_word_list_cache"].get(self.guild_id, None):
+            del ds.d["bad_word_list_cache"][self.guild_id]
+        return result
+
     def use_preset_slurs_list(self, value: bool):
-        return self._update(use_preset_slurs_list=value)
-    
+        result = self._update(use_preset_slurs_list=value)
+        if result and ds.d["bad_word_list_cache"].get(self.guild_id, None):
+            del ds.d["bad_word_list_cache"][self.guild_id]
+        return result
+
     def use_preset_lessnsfw_list(self, value: bool):
-        return self._update(use_preset_lessnsfw_list=value)
-    
+        result = self._update(use_preset_lessnsfw_list=value)
+        if result and ds.d["bad_word_list_cache"].get(self.guild_id, None):
+            del ds.d["bad_word_list_cache"][self.guild_id]
+        return result
+
     def use_preset_hardnsfw_list(self, value: bool):
-        return self._update(use_preset_hardnsfw_list=value)
+        result = self._update(use_preset_hardnsfw_list=value)
+        if result and ds.d["bad_word_list_cache"].get(self.guild_id, None):
+            del ds.d["bad_word_list_cache"][self.guild_id]
+        return result
 
 class _spam_filter_set:
     def __init__(self, guild_id):

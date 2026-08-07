@@ -1,5 +1,5 @@
+from library.database.auditing import server_logs
 from library.database.guilds import dbguild
-from datetime import timedelta
 import hikari
 import miru
 
@@ -78,7 +78,7 @@ class views:
                 name="Warnings disabled ⚠️",
                 value=(
                     "Warnings are not an active penalty on this server,"
-                    " escalation will not work until you turn it on. Click the button below to enable it."
+                    " and escalation will not work until you turn it on. Click the button below to enable it."
                 )
             )
         if not self.guild.get.do_escalate():
@@ -86,7 +86,7 @@ class views:
                 name="Module disabled ⚠️",
                 value=(
                     "Escalation has been disabled."
-                    "Escalation will not work until you turn it on. Click the button below to toggle it on."
+                    " Escalation will not work until you turn it on. Click the button below to toggle it on."
                 )
             )
 
@@ -126,14 +126,19 @@ class views:
                 async def escalate_delmsg_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
                     if ctx.author.id != viewself.mod_id:
                         return
-                    button.label = f"{viewself.current_escalation.del_msg_threshold}) Delete Message"
                     cycle_no = cycle(viewself.current_escalation.del_msg_threshold)
-                    success = viewself.guild.set.text.escalation.msg_deletion(cycle_no)
-                    if not success:
-                        raise Exception("Escalation setting failed!")
-                    button.style = get_cycle_style(cycle_no)
+                    viewself.guild.set.text.escalation.msg_deletion(cycle_no)
                     viewself.current_escalation = viewself.guild.get.text.escalation._get_record()
+                    button.label = f"{cycle_no}) Delete Message"
+                    button.style = get_cycle_style(cycle_no)
                     await ctx.edit_response(viewself.gen_embed(), components=self)
+                    await server_logs(ctx.guild_id).create_entry(
+                        hikari.Embed(
+                            title="Escalation Settings Changed",
+                            description=f"After {cycle_no} warnings, offending messages will be deleted."
+                        )
+                        .set_footer("'Escalation' is what we refer to as the system we use to punish users harsher and harsher based on recent warnings.")
+                    )
 
             if viewself.do_cooldown:
                 @miru.button(
@@ -144,12 +149,19 @@ class views:
                 async def escalate_cooldown_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
                     if ctx.author.id != viewself.mod_id:
                         return
-                    button.label = f"{viewself.current_escalation.cooldown_threshold}) Cooldown Member"
                     cycle_no = cycle(viewself.current_escalation.cooldown_threshold)
                     viewself.guild.set.text.escalation.cooldown_threshold(cycle_no)
-                    button.style = get_cycle_style(cycle_no)
                     viewself.current_escalation = viewself.guild.get.text.escalation._get_record()
+                    button.label = f"{cycle_no}) Cooldown Member"
+                    button.style = get_cycle_style(cycle_no)
                     await ctx.edit_response(viewself.gen_embed(), components=self)
+                    await server_logs(ctx.guild_id).create_entry(
+                        hikari.Embed(
+                            title="Escalation Settings Changed",
+                            description=f"After {cycle_no} warnings, we will place the user on a cooldown."
+                        )
+                        .set_footer("'Escalation' is what we refer to as the system we use to punish users harsher and harsher based on recent warnings.")
+                    )
 
             if viewself.do_mute_member:
                 @miru.button(
@@ -160,12 +172,19 @@ class views:
                 async def escalate_mute_member_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
                     if ctx.author.id != viewself.mod_id:
                         return
-                    button.label = f"{viewself.current_escalation.mute_threshold}) Mute Member"
                     cycle_no = cycle(viewself.current_escalation.mute_threshold)
                     viewself.guild.set.text.escalation.mute_threshold(cycle_no)
-                    button.style = get_cycle_style(cycle_no)
                     viewself.current_escalation = viewself.guild.get.text.escalation._get_record()
+                    button.label = f"{cycle_no}) Mute Member"
+                    button.style = get_cycle_style(cycle_no)
                     await ctx.edit_response(viewself.gen_embed(), components=self)
+                    await server_logs(ctx.guild_id).create_entry(
+                        hikari.Embed(
+                            title="Escalation Settings Changed",
+                            description=f"After {cycle_no} warnings, users will be muted for violations."
+                        )
+                        .set_footer("'Escalation' is what we refer to as the system we use to punish users harsher and harsher based on recent warnings.")
+                    )
 
             if viewself.do_kick_member:
                 @miru.button(
@@ -176,12 +195,19 @@ class views:
                 async def escalate_kick_member_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
                     if ctx.author.id != viewself.mod_id:
                         return
-                    button.label = f"{viewself.current_escalation.kick_member_threshold}) Kick Member"
                     cycle_no = cycle(viewself.current_escalation.kick_member_threshold)
                     viewself.guild.set.text.escalation.kick_member(cycle_no)
-                    button.style = get_cycle_style(cycle_no)
                     viewself.current_escalation = viewself.guild.get.text.escalation._get_record()
+                    button.label = f"{cycle_no}) Kick Member"
+                    button.style = get_cycle_style(cycle_no)
                     await ctx.edit_response(viewself.gen_embed(), components=self)
+                    await server_logs(ctx.guild_id).create_entry(
+                        hikari.Embed(
+                            title="Escalation Settings Changed",
+                            description=f"After {cycle_no} warnings, we will kick the user from the server."
+                        )
+                        .set_footer("'Escalation' is what we refer to as the system we use to punish users harsher and harsher based on recent warnings.")
+                    )
 
             if viewself.do_ban_member:
                 @miru.button(
@@ -192,25 +218,40 @@ class views:
                 async def escalate_ban_member_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
                     if ctx.author.id != viewself.mod_id:
                         return
-                    button.label = f"{viewself.current_escalation.ban_member_threshold}) Ban Member"
                     cycle_no = cycle(viewself.current_escalation.ban_member_threshold)
                     viewself.guild.set.text.escalation.ban_member(cycle_no)
-                    button.style = get_cycle_style(cycle_no)
                     viewself.current_escalation = viewself.guild.get.text.escalation._get_record()
+                    button.label = f"{cycle_no}) Ban Member"
+                    button.style = get_cycle_style(cycle_no)
                     await ctx.edit_response(viewself.gen_embed(), components=self)
+                    await server_logs(ctx.guild_id).create_entry(
+                        hikari.Embed(
+                            title="Escalation Settings Changed",
+                            description=f"After {cycle_no} warnings, we will ban the user from the server."
+                        )
+                        .set_footer("'Escalation' is what we refer to as the system we use to punish users harsher and harsher based on recent warnings.")
+                    )
 
             @miru.button(
                 label="Toggle Escalation",
                 style=hikari.ButtonStyle.PRIMARY if viewself.guild.get.do_escalate() else hikari.ButtonStyle.SECONDARY,
                 row=1,
             )
-            async def enable_warnings_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+            async def toggle_escalation_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
                 if ctx.author.id != viewself.mod_id:
                     return
                 viewself.guild.set.do_escalate(not viewself.do_escalate)
                 viewself.do_escalate = not viewself.do_escalate
-                button.style = hikari.ButtonStyle.PRIMARY if viewself.do_escalate else hikari.ButtonStyle.SECONDARY,
+                viewself.current_escalation = viewself.guild.get.text.escalation._get_record()
+                button.style = hikari.ButtonStyle.PRIMARY if viewself.do_escalate else hikari.ButtonStyle.SECONDARY
                 await ctx.edit_response(viewself.gen_embed(), components=self)
+                await server_logs(ctx.guild_id).create_entry(
+                    hikari.Embed(
+                        title="Escalation Toggled",
+                        description=f"Escalation has been {"turned off." if not viewself.do_escalate else "enabled."}"
+                    )
+                    .set_footer("'Escalation' is what we refer to as the system we use to punish users harsher and harsher based on recent warnings.")
+                )
 
             if not viewself.guild.get.text.do_warn_member():
                 @miru.button(
@@ -224,9 +265,15 @@ class views:
                     if ctx.author.id != viewself.mod_id:
                         return
                     viewself.guild.set.text.do_warn_member(True)
-                    for child in self.children:
-                        if child.custom_id == "warnings-enable-btn":
-                            self.remove_item(child)
+                    viewself.current_escalation = viewself.guild.get.text.escalation._get_record()
+                    self.remove_item(button)
                     await ctx.edit_response(viewself.gen_embed(), components=self)
+                    await server_logs(ctx.guild_id).create_entry(
+                        hikari.Embed(
+                            title="Text filtering Setting Changed",
+                            description=f"Warnings will now be issued to users on text filtering infractions."
+                        )
+                        .set_footer("'Escalation' is what we refer to as the system we use to punish users harsher and harsher based on recent warnings.")
+                    )
 
         return Menu_Init(timeout=60)
