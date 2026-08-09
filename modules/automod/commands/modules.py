@@ -22,11 +22,12 @@ class command(
         embed = view.gen_embed()
         view_menu = view.init_view()
 
-        await ctx.respond(
+        resp = await ctx.respond(
             embed=embed,
             components=view_menu.build(),
-            flags=hikari.MessageFlag.EPHEMERAL
         )
+        view.ctx = ctx
+        view.resp = resp
 
         miru_client.start_view(view_menu)
         await view_menu.wait()

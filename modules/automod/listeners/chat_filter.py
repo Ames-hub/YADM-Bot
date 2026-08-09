@@ -47,7 +47,11 @@ async def handle_incoming_event(event: hikari.GuildMessageCreateEvent):  # Could
         full_whistleblower = whistleblower
 
     if guilty:
-        desc = f"{event.author.mention}, your message was {"deleted as it was " if guild.get.text.do_delete_msg() else ""}found to violate the rules"
+        desc = (
+            f"{event.author.mention}, your message was {"deleted as it was " if guild.get.text.do_delete_msg() else ""}"
+            "found to violate the rules, please view the rules channel of the server to avoid further incidents."
+        )
+
         if whistleblower == "syntactic":
             suspected_word = result[2]
             desc += "\nInsults against other members will not be tolerated."

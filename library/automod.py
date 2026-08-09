@@ -125,11 +125,19 @@ def get_bad_word_list(guild_id:int):
         return bad_list, _bucket_words_by_length(bad_list)
 
 def verdict_whitelist_overwrite(verdict: tuple[bool, str, str, dict]) -> bool:
-    """ Returns True if it should be over-ridden, false if not. """
-    if verdict[2] in PRESET_WORD_WHITELIST:
-        return True
-    else:
-        return False
+    """Returns True if the verdict should be overridden by the whitelist."""
+
+    details = verdict[3]
+
+    for check_name, data in details.items():
+        if data.get("bad"):
+            if check_name == "similarity":
+                original_word = data.get("flagged_word")
+            else:
+                original_word = data.get("word")
+            return original_word in PRESET_WORD_WHITELIST
+
+    return False
 
 def text_check(text:str, guild_id=None, observing:bool=False):
     """
@@ -630,7 +638,7 @@ class checks:
             self.self_possessive = {"my", "mine", "our", "ours"}
             self.other_subject = {"you", "yourself"}
             self.other_possessive = {"your", "yours"}
-            self.third_person_subject = {"he", "she", "they", "him", "her", "them", "that", "this", "those", "these", "guy", "gal", "person"}
+            self.third_person_subject = {"he", "she", "they", "him", "her", "them", "guy", "gal", "person"}
             self.third_person_possessive = {"his", "her", "hers", "their", "theirs"}
             self.imperative_start = {"do", "stop", "try", "don't", "never", "avoid"}
             self.multi_word_patterns = ["acting like", "looks like"]

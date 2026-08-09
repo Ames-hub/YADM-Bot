@@ -25,7 +25,6 @@ class command(
         resp = await ctx.respond(
             embed=embed,
             components=view_menu.build(),
-            flags=hikari.MessageFlag.EPHEMERAL
         )
         view.ctx = ctx
         view.resp = resp

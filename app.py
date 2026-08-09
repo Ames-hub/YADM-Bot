@@ -29,7 +29,7 @@ bm.benchmark("Logging initialized")
 if "--backup" in sys.argv and "--restore" in sys.argv:
     msg = (
         "\n\n----> WARNING <----\nThis is not an advanced backup system.\n"
-        "Please do not do unusual things like calling restore and backup at the same time. Chances are you'll get data loss.\n\n"
+        "Please do not do unusual things like calling restore and backup at the same time.\n\n"
     )
     print(msg)
     logging.warning(msg)
