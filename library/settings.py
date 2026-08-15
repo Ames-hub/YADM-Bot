@@ -22,10 +22,11 @@ valid_settings = {
     "nonprod_bot_token": None,  # The token to use while the bot is not in "production" mode
     "observation_mode": False,
     "observed_guilds": [],
-    "web_port": 8080,
+    "web_port": 8040,
     "discord_client_id": None,
     "discord_client_secret": None,
     "discord_redirect_uri": None,
+    "session_secret_key": None
 }
 
 def make_settings_file():
@@ -144,6 +145,9 @@ class setgroup():
         return True
 
 class get:
+    def session_secret_key():
+        return _get_value("session_secret_key", valid_settings["session_secret_key"], do_cache=True)
+
     def discord_redirect_uri():
         return _get_value("discord_redirect_uri", valid_settings["discord_redirect_uri"], do_cache=True)
 
@@ -208,6 +212,9 @@ class get:
         return value
 
 class set:
+    def session_secret_key(value:str):
+        return _save_value("session_secret_key", value)
+
     def discord_client_id(value:int):
         return _save_value("discord_client_id", value)
 

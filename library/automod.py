@@ -561,7 +561,7 @@ async def handle_guilty(
             bm.benchmark("Created logs entry. ")
 
             if automod_type == automod_types.IMAGE_FILTER:
-                mainydb.archive_img(
+                mainydb.nsfw_scanner.archive_img(
                     violation_id=case_id,
                     img_bytes=automod_report['img_bytes']
                 )

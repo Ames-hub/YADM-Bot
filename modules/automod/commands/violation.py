@@ -60,7 +60,7 @@ class command(
 
         file = None
         if item.whistleblower == "Image Filter":
-            img_bytes = mainydb.get_img(self.entry_id)
+            img_bytes = mainydb.nsfw_scanner.get_img(self.entry_id)
             if img_bytes:
                 file = hikari.Bytes(img_bytes, "flagged_img.png", spoiler=True)
 

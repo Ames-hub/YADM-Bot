@@ -1,6 +1,6 @@
 from sqlalchemy import (
     create_engine, select, insert, inspect, 
-    Column, Integer, BigInteger, TEXT, TIMESTAMP, BOOLEAN, text, DateTime, FLOAT, LargeBinary, ForeignKey, UUID
+    Column, Integer, BigInteger, TEXT, TIMESTAMP, BOOLEAN, text, DateTime, FLOAT, ForeignKey
 )
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.exc import OperationalError
@@ -36,8 +36,6 @@ class member_violation(Base):
     automated = Column(BOOLEAN, nullable=False)
     whistleblower = Column(TEXT, nullable=False)
     extra_info = Column(TEXT, nullable=False, default="No Info Stored.")
-    # This is a value that is unlikely to ever be accessed more than once, so Idk if you're not supposed to put it in the DB.
-    relevant_img = Column(LargeBinary, nullable=True)
 
 class guild_text_automod_escalation_settings(Base):
     __tablename__ = "guild_text_automod_escalation_settings"
@@ -275,9 +273,11 @@ class observation_entry(Base):
 class web_session(Base):
     __tablename__ = "web_sessions"
 
-    session_id = Column(UUID, primary_key=True)
+    session_id = Column(TEXT, primary_key=True)
     discord_user_id = Column(BigInteger, nullable=False)
     username = Column(TEXT, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    in_guilds = Column(TEXT, nullable=False)
 
 def get_session():
     if SessionLocal is None:

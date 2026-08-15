@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Bot Panel</title>
+        <link rel="stylesheet" href="/static/server_list/index.css"/>
+    </head>
+    <body>
+        <div id="list">
+            {% for guild in server_list %}
+            <a href="/dashboard/{{ guild }}">
+                <div class="server">
+                    <img src="/api/{{ guild }}/server-icon">
+                    <h2>Manage</h2>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </body>
+</html>

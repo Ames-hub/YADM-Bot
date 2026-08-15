@@ -1,14 +1,18 @@
 from fastapi.responses import PlainTextResponse, HTMLResponse
+from starlette.middleware.sessions import SessionMiddleware
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
+from contextlib import asynccontextmanager
 from library.database import manage as db
 from fastapi import Request, FastAPI
 from library import settings
+from library import web_rest
 import importlib
 import datetime
 import asyncio
 import uvicorn
 import logging
+import secrets
 import sys
 import os
 
@@ -16,7 +20,7 @@ os.makedirs("logs", exist_ok=True)
 os.makedirs("modules/crm/clients/", exist_ok=True)  # For storing data about clients, eg, profile pictures.
 
 logging.basicConfig(
-    filename=f"logs/{datetime.datetime.now().strftime('%Y-%m-%d %I %p')}.log",
+    filename=f"logs/web-{datetime.datetime.now().strftime('%Y-%m-%d')}.log",
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
@@ -44,14 +48,38 @@ if not settings.get.discord_redirect_uri():
     settings.set.discord_redirect_uri(redirect_uri)
     print("Redirect URI saved.")
 
-fastapp = FastAPI()
-with open('robots.txt') as f:
+session_secret_key = secrets.token_urlsafe(64)
+settings.set.session_secret_key(session_secret_key)
+print("Session secret key generated and saved.")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await web_rest.start()
+    yield
+    await web_rest.stop()
+
+fastapp = FastAPI(lifespan=lifespan)
+fastapp.add_middleware(SessionMiddleware, secret_key=settings.get.session_secret_key())
+
+with open('website/robots.txt') as f:
     robots_data = f.read()
 
 @fastapp.get("/robots.txt", response_class=PlainTextResponse)
 async def robots_txt(request: Request):
     logging.info(f"{request.client.host} Is asking for the robots.txt")
     return robots_data
+
+with open("yadm-logo.png", "rb") as f:
+    web_logo = f.read()
+
+@fastapp.get("/favicon.ico", response_class=PlainTextResponse)
+async def get_logo(request: Request):
+    return web_logo
+
+@fastapp.get("/", response_class=PlainTextResponse)
+async def handle_root(request: Request):
+    from website.modules.server_list.routes import show_page
+    return await show_page(request)
 
 shared_templates = Jinja2Templates(directory=os.path.join("modules", "shared", "templates"))
 
@@ -107,7 +135,7 @@ for root, dirs, files in os.walk(modules_dir):
 
     # Middleware Handling
     if top_level_module == "middleware" and "middleware.py" in files:
-        module_import_path = "modules." + ".".join(module_parts) + ".middleware"
+        module_import_path = "website.modules." + ".".join(module_parts) + ".middleware"
 
         if module_import_path not in loaded_middlewares:
             try:
@@ -130,7 +158,7 @@ for root, dirs, files in os.walk(modules_dir):
 
     # Router Handling
     if "routes.py" in files:
-        module_import_path = "modules." + ".".join(module_parts) + ".routes"
+        module_import_path = "website.modules." + ".".join(module_parts) + ".routes"
 
         if module_import_path in checked_route_modules:
             continue

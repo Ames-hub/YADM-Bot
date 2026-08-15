@@ -31,7 +31,7 @@ async def botfunction(event: hikari.GuildMessageUpdateEvent):
     embed = (
         hikari.Embed(
             title="Message Edit",
-            description=f"{event.member.mention} just editted their message.",
+            description=f"{event.member.mention} just editted [their message.]({event.message.make_link(event.guild_id)})",
             colour=0x0000ff
         )
         .add_field(

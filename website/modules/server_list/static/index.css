@@ -1,0 +1,45 @@
+body {
+    background-color: rgb(43, 43, 43);
+}
+
+#list {
+    width: 70%;
+    min-height: 120px;
+    min-width: 300px;
+
+    /* Center */
+    position: relative;
+    left: 50%;
+    transform: translateX(-50%);
+    top: 60px;
+
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.server {
+    width: 300px;
+    height: 120px;
+    background-color: rgb(50, 50, 53);
+    margin-bottom: 10px;
+    border-radius: 20px;
+}
+
+.server img {
+    width: 75px;
+    height: 75px;
+    border-radius: 80px;
+
+    position: relative;
+    top: 22px;
+    left: 15px;
+}
+
+.server h2 {
+    float: right;
+    color: white;
+    margin-right: 30px;
+    margin-top: 40px;
+}
