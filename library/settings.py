@@ -21,7 +21,11 @@ valid_settings = {
     "ai_vision_enabled": True,
     "nonprod_bot_token": None,  # The token to use while the bot is not in "production" mode
     "observation_mode": False,
-    "observed_guilds": []
+    "observed_guilds": [],
+    "web_port": 8080,
+    "discord_client_id": None,
+    "discord_client_secret": None,
+    "discord_redirect_uri": None,
 }
 
 def make_settings_file():
@@ -140,6 +144,18 @@ class setgroup():
         return True
 
 class get:
+    def discord_redirect_uri():
+        return _get_value("discord_redirect_uri", valid_settings["discord_redirect_uri"], do_cache=True)
+
+    def discord_client_id():
+        return _get_value("discord_client_id", valid_settings["discord_client_id"], do_cache=True)
+
+    def discord_client_secret():
+        return _get_value("discord_client_secret", valid_settings["discord_client_secret"], do_cache=True)
+
+    def web_port():
+        return _get_value("web_port", valid_settings["web_port"], do_cache=True)
+
     def appropriate_bot_token():
         if get.prod_mode():
             return get.bot_token()
@@ -192,6 +208,18 @@ class get:
         return value
 
 class set:
+    def discord_client_id(value:int):
+        return _save_value("discord_client_id", value)
+
+    def discord_client_secret(value:str):
+        return _save_value("discord_client_secret", value)
+
+    def discord_redirect_uri(value:str):
+        return _save_value("discord_redirect_uri", value)
+
+    def web_port(value:int):
+        return _save_value("web_port", value)
+
     def bot_token(value):
         # Protect the bot token by encrypting it before saving.
         value = encryption().encrypt(value)

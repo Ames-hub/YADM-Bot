@@ -1,6 +1,6 @@
 from sqlalchemy import (
     create_engine, select, insert, inspect, 
-    Column, Integer, BigInteger, TEXT, TIMESTAMP, BOOLEAN, text, DateTime, FLOAT, LargeBinary, ForeignKey
+    Column, Integer, BigInteger, TEXT, TIMESTAMP, BOOLEAN, text, DateTime, FLOAT, LargeBinary, ForeignKey, UUID
 )
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.exc import OperationalError
@@ -220,6 +220,12 @@ class guild_log_channel(Base):
     guild_id = Column(BigInteger, primary_key=True)
     channel = Column(BigInteger, nullable=True)
 
+class guild_logging_options(Base):  # The extra logs the guild has requested we keep
+    __tablename__ = "guild_logging_options"
+    
+    guild_id = Column(BigInteger, primary_key=True)
+    log_msg_edits = Column(BOOLEAN, nullable=False, default=False)
+
 class guild_ban_record(Base):
     __tablename__ = "guild_ban_records"
     
@@ -265,6 +271,13 @@ class observation_entry(Base):
     msg_content = Column(TEXT, nullable=False)
     bot_response = Column(TEXT, nullable=True)
     reeval_date = Column(DateTime, nullable=True)
+
+class web_session(Base):
+    __tablename__ = "web_sessions"
+
+    session_id = Column(UUID, primary_key=True)
+    discord_user_id = Column(BigInteger, nullable=False)
+    username = Column(TEXT, nullable=False)
 
 def get_session():
     if SessionLocal is None:

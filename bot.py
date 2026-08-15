@@ -329,9 +329,9 @@ from library.other import get_os_name
 
 # ------- ds.d configuration ------- #
 ds.d["time_at_boot"] = datetime.datetime.now()
-ds.d["myid"] = None
-ds.d["guild_name_cache"] = {}
-ds.d["PRIMARY_MAINTAINER"] = get.primary_maintainer()
+ds.d["myid"] = None  # Set in the on_shard_ready func.
+ds.d["guild_name_cache"] = {}  #  Used by the "handle_guilty" func to avoid spamming the API for guild name requests.
+ds.d["PRIMARY_MAINTAINER"] = get.primary_maintainer()  # Used to enable specific features.
 ds.d["guild_owner_ids_cache"] = {}
 ds.d["filter_exemptions"] = {}  # People who are not looked at by the automod. Assigned by admins, and its per-guild.
 ds.d["spam_cache"] = {}

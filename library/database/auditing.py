@@ -1,4 +1,4 @@
-from library.database.manage import get_session, guild_audit_log_entry, guild_log_channel
+from library.database.manage import get_session, guild_audit_log_entry, guild_log_channel, guild_logging_options
 from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime, timezone
 from library.botapp import botapp
@@ -9,9 +9,36 @@ import hikari
 This is a file used by the bot to keep logs for actions in each server up-to-date.
 """
 
+class guild_messages():
+    def __init__(self, guild_id:int):
+        self.guild_id = guild_id
+
+    def toggle_logging(self, value:bool):
+        with get_session() as session:
+            try:
+                record = session.query(guild_logging_options).filter(guild_logging_options.guild_id == self.guild_id).one_or_none()
+                if not record:
+                    record = guild_logging_options(
+                        guild_id=self.guild_id,
+                        log_msg_edits=bool(value)
+                    )
+                    session.add(record)
+                else:
+                    record.log_msg_edits = bool(value)
+                session.commit()
+                return True
+            except SQLAlchemyError:
+                return False
+
+    def get_do_logging(self):
+        with get_session() as session:
+            record = session.query(guild_logging_options.log_msg_edits).filter(guild_logging_options.guild_id == self.guild_id).one_or_none()
+        return record if record else False
+
 class logs_config:
     def __init__(self, guild_id:int):
         self.guild_id = int(guild_id)
+        self.msg_edits = guild_messages(guild_id)
 
     async def mk_logs_channel(self):
         try:
@@ -101,7 +128,7 @@ class server_logs:
         finally:
             session.close()
 
-    async def create_entry(self, embed:hikari.Embed, no_channel_ok:bool=True) -> bool:
+    async def create_entry(self, embed:hikari.Embed, no_channel_ok:bool=True, attachments: list[hikari.Attachment] = None) -> bool:
         config = logs_config(self.guild_id)
 
         entry_text = f"{embed.title}\n{embed.description}"
@@ -123,7 +150,8 @@ class server_logs:
         try:
             await botapp.rest.create_message(
                 channel=logs_channel,
-                content=embed
+                content=embed,
+                attachments=attachments
             )
             return True
         except (hikari.UnauthorizedError, hikari.ForbiddenError):
