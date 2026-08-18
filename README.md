@@ -136,87 +136,6 @@ Just click the buttons to toggle settings!
 
 ---
 
-## Command Reference
-
-All commands are slash commands -- just type `/` and start typing!
-
-### Automod Commands
-| Command | Description |
-|--------|-------------|
-| `/automod modules` | Enable/disable core modules (text, image, spam) |
-| `/automod text settings` | Configure text filter punishments |
-| `/automod text checks` | Toggle specific text detection methods |
-| `/automod text words_menu` | Choose preset word lists |
-| `/automod text mutelength` | Set mute duration for text violations |
-| `/automod text ban_delete_time` | Set message deletion time on ban |
-| `/automod imgscan settings` | Configure image filter punishments |
-| `/automod imgscan threshold` | Set AI confidence threshold (0-100%) |
-| `/automod imgscan mutelength` | Set mute duration for image violations |
-| `/automod spam settings` | Configure spam filter punishments |
-| `/automod spam toggle` | Enable/disable spam filter |
-| `/automod wordlist add` | Add custom blacklisted/whitelisted word |
-| `/automod wordlist remove` | Remove word from custom list |
-| `/automod exempt` | Temporarily exempt user from filters |
-| `/automod unexempt` | Remove exemption |
-
-### Moderation Commands
-| Command | Description |
-|--------|-------------|
-| `/moderation mute` | Mute a user (temporary or permanent) |
-| `/moderation kick` | Kick a user from the server |
-| `/moderation ban` | Ban a user (temporary or permanent) |
-| `/moderation purge` | Bulk-delete messages in a channel |
-| `/moderation lockdown` | Lock a channel (no messages from members) |
-| `/moderation unlock` | Unlock a channel |
-| `/moderation warning add` | Issue official warning to user |
-| `/moderation warning revoke` | Remove a warning |
-| `/moderation livelog channel` | Set audit log channel |
-
-### Welcomer Commands
-| Command | Description |
-|--------|-------------|
-| `/welcomer enabled` | Turn welcomer on/off |
-| `/welcomer channel` | Set welcome message channel |
-| `/welcomer message` | Set welcome message text |
-
-### Join Roles Commands
-| Command | Description |
-|--------|-------------|
-| `/joinroles add` | Add role given to new members |
-| `/joinroles remove` | Stop giving a role |
-| `/joinroles list` | List all join roles |
-
-### Utility Commands
-| Command | Description |
-|--------|-------------|
-| `/setup` | Apply recommended settings (one-time setup) |
-| `/uptime` | Check how long Nodeus has been online |
-| `/rtd` | Roll dice (just for fun!) |
-
----
-
-## Getting Started
-
-### 1. Invite Nodeus
-Invite the bot with this link:<br>
-https://discord.com/oauth2/authorize?client_id=1461801438446616618
-
-### 2. Run One-Time Setup
-In any channel, have an administrator run: `/setup`
-
-Nodeus will:
-- Create a dedicated logs channel
-- Enable text, image, and spam filters
-- Set sensible default punishments
-- Enable preset word lists (swears, slurs, NSFW)
-- Configure audit logging
-
-### 3. Customize (Optional)
-Use the interactive menus to tweak anything to your liking!
-The menus are found under `/automod (automod category) settings`
-
----
-
 ## Self-Hosting
 
 Nodeus supports self-hosting for those who want full control over their setup. If you'd like to run your own instance, follow these steps:
@@ -228,6 +147,16 @@ Nodeus supports self-hosting for those who want full control over their setup. I
 4. Install requirements.txt with pip
 5. Run app.py with python, using the venv.
 6. Optionally, hook this up to a panel like Pufferpanel for ease of management. From there, its done!
+
+### With Docker
+
+1. Clone the repository
+2. Download python3.13-bookworm for docker with `docker pull python3.13-bookworm`.
+(This just contains stuff like Sqlite and other stuff by default)
+3. Create a docker container with python3.13-bookworm
+4. Copy the cloned repo to this docker container
+5. Install requirements.txt with pip
+6. Run app.py with python
 
 ### Database Options
 - **Development/Small Servers**: SQLite (built-in, no setup required)

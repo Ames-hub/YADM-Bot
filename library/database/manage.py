@@ -223,6 +223,7 @@ class guild_logging_options(Base):  # The extra logs the guild has requested we 
     
     guild_id = Column(BigInteger, primary_key=True)
     log_msg_edits = Column(BOOLEAN, nullable=False, default=False)
+    log_msg_deletions = Column(BOOLEAN, nullable=False, default=False)
 
 class guild_ban_record(Base):
     __tablename__ = "guild_ban_records"

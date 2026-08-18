@@ -6,16 +6,66 @@ import hikari
 loader = lightbulb.Loader()
 
 def highlight_changes(original: str, changed: str) -> str:
-    matcher = SequenceMatcher(None, original, changed)
+    # First compare the messages as words.
+    old_words = original.split()
+    new_words = changed.split()
+
+    word_matcher = SequenceMatcher(None, old_words, new_words)
     result = []
 
-    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+    for tag, i1, i2, j1, j2 in word_matcher.get_opcodes():
         if tag == "equal":
-            result.append(changed[j1:j2])
-        else:
-            result.append(f"**__{changed[j1:j2]}__**")
+            result.extend(new_words[j1:j2])
+            continue
 
-    return "".join(result)
+        if tag == "replace":
+            old_chunk = old_words[i1:i2]
+            new_chunk = new_words[j1:j2]
+
+            # If this is a single word changing into another single word,
+            # do a character-level comparison.
+            if len(old_chunk) == 1 and len(new_chunk) == 1:
+                old_word = old_chunk[0]
+                new_word = new_chunk[0]
+
+                char_matcher = SequenceMatcher(
+                    None,
+                    old_word,
+                    new_word
+                )
+
+                changed_word = []
+
+                for char_tag, ci1, ci2, cj1, cj2 in char_matcher.get_opcodes():
+                    if char_tag == "equal":
+                        changed_word.append(new_word[cj1:cj2])
+                    else:
+                        changed_word.append(
+                            f"**__{new_word[cj1:cj2]}__**"
+                        )
+
+                result.append("".join(changed_word))
+
+            else:
+                # Multiple words were replaced, so highlight the
+                # entire new section.
+                result.extend(
+                    f"**__{word}__**"
+                    for word in new_chunk
+                )
+
+        elif tag == "insert":
+            result.extend(
+                f"**__{word}__**"
+                for word in new_words[j1:j2]
+            )
+
+        elif tag == "delete":
+            # Deleted text isn't in the new message, so there's
+            # nothing to display here.
+            continue
+
+    return " ".join(result)
 
 @loader.listener(hikari.GuildMessageUpdateEvent)
 async def botfunction(event: hikari.GuildMessageUpdateEvent):
@@ -31,7 +81,7 @@ async def botfunction(event: hikari.GuildMessageUpdateEvent):
     embed = (
         hikari.Embed(
             title="Message Edit",
-            description=f"{event.member.mention} just editted [their message.]({event.message.make_link(event.guild_id)})",
+            description=f"{event.member.mention} just editted [their message.]({event.message.make_link(event.guild_id)}) in <#{event.channel_id}>",
             colour=0x0000ff
         )
         .add_field(

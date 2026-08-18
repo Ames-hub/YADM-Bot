@@ -17,7 +17,6 @@ import sys
 import os
 
 os.makedirs("logs", exist_ok=True)
-os.makedirs("modules/crm/clients/", exist_ok=True)  # For storing data about clients, eg, profile pictures.
 
 logging.basicConfig(
     filename=f"logs/web-{datetime.datetime.now().strftime('%Y-%m-%d')}.log",

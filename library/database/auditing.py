@@ -9,9 +9,11 @@ import hikari
 This is a file used by the bot to keep logs for actions in each server up-to-date.
 """
 
-class guild_messages():
-    def __init__(self, guild_id:int):
+
+class BaseLoggingClass():
+    def __init__(self, guild_id:int, option:str):
         self.guild_id = guild_id
+        self.option = option
 
     def toggle_logging(self, value:bool):
         with get_session() as session:
@@ -19,12 +21,12 @@ class guild_messages():
                 record = session.query(guild_logging_options).filter(guild_logging_options.guild_id == self.guild_id).one_or_none()
                 if not record:
                     record = guild_logging_options(
-                        guild_id=self.guild_id,
-                        log_msg_edits=bool(value)
+                        guild_id=self.guild_id
                     )
+                    setattr(record, self.option, value)
                     session.add(record)
                 else:
-                    record.log_msg_edits = bool(value)
+                    setattr(record, self.option, value)
                 session.commit()
                 return True
             except SQLAlchemyError:
@@ -32,13 +34,21 @@ class guild_messages():
 
     def get_do_logging(self):
         with get_session() as session:
-            record = session.query(guild_logging_options.log_msg_edits).filter(guild_logging_options.guild_id == self.guild_id).one_or_none()
-        return record if record else False
+            record = session.query(guild_logging_options).filter(guild_logging_options.guild_id == self.guild_id).one_or_none()
+        return getattr(record, self.option) if record else False
+
+class guild_message_edits(BaseLoggingClass):
+    def __init__(self, guild_id):
+        super().__init__(guild_id, "log_msg_edits")
+class guild_message_deletions(BaseLoggingClass):
+    def __init__(self, guild_id):
+        super().__init__(guild_id, "log_msg_deletions")
 
 class logs_config:
     def __init__(self, guild_id:int):
         self.guild_id = int(guild_id)
-        self.msg_edits = guild_messages(guild_id)
+        self.msg_edits = guild_message_edits(guild_id)
+        self.msg_deletions = guild_message_deletions(guild_id)
 
     async def mk_logs_channel(self):
         try:
