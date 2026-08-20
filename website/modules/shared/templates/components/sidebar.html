@@ -1,0 +1,33 @@
+<div id="sidebar">
+    <link rel="stylesheet" href="/static/shared/sidebar.css"/>
+    <!-- Only the top gets a border radius because only the sidebar and not its buttons has one by default -->
+    <a class="sidebar-button" style="border-radius: 20px 20px 0px 0px;">
+        {% include "svgs/home.svg" %}
+        <p>Home</p>
+    </a>
+    <a class="sidebar-button">
+        {% include "svgs/text-filter.svg" %}
+        <p>Text Filter</p>
+    </a>
+    <a class="sidebar-button">
+        {% include "svgs/image-filter.svg" %}
+        <p>Image Filter</p>
+    </a>
+    <a class="sidebar-button">
+        {% include "svgs/spam-filter.svg" %}
+        <p>Spam Filter</p>
+    </a>
+    <a class="sidebar-button">
+        {% include "svgs/server-logging.svg" %}
+        <p>Server Logging</p>
+    </a>
+    <a class="sidebar-button">
+        {% include "svgs/wave.svg" %}
+        <p>Welcomer Bot</p>
+    </a>
+    <!-- Bottom doesn't get a border radius, It only needs one if the bottom button reaches to the bottom of the sidebar -->
+    <a class="sidebar-button">
+        {% include "svgs/user-plus.svg" %}
+        <p>On-Join Roles</p>
+    </a>
+</div>

@@ -9,7 +9,7 @@ import os
 router = APIRouter()
 
 module_templates_path = os.path.join(os.path.dirname(__file__), "templates")
-shared_templates_path = os.path.join("modules", "shared", "templates")
+shared_templates_path = os.path.join("website", "modules", "shared", "templates")
 
 env = Environment(
     loader=ChoiceLoader([

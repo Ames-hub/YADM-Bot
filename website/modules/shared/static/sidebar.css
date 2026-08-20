@@ -1,0 +1,43 @@
+body {
+    background-color: #1c1e20;
+}
+#sidebar {
+    position: relative;
+    background-color: #2B2D31;
+    width: 200px;
+    height: calc(100dvh - 20px);
+    border-radius: 20px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+    float: left;
+    overflow-y: auto;
+}
+.sidebar-button {
+    width: 200px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #B5BAC1;
+}
+.sidebar-button svg {
+    margin-left: 30px;
+    flex-shrink: 0;
+    width: 25px;
+    height: 25px;
+}
+
+.sidebar-button:hover {
+    transition: 500ms;
+    background-color: #35374A;
+    color: #5865F2;
+}
+
+/* Below is the CSS for the container, which always accompanies the sidebar. */
+#container {
+    position: relative;
+    width: calc(100dvw - 225px);
+    height: calc(100dvh - 20px);
+    margin-left: 210px;
+    background-color: #2B2D31;
+    border-radius: 20px;
+}
