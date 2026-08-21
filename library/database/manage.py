@@ -270,6 +270,11 @@ class observation_entry(Base):
     msg_content = Column(TEXT, nullable=False)
     bot_response = Column(TEXT, nullable=True)
     reeval_date = Column(DateTime, nullable=True)
+    # After being scanned and marked as bad by the automod, this is set to True.
+    needs_review = Column(BOOLEAN, nullable=False, default=False)
+    # This stores if, during review, the decision of the Automod was confirmed to be correct.
+    confirmed = Column(BOOLEAN, nullable=False, default=False)
+    bad_message = Column(BOOLEAN, nullable=False, default=False)
 
 class web_session(Base):
     __tablename__ = "web_sessions"

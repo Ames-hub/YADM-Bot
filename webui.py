@@ -1,10 +1,11 @@
-from fastapi.responses import PlainTextResponse, HTMLResponse
+from fastapi.responses import PlainTextResponse, HTMLResponse, Response, RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from library.database import manage as db
 from fastapi import Request, FastAPI
+from website import memory as webdb
 from library import settings
 from library import web_rest
 import importlib
@@ -73,12 +74,16 @@ with open("yadm-logo.png", "rb") as f:
 
 @fastapp.get("/favicon.ico", response_class=PlainTextResponse)
 async def get_logo(request: Request):
-    return web_logo
+    return Response(web_logo, status_code=200, media_type="image/png")
 
 @fastapp.get("/", response_class=PlainTextResponse)
 async def handle_root(request: Request):
-    from website.modules.server_list.routes import show_page
-    return await show_page(request)
+    session = webdb.fetch_session(request.cookies.get("session_id"))
+    if session:
+        from website.modules.server_list.routes import show_page
+        return await show_page(request)
+    else:
+        return RedirectResponse("/auth/discord/login")
 
 shared_templates = Jinja2Templates(directory=os.path.join("modules", "shared", "templates"))
 

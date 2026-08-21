@@ -26,13 +26,25 @@ class command(
             Choice("Letter Stitch Check", "stitch"),
             Choice("Reverse Check", "reverse"),
             Choice("Similarity Check", "similarity"),
-            Choice("Syntatic Analysis Check", "syntatic")
+            Choice("Syntatic Analysis Check", "syntatic"),
+            Choice("False Readings", "false-readings")
         ]
     )
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
         await prechecks("prechecks", ctx, hikari.Permissions.ADMINISTRATOR)
+
+        false_readings_txt = (
+            "In any anticheat, any chat filter, any scanning program, this fact has always plagued these tools.\n\n"
+            "The constant game is being right as many times as possible while being wrong as little as possible. "
+            "With this bot, we have safety-rails in place for the automod to reduce the amount of False Positives.\n\n"
+            "If you're wondering what a *False Positive* is, a False Positive is a technical term, and is what's used to refer to "
+            "an automod falsely or incorrectly marking someone as a rule-breaker, although they've broken no rules. "
+            "And the opposite would be a *False Negative*, where someone was a rule-breaker, but was falsely marked as clean by the system.\n\n"
+            "That being said, if you notice an error in our automod's decision making process, resulting in a false-positive, or a false-negative, "
+            "please do report it to @friendlyfox.exe on Discord. It would help us a lot!"
+        )
         
         embeds = {
             "general": hikari.Embed(
@@ -71,7 +83,20 @@ class command(
                 name="Why Multiple Checks?",
                 value="People can be creative when trying to bypass filters. By using multiple checks, we catch everything from obvious swearing to cleverly disguised attempts.",
                 inline=False
-            ).set_footer(text="Each check builds on the previous one for maximum protection"),
+            )
+            .add_field(
+                name="False-Positives, False Negatives",
+                value=false_readings_txt
+            )
+            .set_footer(text="Each check builds on the previous one for maximum protection"),
+
+            "false-readings": hikari.Embed(
+                title="False Readings",
+                description="The below is an excerpt from another section of the manual, describing what false-positives and false-negatives are."
+            ).add_field(
+                name="False-Positives, False Negatives",
+                value=false_readings_txt
+            ),
             
             "equality": hikari.Embed(
                 title="🔍 Equality Check",
@@ -85,6 +110,10 @@ class command(
                 name="Example",
                 value="If 'foobar' is banned, it catches:\n✅ `You are a foobar`\n❌ `You are a f o o b a r` (spaces break it)",
                 inline=False
+            )
+            .add_field(
+                name="Caveat",
+                value="While equality check can only catch the most obvious of text rule violations and misses everything else, this check cannot give false-positives."
             ),
             
             "symbol": hikari.Embed(

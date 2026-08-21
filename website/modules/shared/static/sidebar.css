@@ -30,6 +30,7 @@ body {
     transition: 500ms;
     background-color: #35374A;
     color: #5865F2;
+    cursor: pointer;
 }
 
 /* Below is the CSS for the container, which always accompanies the sidebar. */
