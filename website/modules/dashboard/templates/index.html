@@ -9,9 +9,29 @@
     </head>
     <body>
         {% include "components/sidebar.html" %}
-
         <div id="container">
-            
+            <div id="stats-row">
+                {% for stat in stat_list %}
+                <div class="stat-item">
+                    <h2>{{ stat.name.upper() }}</h2>
+                    <hr>
+                    <div class="stat-content">
+                        <img src="/api/get-statistic/{{ stat.name }}/svg">
+
+                        <div class="stat-item-stat">
+                            {% for datum in stat.datums %}
+                            <div class="stat-row">
+                                <span>{{ datum.title }}</span>
+                                <strong>{{ datum.value }}</strong>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
         </div>
     </body>
+    <script src="/static/dashboard/stats-carousel.js"></script>
 </html>
