@@ -1,7 +1,7 @@
 <div id="sidebar">
     <link rel="stylesheet" href="/static/shared/sidebar.css"/>
     <!-- Only the top gets a border radius because only the sidebar and not its buttons has one by default -->
-    <a class="sidebar-button" style="border-radius: 20px 20px 0px 0px;">
+    <a href="/dashboard/{{ guild_id }}" class="sidebar-button" style="border-radius: 20px 20px 0px 0px;">
         {% include "svgs/home.svg" %}
         <p>Home</p>
     </a>

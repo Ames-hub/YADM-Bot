@@ -1,11 +1,11 @@
 #stats-row {
-    width: calc(100dvw - 250px);
-    height: 165px;
+    width: calc(100dvw - 255px);
+    height: 175px;
 
     overflow-y: auto;
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
+    gap: 13px;
 
     margin-top: 15px;
     margin-left: 15px;

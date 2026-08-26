@@ -31,12 +31,12 @@ class command(
         if self.threshold <= 75:
             embed.add_field(
                 name="Low Threshold Caution",
-                value="Thresholds below 75 percent can result in a great deal of false-positives."
+                value="Thresholds below 75 percent can result in a great deal of false-positives. Recommended threshold is ~90%"
             )
         elif self.threshold > 95:
             embed.add_field(
                 name="High Threshold Caution",
-                value="Thresholds above 95 percent can result in many NSFW images not being caught."
+                value="Thresholds above 95 percent can result in many obviously NSFW images not being caught. Recommended threshold is ~90%"
             )
 
         # Converts threshold from 100 to 1 or 70 to 0.7

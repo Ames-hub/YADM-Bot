@@ -11,7 +11,7 @@ async def get_my_guilds():
         return guild_cache["guilds"]
 
     rest = web_rest.get_rest()
-    data = await rest.fetch_my_guilds()
+    data = await rest.fetch_my_guilds()  # This gets the bot's guilds
 
     guild_cache["guilds"] = data
 
@@ -55,20 +55,24 @@ def fetch_session(session_id:str, delete_old:bool=True):
                 return None
         return record
 
-async def determine_manageable_guilds(user_id: int, guilds: list[dict]) -> list:
-    with get_session() as db_session:
-        manageable = []
-        my_guilds = [guild.id for guild in await get_my_guilds()]
+manageable_guilds_cache = TTLCache(maxsize=1000, ttl=300)
+async def determine_manageable_guilds(user_id:int, users_guilds: list[dict]) -> list:
+    if manageable_guilds_cache.get(str(user_id), None):
+        return manageable_guilds_cache[str(user_id)]
 
-        for guild_item in guilds.split(","):
-            g_split = guild_item.split("|")
-            guild_id = int(g_split[0])
-            if not guild_id in my_guilds:
-                continue
-            perms_int = int(g_split[1])
-            owns_guild = bool(g_split[2])
-            has_admin = perms_int & hikari.Permissions.ADMINISTRATOR
-            if has_admin or owns_guild:
-                manageable.append(guild_id)
+    manageable = []
+    my_guilds = [guild.id for guild in await get_my_guilds()]
 
-        return manageable
+    for guild_item in users_guilds.split(","):
+        g_split = guild_item.split("|")
+        guild_id = int(g_split[0])
+        if not guild_id in my_guilds:
+            continue
+        users_perms_int = int(g_split[1])
+        user_owns_guild = bool(g_split[2])
+        has_admin = users_perms_int & hikari.Permissions.ADMINISTRATOR
+        if has_admin or user_owns_guild:
+            manageable.append(guild_id)
+
+    manageable_guilds_cache[str(user_id)] = manageable
+    return manageable

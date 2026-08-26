@@ -27,11 +27,20 @@ To get started, I'd recommend you do the following.
 Simple:
 1. Run `/setup` (and nothing more, you're done from there. Bot will handle it.)
 
-Complex:
+If your server has recently been hit by a hate-raid, or there's otherwise swarms of bad messages, run `/automod retroscan`
+after running `/setup` or doing the complex setup.
+"""
+        )
+        .add_field(
+            name="Complex Setup",
+            value="""
 1. If you have any words you do not want said, add them to the bad word list! use `/automod wordlist add`
 2. Decide if you want to use only your own custom word list, or if you want to use the default one as well! Use `/automod text presetlist` to configure this.
-3. Use the command `/automod text settings`, this'll let you configure penalties for text rule violations.
-4. Use the command `/automod modules`! This'll let you configure what we look for!
+3. Use the command `/automod modules`! This'll let you configure what we look for!
+
+If you want to use text moderaton, see `/automod text settings`, this'll let you configure penalties for text rule violations.
+If you want to block NSFW Images, see `/automod imgscan penalties`
+If you want to block spam, see `/automod spam penalties`
 """
         )
     )

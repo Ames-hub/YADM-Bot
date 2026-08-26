@@ -35,7 +35,7 @@ async def do_retro_scan(
     del guild
 
     # Get all messages within the time frame.
-    target_timestamp = datetime.now(timezone.utc).timestamp() - timedelta(hours=lookback_hours).total_seconds()
+    target_timestamp = int(datetime.now(timezone.utc).timestamp() - timedelta(hours=lookback_hours).total_seconds())
     target_time = datetime.fromtimestamp(target_timestamp)
     try:
         fetched_messages = await botapp.rest.fetch_messages(channel_id, after=target_time)
@@ -123,6 +123,11 @@ class views:
             description=desc,
             colour=0xff0000
         )
+        if self.hours_back >= 335:
+            embed.add_field(
+                name="Discord Limits",
+                value="Bots cannot delete messages older than two weeks, if you proceed, messages older than two weeks will not be deleted."
+            )
         return embed
 
     def init_view(viewself):
@@ -158,7 +163,15 @@ class views:
                 )
 
                 try:
-                    actions_log = await do_retro_scan()
+                    actions_log = await do_retro_scan(
+                        guild_id=ctx.guild_id,
+                        channel_id=viewself.channel,
+                        mod_id=viewself.mod_id,
+                        do_penalize=viewself.penalize,
+                        do_kick=viewself.do_kick,
+                        do_ban=viewself.do_ban,
+                        lookback_hours=viewself.hours_back
+                    )
                 except hikari.ForbiddenError:
                     await ctx.edit_response(
                         hikari.Embed(
@@ -197,8 +210,11 @@ class views:
                     style=hikari.ButtonStyle.SECONDARY,
                     emoji="🔎"
                 )
-                async def do_scan(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                async def do_observe_scan(self, ctx: miru.ViewContext, button: miru.Button) -> None:
                     if not ctx.author.id == viewself.mod_id:  # Prevents others from clicking it
                         return
+
+                    raise NotImplementedError
+                    # TODO: Implement this
 
         return Menu_Init()

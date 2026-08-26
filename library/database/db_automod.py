@@ -58,7 +58,7 @@ class nsfw_scanner_reviews:
         finally:
             session.close()
 
-    def modify_upvote_count(msg_id:int, add:bool=True):
+    def modify_upvote_count(msg_id:int, add:bool=True, amount:int=1):
         session = get_session()
         try:
             record = (
@@ -71,9 +71,9 @@ class nsfw_scanner_reviews:
                 return True
 
             if add:
-                new_upvote_count = record.upvote_count + 1
+                new_upvote_count = record.upvote_count + amount
             else:
-                new_upvote_count = record.upvote_count - 1
+                new_upvote_count = record.upvote_count - amount
 
             if not record:
                 raise nsfw_scanner_reviews.errors.msg_not_tracked
@@ -88,7 +88,7 @@ class nsfw_scanner_reviews:
         finally:
             session.close()
 
-    def modify_downvote_count(msg_id, add:bool=True):
+    def modify_downvote_count(msg_id, add:bool=True, amount:int=1):
         session = get_session()
         try:
             record = (
@@ -100,9 +100,9 @@ class nsfw_scanner_reviews:
                 return True
 
             if add:
-                new_downvote_count = record.downvote_count + 1
+                new_downvote_count = record.downvote_count + amount
             else:
-                new_downvote_count = record.downvote_count - 1
+                new_downvote_count = record.downvote_count - amount
 
             if not record:
                 raise nsfw_scanner_reviews.errors.msg_not_tracked

@@ -25,6 +25,7 @@ body {
     align-items: center;
     gap: 8px;
     color: #B5BAC1;
+    text-decoration: none;
 }
 .sidebar-button svg {
     margin-left: 30px;

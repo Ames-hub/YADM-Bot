@@ -175,6 +175,9 @@ class muting:
             success = guild.set.muted_role_id(new_role.id)
             return success
 
+        def list_mutes(self, active_only:bool=True):
+            return muting.list_all_mutes(active_only=active_only, guild_id=self.guild_id)
+
     def list_all_mutes(active_only=True, user_id:int=None, guild_id:int=None) -> list[mute_record]:
         session = get_session()
         try:
@@ -285,6 +288,18 @@ class violations:
             return (
                 session.query(member_violation)
                 .filter(member_violation.offender_id == offender_id)
+                .order_by(member_violation.time.desc())
+                .all()
+            )
+        finally:
+            session.close()
+
+    def get_violations_by_guild(guild_id: int) -> list[member_violation]:
+        session = get_session()
+        try:
+            return (
+                session.query(member_violation)
+                .filter(member_violation.guild_id == guild_id)
                 .order_by(member_violation.time.desc())
                 .all()
             )
@@ -1374,8 +1389,11 @@ class guild_warnings:
 def list_all_bans() -> list[guild_ban_record]:
     session = get_session()
     try:
-        records = (session.query(guild_ban_record)).all()
-        return records
+        records = (
+            session.query(guild_ban_record)
+            .filter(guild_ban_record.time_to_unban >= datetime.datetime.now())
+        )
+        return records.all()
     except SQLAlchemyError as err:
         logging.error("Failed listing all bans!", exc_info=err)
         return []  # Return an empty list if something goes wrong
@@ -1525,15 +1543,16 @@ class guild_bans:
         finally:
             session.close()
 
-    def list_bans(self) -> list[guild_ban_record]:
+    def list_bans(self, active_only:bool=False) -> list[guild_ban_record]:
         session = get_session()
         try:
             records = (
                 session.query(guild_ban_record)
                 .filter(guild_ban_record.guild_id == self.guild_id)
-                .all()
             )
-            return records
+            if active_only:
+                records = records.filter(guild_ban_record.time_to_unban >= datetime.datetime.now())
+            return records.all()
         except SQLAlchemyError as err:
             logging.error("Failed listing all bans!", exc_info=err)
             return []  # Return an empty list if something goes wrong

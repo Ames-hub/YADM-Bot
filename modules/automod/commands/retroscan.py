@@ -1,4 +1,4 @@
-from modules.moderation.views.retroscan_view import views
+from modules.automod.commands.views.retroscan_view import views
 from library.database.guilds import dbguild
 from modules.moderation.group import group
 from library.permissions import prechecks
