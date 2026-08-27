@@ -9,13 +9,13 @@ import hikari
 
 loader = lightbulb.Loader()
 
-async def handle_warn_user(guild_id:int, user:hikari.User, reason:str, responder_func):
+async def handle_warn_user(guild_id:int, user:hikari.User, moderator:hikari.User, reason:str, responder_func):
     guild = dbguild(guild_id)
 
     warn_id = guild.warnings.add_warning(
         reason=reason,
-        mod_id=user.id,
-        user_id=user.id
+        mod_id=moderator.id,
+        user_id=user.id,
     )
 
     cache_expire_time = 86400  # 1 day in seconds
@@ -86,6 +86,7 @@ class command(
         return await handle_warn_user(
             ctx.guild_id,
             self.user,
+            ctx.user,
             self.reason,
             ctx.respond
         )

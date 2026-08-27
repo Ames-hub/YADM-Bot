@@ -37,7 +37,8 @@ body {
     left: 15px;
 }
 
-.server h2 {
+.server p {
+    width: calc(100% - 140px);
     float: right;
     color: white;
     margin-right: 30px;

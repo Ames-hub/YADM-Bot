@@ -1349,41 +1349,30 @@ class guild_warnings:
             return {}
         finally:
             session.close()
-
-        parsed_data = {}
-        for item in records:
-            parsed_data[item.warn_id] = {
-                "mod_id": item.moderator_id,
-                "user_id": item.user_id,
-                "reason": item.reason,
-                "time": item.time,
-                "guild_id": item.guild_id
-            }
-        return parsed_data
     
-    def get_all(self):
+    def get_all(self, newest_first:bool=True, limit:int=None) -> list[guild_member_warnings]:
         session = get_session()
         try:
             records = (
                 session.query(guild_member_warnings)
                 .filter(guild_member_warnings.guild_id == self.guild_id)
-                .all()
             )
+
+            if newest_first:
+                records = records.order_by(guild_member_warnings.warn_id.asc())
+            else:
+                records = records.order_by(guild_member_warnings.warn_id.desc())
+
+            if limit:
+                records = records.limit(limit)
+
+            records = records.all()
         except SQLAlchemyError:
-            return {}
+            return None
         finally:
             session.close()
 
-        parsed_data = {}
-        for item in records:
-            parsed_data[item.warn_id] = {
-                "mod_id": item.moderator_id,
-                "user_id": item.user_id,
-                "reason": item.reason,
-                "time": item.time,
-                "guild_id": item.guild_id
-            }
-        return parsed_data
+        return records
 
 # A duplicate of guild_bans.list_bans that doesn't filter by guild
 def list_all_bans() -> list[guild_ban_record]:

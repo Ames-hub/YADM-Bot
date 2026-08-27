@@ -104,7 +104,7 @@ elif "--setup-db" in sys.argv:
             "port": db_port,
             "dbname": db_name
         }),
-        ever_create_db=False  # Never make one with docker here.
+        ever_create_db=False
     )
     setgroup.db_details({
         "user": username,
@@ -113,6 +113,7 @@ elif "--setup-db" in sys.argv:
         "port": db_port,
         "dbname": db_name
     })
+    set.prefer_mainydb(False)
     print("DB Setup confirmed. Saved.")
     exit(0)
 

@@ -1,7 +1,7 @@
 from jinja2 import ChoiceLoader, FileSystemLoader, Environment
+from fastapi.responses import Response, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from library.mainydb import guild_icons
-from fastapi.responses import Response
 from fastapi import APIRouter, Request
 from library.web_rest import get_rest
 from website import memory as db
@@ -25,8 +25,11 @@ templates = Jinja2Templates(env=env)
 
 @router.get("/list")
 async def show_page(request: Request):
-    session = db.fetch_session(request.cookies.get("session_id"))
-    managed_guilds = await db.determine_manageable_guilds(session.discord_user_id, session.in_guilds)
+    session_id = request.cookies.get("session_id")
+    if not db.verify_session(session_id):
+        return RedirectResponse("/auth/discord/login")
+
+    managed_guilds: list[db.web_guild_session] = await db.determine_manageable_guilds(session_id=session_id, ids_only=False)
     return templates.TemplateResponse(
         request,
         "index.html",
@@ -39,7 +42,7 @@ with open("library/placeholder-guild.png", "rb") as f:
     placeholder_guild = f.read()
 
 @router.get("/api/{guild_id}/server-icon")
-async def get_icon(request: Request, guild_id: int):
+async def get_icon(guild_id: int):
     img = guild_icons.get_img(guild_id)
 
     if img:

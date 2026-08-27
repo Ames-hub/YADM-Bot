@@ -29,6 +29,35 @@ logging.basicConfig(
 WEB_PORT = settings.get.web_port()
 #============END CONFIG============#
 
+if "--setup-db" in sys.argv:
+    from library.database import manage as pg_manage
+    print("DB Setup beginning. Details for your pre-existing postgre SQL database required.")
+    username = input("Username: >>> ")
+    password = input("Password: >>> ")
+    db_name = input("DB Name: >>> ")
+    db_host = input("DB Host: >>> ")
+    db_port = input("DB Port: >>> ")
+    print("We will now attempt to connect to this database.")
+    pg_manage.wait_for_db(
+        pg_manage.postgres_url({
+            "user": username,
+            "password": password,
+            "host": db_host,
+            "port": db_port,
+            "dbname": db_name
+        }),
+        ever_create_db=False
+    )
+    settings.setgroup.db_details({
+        "user": username,
+        "password": password,
+        "host": db_host,
+        "port": db_port,
+        "dbname": db_name
+    })
+    print("DB Setup confirmed. Saved.")
+    exit(0)
+
 if not settings.get.discord_client_id():
     print("We noticed your Client ID is missing, please go to discord.com/developers/applications, find your applications client ID and provide it.")
     client_id = input("Client ID Here >>> ")
@@ -47,6 +76,13 @@ if not settings.get.discord_redirect_uri():
     redirect_uri = input("Redirect URI Here >>> ")
     settings.set.discord_redirect_uri(redirect_uri)
     print("Redirect URI saved.")
+
+if not settings.get.bot_token():
+    print("Please enter your discord bot token from discord.com/developers/applications under your bot in the 'bot' section.")
+    bot_token = input("Bot Token Here >>> ")
+    settings.set.bot_token(bot_token)
+    settings.set.nonprod_bot_token(bot_token)  # Set it as both. Maybe later we will add non-prod support.
+    print("Bot Token Saved.")
 
 session_secret_key = secrets.token_urlsafe(64)
 settings.set.session_secret_key(session_secret_key)
@@ -78,14 +114,14 @@ async def get_logo(request: Request):
 
 @fastapp.get("/", response_class=PlainTextResponse)
 async def handle_root(request: Request):
-    session = webdb.fetch_session(request.cookies.get("session_id"))
+    session = request.cookies.get("session_id") is not None  # If this is not None but invalid, the next route will handle it.
     if session:
         from website.modules.server_list.routes import show_page
         return await show_page(request)
     else:
         return RedirectResponse("/auth/discord/login")
 
-shared_templates = Jinja2Templates(directory=os.path.join("modules", "shared", "templates"))
+shared_templates = Jinja2Templates(directory=os.path.join("website", "modules", "shared", "templates"))
 
 # noinspection PyUnusedLocal
 @fastapp.exception_handler(401)

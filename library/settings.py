@@ -26,7 +26,11 @@ valid_settings = {
     "discord_client_id": None,
     "discord_client_secret": None,
     "discord_redirect_uri": None,
-    "session_secret_key": None
+    "session_secret_key": None,
+    # Mainydb is light and small. Good for small deployments where its just the bot running.
+    # But, its less ideal for running with the webUI. In fact, its not practically possible.
+    # So when this is False, we use Postgres instead.
+    "prefer_mainydb": True
 }
 
 def make_settings_file():
@@ -145,6 +149,9 @@ class setgroup():
         return True
 
 class get:
+    def prefer_mainydb():
+        return _get_value("prefer_mainydb", valid_settings["prefer_mainydb"], do_cache=True)
+
     def session_secret_key():
         return _get_value("session_secret_key", valid_settings["session_secret_key"], do_cache=True)
 
@@ -212,6 +219,9 @@ class get:
         return value
 
 class set:
+    def prefer_mainydb(value:bool):
+        return _save_value("prefer_mainydb", value)
+
     def session_secret_key(value:str):
         return _save_value("session_secret_key", value)
 

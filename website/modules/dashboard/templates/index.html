@@ -31,7 +31,47 @@
                 </div>
                 {% endfor %}
             </div>
-            
+            <div id="toggle-buttons">
+                <div title="Prevents people from saying bad things." class="module-item">
+                    <label>TEXT FILTER</label>
+                    <button id="toggle-text-filter" class="toggle-btn">OFF</button>
+                </div>
+                <div title="Prevents users from sending messages too quickly." class="module-item">
+                    <label>SPAM FILTER</label>
+                    <button id="toggle-spam-filter" class="toggle-btn">OFF</button>
+                </div>
+                <div title="Prevents lewd images from being sent." class="module-item">
+                    <label>IMAGE FILTER</label>
+                    <button id="toggle-img-filter" class="toggle-btn">OFF</button>
+                </div>
+                <div title="Prevents Unauthorized links from being sent." class="module-item">
+                    <label>LINK FILTER (WIP)</label>
+                    <button style="cursor: not-allowed;" id="toggle-link-filter" class="toggle-btn" disabled>OFF</button>
+                </div>
+                <div title="Prevents someone from pinging too many people at once" class="module-item">
+                    <label>MASS-MENTION FILTER (WIP)</label>
+                    <button style="cursor: not-allowed;" id="toggle-mention-filter" class="toggle-btn" disabled>OFF</button>
+                </div>
+                <div title="Prevents sudden raids of many people joining and all repeating the same message" class="module-item">
+                    <label>RAID PROTECTION (WIP)</label>
+                    <button style="cursor: not-allowed;" id="toggle-raid-protection" class="toggle-btn" disabled>OFF</button>
+                </div>
+            </div>
+            <div id="warnings_log">
+                <div id="warnings_list">
+                    {% for warning in guild_warnings %}
+                    <span>
+                        <strong>#{{ warning.warn_id }}</strong>
+                        <small>{{ warning.moderator_name }} warned {{ warning.warned_name }} on {{ warning.time.strftime("%d-%m-%Y, at %I:%M %p") }}</small>
+                        <span class="warning-reason">{{ warning.reason }}</span>
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
         </div>
     </body>
+    <script>
+        let guild_id = "{{ guild_id }}"
+    </script>
+    <script src="/static/dashboard/toggle-buttons.js"></script>
 </html>

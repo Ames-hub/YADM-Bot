@@ -6,6 +6,7 @@ from urllib.parse import urlencode
 from library import settings
 import secrets
 import httpx
+import uuid
 
 router = APIRouter()
 
@@ -46,17 +47,22 @@ async def discord_callback(request: Request, code: str, state: str):
         user = (await client.get("https://discord.com/api/users/@me", headers=headers)).json()
         guilds: list[dict] = (await client.get("https://discord.com/api/users/@me/guilds", headers=headers)).json()
 
-    # Save the ID and their bit-wise perms integer, and if they own the guild.
-    in_guilds = ",".join(str(f'{g["id"]}|{g["permissions"]}|{g['owner']}') for g in guilds)  
-
-    session_id = db.create_session(
-        discord_user_id=int(user["id"]),
-        username=user["username"],
-        in_guilds=in_guilds,
-    )
+    session_id = str(uuid.uuid4())
+    for guild in guilds:
+        session_id = db.create_guild_sessions(
+            session_id=session_id,
+            discord_user_id=int(user["id"]),
+            username=user["username"],
+            guild=guild['id'],
+            guild_name=guild['name'],
+            perms_mask=guild['permissions'],
+            is_owner=guild['owner']
+        )
+    
     response = RedirectResponse("/list")
     response.set_cookie(
         "session_id", session_id,
-        httponly=True, secure=True, samesite="lax", max_age=60 * 60 * 24 * 7,
+        # TODO: This needs to be secure on prod mode, but its fine during development. 
+        httponly=True, secure=False, samesite="lax", max_age=60 * 60 * 24 * 7,
     )
     return response

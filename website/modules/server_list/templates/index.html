@@ -10,10 +10,16 @@
     <body>
         <div id="list">
             {% for guild in server_list %}
-            <a href="/dashboard/{{ guild }}">
+            <!--
+            It doesn't make much sense here, but here its a user guild web session object, not a guild object.
+            So the naming is a bit weird out of context.
+            -->
+            <a href="/dashboard/{{ guild.guild }}">
                 <div class="server">
-                    <img src="/api/{{ guild }}/server-icon">
-                    <h2>Manage</h2>
+                    <img src="/api/{{ guild.guild }}/server-icon">
+                    <p>
+                        {{ guild.guild_name }}
+                    </p>
                 </div>
             </a>
             {% endfor %}

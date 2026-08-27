@@ -1,6 +1,6 @@
 from sqlalchemy import (
     create_engine, select, insert, inspect, 
-    Column, Integer, BigInteger, TEXT, TIMESTAMP, BOOLEAN, text, DateTime, FLOAT, ForeignKey
+    Column, Integer, BigInteger, TEXT, TIMESTAMP, BOOLEAN, text, DateTime, FLOAT, ForeignKey, LargeBinary
 )
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.exc import OperationalError
@@ -276,14 +276,42 @@ class observation_entry(Base):
     confirmed = Column(BOOLEAN, nullable=False, default=False)
     bad_message = Column(BOOLEAN, nullable=False, default=False)
 
-class web_session(Base):
-    __tablename__ = "web_sessions"
+class user_web_session(Base):
+    __tablename__ = "user_web_sessions"
 
-    session_id = Column(TEXT, primary_key=True)
-    discord_user_id = Column(BigInteger, nullable=False)
-    username = Column(TEXT, nullable=False)
+    session_id = Column(TEXT, ForeignKey("user_web_sessions.session_id"), primary_key=True)
+    discord_user_id = Column(BigInteger, unique=True, nullable=False)
     expires_at = Column(DateTime, nullable=False)
-    in_guilds = Column(TEXT, nullable=False)
+    username = Column(TEXT, nullable=True)
+
+class web_guild_session(Base):
+    __tablename__ = "web_guild_sessions_list"
+
+    instance = Column(Integer, primary_key=True, autoincrement=True)
+    session_id = Column(TEXT, ForeignKey("user_web_sessions.session_id"), unique=False)
+    guild = Column(BigInteger, nullable=False)
+    perms_mask = Column(Integer, nullable=False) # This is to be kept updated at all times. The task in "webui_perms_updater.py" is essential for this.
+    is_owner = Column(BOOLEAN, nullable=False)
+    guild_name = Column(TEXT, nullable=False)
+
+class antivirus_report(Base):
+    __tablename__ = "antivirus_results"
+
+    filehash = Column(TEXT, primary_key=True)
+    malicious = Column(BOOLEAN, nullable=False)
+    report_date = Column(DateTime, nullable=False)
+
+class nsfw_img_blob(Base):
+    __tablename__ = "nsfw_img_blobs"
+
+    violation_id = Column(Integer, primary_key=True)
+    img_blob = Column(LargeBinary, nullable=False)
+
+class guild_icon_blob(Base):
+    __tablename__ = "guild_img_blobs"
+
+    guild_id = Column(BigInteger, primary_key=True)
+    img_blob = Column(LargeBinary, nullable=False)
 
 def get_session():
     if SessionLocal is None:
@@ -374,21 +402,22 @@ def create_docker_postgres(
     logging.info("Docker PostgreSQL ready.")
     return True
 
-def wait_for_db(url: str, retries: int = 30, delay: int = 2) -> bool:
+def wait_for_db(url: str, retries: int = 30, delay: int = 2, ever_create_db:bool=True) -> bool:
     global engine, SessionLocal
 
-    if settings.get.db_port() is None and settings.get.prod_mode() is True:  # If this is none, the rest are also likely None.
-        if settings.get.allow_docker_fallback():
-            logging.info("Postgres Fallback DB Initiated: Creating docker DB using image 'postgres'")
-            create_docker_postgres()
-            url = postgres_url(settings.getgroup.db_details())
-        else:
-            error = (
-                "Error! We are not allowed to make a fallback DB, and no externally configured DB is set while on Production mode. "
-                "To fix this, please set the following variable in settings: allow_docker_fallback = True OR set a DB"
-            )
-            print(error)
-            raise ConnectionAbortedError(error)
+    if ever_create_db:
+        if settings.get.db_port() is None and settings.get.prod_mode() is True:  # If this is none, the rest are also likely None.
+            if settings.get.allow_docker_fallback():
+                logging.info("Postgres Fallback DB Initiated: Creating docker DB using image 'postgres'")
+                create_docker_postgres()
+                url = postgres_url(settings.getgroup.db_details())
+            else:
+                error = (
+                    "Error! We are not allowed to make a fallback DB, and no externally configured DB is set while on Production mode. "
+                    "To fix this, please set the following variable in settings: allow_docker_fallback = True OR set a DB"
+                )
+                print(error)
+                raise ConnectionAbortedError(error)
 
     logging.info("DB: Creating engine")
 

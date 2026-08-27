@@ -1,6 +1,6 @@
 # Nodeus Discord Bot
 
-A comprehensive moderation and server management bot for Discord, featuring advanced text filtering, AI-powered image moderation, automated punishments, and extensive customization options.
+A comprehensive moderation and server management bot for Discord, featuring advanced text filtering, Ethical AI-powered image moderation, automated punishments, and extremely extensive customization options.
 
 Nodeus is, at its core, a moderation bot. That's what it's built for. But that's not to say it can't do anything else! This is the first moderation bot I've decided to take seriously, so here you go!
 
@@ -36,8 +36,8 @@ Nodeus uses **8 different heuristic checks** to catch inappropriate language, ev
 | **Medium** | Spacehack Detection | Words split with spaces (eg, "s w e a r") |
 | **Medium** | Letter Stitching | Spaced-out letters reassembled into words |
 | **Medium** | Reverse Check | Reversed words ("ruls" -> "slur") |
-| **High** | Similarity Matching | 80%+ similarity threshold (catches "baddword" vs "badword") |
-| **High** | Syntactic Analysis | **Context-aware!** Distinguishes self-insults from attacks on others |
+| **High** | Similarity Matching | 85%+ similarity threshold (catches "baddword" vs "badword") |
+| **High** | Syntactic Analysis | **Context-aware!** Distinguishes self-insults from attacks on others. Not AI, but borderline. |
 
 Every single check can be toggled on or off. Don't like one? Just turn it off in the menu!
 
@@ -46,11 +46,11 @@ Every single check can be toggled on or off. Don't like one? Just turn it off in
 > **A note on AI:** There's much discourse about Generative AI. Nodeus uses **Discriminative AI**, the same technology your phone uses to focus on faces in photos. It's lightweight, private, and runs locally. If you're heavily against AI, I ask you at least read this section before leaving.
 
 - **Privacy-Focused** -- All image scanning happens on your machine, not the cloud, and not in some data-center.
-- **Eco-Friendly** -- Being a small, discriminative AI, it does not harm the environment
+- **Eco-Friendly** -- Being a small, discriminative AI, it does not harm the environment in any way worse than simply browsing tiktok or whatever.
 - **Configurable Threshold** -- Set how confident the AI must be (0-100%) before taking action
 - **Perceptual Hashing** -- Tracks images by hash to avoid re-scanning the same image
 - **Community Review System** -- Users can upvote/downvote detections to improve accuracy
-- **Auto Whitelisting/Blacklisting** -- Based on vote thresholds, images get automatically trusted or blocked
+- **Auto Whitelisting/Blacklisting** -- Based on vote thresholds, images get automatically trusted or blocked because yes, the AI can hallucinate, so we ensure that the opinion of the people is greater than the opinion of the AIs. 
 
 ### Spam Protection
 
@@ -138,32 +138,73 @@ Just click the buttons to toggle settings!
 
 ## Self-Hosting
 
-Nodeus supports self-hosting for those who want full control over their setup. If you'd like to run your own instance, follow these steps:
-(If you need help, google "how to run python program with venv" or contact me on discord, @friendlyfox.exe)
+Nodeus supports self-hosting for those who want full control over their setup. If you'd like to run your own instance, follow these steps below.
+
+
+***Before we get into that though, I want to make it clear that if you need help with install at any point in this guide, feel free to message me on discord! My discord handle is "@friendlyfox.exe" I'm happy to help!***
+<hr>
+
+That being said, here's the steps:
+
 
 1. Clone the repository.
 2. Download python3.13
 3. Create a venv
 4. Install requirements.txt with pip
-5. Run app.py with python, using the venv.
+5. Run bot.py with python, using the venv.
 6. Optionally, hook this up to a panel like Pufferpanel for ease of management. From there, its done!
 
 ### With Docker
 
 1. Clone the repository
-2. Download python3.13-bookworm for docker with `docker pull python3.13-bookworm`.
-(This just contains stuff like Sqlite and other stuff by default)
-3. Create a docker container with python3.13-bookworm
-4. Copy the cloned repo to this docker container
-5. Install requirements.txt with pip
-6. Run app.py with python
+2. Download python3.13-bookworm image for docker with `docker pull python:3.13-bookworm`
+3. Create a docker network named "nodeus-network" 
+4. *(If intending to use Postgre or the Web UI)*
+   Create a docker container named "nodeus-bot" with python3.13-bookworm image, which is connected to the network "nodeus-network"
+5. Copy the cloned repo to this docker container
+6. Install requirements.txt with pip
+7. Run bot.py with python
+
+### Installing WebUI
+To install the WebUI, you will want to
+
+1. Go to https://discord.com/developers/applications
+2. Click on your bot
+3. Find the client ID and client secret, and find your bot token.
+4. Add a redirect URI to https://example-domain/auth/discord/callback
+5. Clone the repository
+6. Download python3.13-bookworm image for docker with `docker pull python:3.13-bookworm`
+7. Create a docker container named "nodeus-webui" with python3.13-bookworm image, which is connected to the network "nodeus-network"
+8. Copy the cloned repo to this docker container
+9. Install requirements.txt with pip
+10. With Docker, create a postgres docker container named "nodeus-pg" connected to the "nodeus-network" from before that restarts unless stopped.
+11. Run `webui.py --setup-db` with python in the container you just created
+12. Provide the details of the database to the application, then confirm the database could be reached (It'll tell you)
+12. Run `webui.py` with python
+13. Provide the Client ID, Client Secret and Bot Token to the WebUI.
+
+Great, that is now done. But there's a second part.
+Now that you have a docker container with the WebUI installed inside, we'll want to make sure the separate docker container
+that had the actual Discord Bot installed inside is also attempting to communicate to the PostgreSQL DB.
+
+Go into the terminal of that docker container, which should be named "nodeus-bot", and stop the bot process.
+Then run:
+```
+python bot.py --setup-db
+```
+And then fill in the details of the database, and ensure that it can connect. It'll tell you if it can, once you've provided the details.
+
+**Last step!**
+In the bot's docker container, find "settings.json" and toggle the setting "prod_mode" from "false", to "true". (case sensitive)
+
+And it's done! The WebUI and the Bot should be operating in harmony, how lovely.
 
 ### Database Options
 - **Development/Small Servers**: SQLite (built-in, no setup required)
-- **Production/Large Servers**: PostgreSQL (recommended for better performance)
+- **Production/Large Servers**: PostgreSQL (recommended for better performance, required for using the WebUI if you want to avoid weird, unsupported setups.)
 
 ### Security Features
-- **Token Encryption** -- All tokens and passwords are encrypted at rest
+- **Token Encryption** -- All tokens and passwords are encrypted.
 - **Production Mode** -- Enables Python optimizations and stricter security
 - **Separate Tokens** -- Different tokens for production and development
 
@@ -186,7 +227,7 @@ A: Just turn it off! Use `/automod text checks` to toggle any detection method o
 **Q: Does Nodeus store message content?**
 A: Only violations are stored (for audit purposes). Normal messages are processed in memory and discarded.
 
-However, when using the official instance, if you consent to it and are *SPECIFICALLY ASKED BY THE PROJECT MAINTAINER*, Nodeus will store all messages created on the server for manual review to check automod quality. Nodeus will not store messages like this unless you are okay with it.
+However, when using the official instance, if you consent to it and are *SPECIFICALLY ASKED BY THE PROJECT MAINTAINER*, Nodeus will store all messages created on the server for manual review to check automod quality. Nodeus will not store messages like this unless you are okay with it. Messages not flagged by the automod will not be inspected, so most mundane messages are not reviewed.
 
 ---
 

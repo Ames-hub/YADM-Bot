@@ -2,6 +2,7 @@ from library import datastore as ds
 from library.botapp import botapp
 from library.settings import get
 from datetime import datetime
+import cachetools
 import lightbulb
 import hikari
 
@@ -55,6 +56,8 @@ async def prechecks(
 
         ds.d["cmd_cooldowns_memory"][cmd_name] = cooldown_s
         cd.start_cooldown(cmd_name, cooldown_s)
+
+perms_cache = cachetools.TTLCache(maxsize=10000, ttl=15)
 
 class cooldowns:
     def __init__(self, user_id):
@@ -155,6 +158,8 @@ class perms:
     async def get_user_permissions(guild_id, user_id):
         user_id = int(user_id)
         guild_id = int(guild_id)
+        if perms_cache.get(f"{guild_id}-{user_id}", False):
+            return perms_cache[f"{guild_id}-{user_id}"]
 
         member:hikari.Member = await botapp.rest.fetch_member(guild=guild_id, user=user_id)
 
@@ -162,12 +167,14 @@ class perms:
         owner_id = await perms.get_guild_owner_id(guild_id)
 
         if owner_id == member.id:
-            return [
+            perms_list = [
                 # All the major permissions
                 hikari.Permissions.ADMINISTRATOR,
                 hikari.Permissions.MANAGE_GUILD,
                 hikari.Permissions.MANAGE_ROLES,
             ]
+            perms_cache[f"{guild_id}-{user_id}"] = perms_list
+            return perms_list
 
         perms_list = []
         roles = await member.fetch_roles()
@@ -178,6 +185,7 @@ class perms:
                 else:
                     continue
 
+        perms_cache[f"{guild_id}-{user_id}"] = perms_list
         return perms_list
 
     @staticmethod
