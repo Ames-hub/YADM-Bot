@@ -144,15 +144,17 @@ Nodeus supports self-hosting for those who want full control over their setup. I
 ***Before we get into that though, I want to make it clear that if you need help with install at any point in this guide, feel free to message me on discord! My discord handle is "@friendlyfox.exe" I'm happy to help!***
 <hr>
 
-That being said, here's the steps:
-
+That being said, here's the basic steps:
+For more information, read the "installation.md" file in the project.
 
 1. Clone the repository.
 2. Download python3.13
 3. Create a venv
 4. Install requirements.txt with pip
-5. Run bot.py with python, using the venv.
-6. Optionally, hook this up to a panel like Pufferpanel for ease of management. From there, its done!
+5. Go to `discord.com/developers/applications`, find your bot, and get the bot token.
+6. In the "installation page" set it to server install, and enable the scope "bot" and "application commands" 
+7. Run bot.py with python, using the venv. Provide the token it asks for.
+8. Optionally, hook this up to a panel like Pufferpanel for ease of management. From there, its done!
 
 ### With Docker
 
@@ -162,8 +164,10 @@ That being said, here's the steps:
 4. *(If intending to use Postgre or the Web UI)*
    Create a docker container named "nodeus-bot" with python3.13-bookworm image, which is connected to the network "nodeus-network"
 5. Copy the cloned repo to this docker container
-6. Install requirements.txt with pip
-7. Run bot.py with python
+6. Go to `discord.com/developers/applications`, find your bot, and get the bot token.
+7. In the "installation page" set it to server install, and enable the scope "bot" and "application commands"
+8. Install requirements.txt with pip
+9. Run bot.py with python, and provide the token it asks for.
 
 ### Installing WebUI
 To install the WebUI, you will want to
@@ -179,9 +183,9 @@ To install the WebUI, you will want to
 9. Install requirements.txt with pip
 10. With Docker, create a postgres docker container named "nodeus-pg" connected to the "nodeus-network" from before that restarts unless stopped.
 11. Run `webui.py --setup-db` with python in the container you just created
-12. Provide the details of the database to the application, then confirm the database could be reached (It'll tell you)
-12. Run `webui.py` with python
-13. Provide the Client ID, Client Secret and Bot Token to the WebUI.
+12. Provide the details of the database to the application, then confirm the database could be reached (It'll tell you) Once that's done, exit the program.
+13. Run `webui.py` with python
+14. Provide the Client ID, Client Secret and Bot Token to the WebUI.
 
 Great, that is now done. But there's a second part.
 Now that you have a docker container with the WebUI installed inside, we'll want to make sure the separate docker container

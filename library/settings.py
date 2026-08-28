@@ -30,7 +30,8 @@ valid_settings = {
     # Mainydb is light and small. Good for small deployments where its just the bot running.
     # But, its less ideal for running with the webUI. In fact, its not practically possible.
     # So when this is False, we use Postgres instead.
-    "prefer_mainydb": True
+    "prefer_mainydb": True,
+    "webui-hostname": None
 }
 
 def make_settings_file():
@@ -149,69 +150,92 @@ class setgroup():
         return True
 
 class get:
+    @staticmethod
+    def webui_hostname():
+        return _get_value("webui-hostname", valid_settings["webui-hostname"], do_cache=True)
+
+    @staticmethod
     def prefer_mainydb():
         return _get_value("prefer_mainydb", valid_settings["prefer_mainydb"], do_cache=True)
 
+    @staticmethod
     def session_secret_key():
         return _get_value("session_secret_key", valid_settings["session_secret_key"], do_cache=True)
 
+    @staticmethod
     def discord_redirect_uri():
         return _get_value("discord_redirect_uri", valid_settings["discord_redirect_uri"], do_cache=True)
 
+    @staticmethod
     def discord_client_id():
         return _get_value("discord_client_id", valid_settings["discord_client_id"], do_cache=True)
 
+    @staticmethod
     def discord_client_secret():
         return _get_value("discord_client_secret", valid_settings["discord_client_secret"], do_cache=True)
 
+    @staticmethod
     def web_port():
         return _get_value("web_port", valid_settings["web_port"], do_cache=True)
 
+    @staticmethod
     def appropriate_bot_token():
         if get.prod_mode():
             return get.bot_token()
         else:
             return get.nonprod_bot_token()
 
+    @staticmethod
     def bot_token():
         value = _get_value("bot_token", valid_settings["bot_token"], do_cache=True)
         if value is not None:
             value = encryption().decrypt(value)
         return value
-    
+
+    @staticmethod
     def prod_mode():
         return _get_value("prod_mode", valid_settings["prod_mode"], do_cache=True)
-    
+
+    @staticmethod
     def db_username():
         return _get_value("db_username", valid_settings["db_username"], do_cache=True)
-    
+
+    @staticmethod
     def db_password():
         value = _get_value("db_password", valid_settings["db_password"], do_cache=True)
         if value is not None:
             value = encryption().decrypt(value)
         return value
 
+    @staticmethod
     def db_host():
         return _get_value("db_host", valid_settings["db_host"], do_cache=True)
-    
+
+    @staticmethod
     def db_port():
         return _get_value("db_port", valid_settings["db_port"], do_cache=True)
-    
+
+    @staticmethod
     def db_name():
         return _get_value("db_name", valid_settings["db_name"], do_cache=True)
-    
+
+    @staticmethod
     def bot_name():
         return _get_value("bot_name", valid_settings["bot_name"], do_cache=True)
-    
+
+    @staticmethod
     def allow_docker_fallback():
         return _get_value("allow_docker_fallback", valid_settings["allow_docker_fallback"], do_cache=True)
 
+    @staticmethod
     def primary_maintainer():
         return _get_value("primary_maintainer", valid_settings["primary_maintainer"], do_cache=True)
 
+    @staticmethod
     def ai_vision_enabled():
         return _get_value("ai_vision_enabled", valid_settings["ai_vision_enabled"], do_cache=False)
 
+    @staticmethod
     def nonprod_bot_token():
         value = _get_value("nonprod_bot_token", valid_settings["nonprod_bot_token"], do_cache=True)
         if value is not None:
@@ -219,60 +243,82 @@ class get:
         return value
 
 class set:
+    @staticmethod
+    def webui_hostname(value:str):
+        return _save_value("webui-hostname", value)
+
+    @staticmethod
     def prefer_mainydb(value:bool):
         return _save_value("prefer_mainydb", value)
 
+    @staticmethod
     def session_secret_key(value:str):
         return _save_value("session_secret_key", value)
 
+    @staticmethod
     def discord_client_id(value:int):
         return _save_value("discord_client_id", value)
 
+    @staticmethod
     def discord_client_secret(value:str):
         return _save_value("discord_client_secret", value)
 
+    @staticmethod
     def discord_redirect_uri(value:str):
         return _save_value("discord_redirect_uri", value)
 
+    @staticmethod
     def web_port(value:int):
         return _save_value("web_port", value)
 
+    @staticmethod
     def bot_token(value):
         # Protect the bot token by encrypting it before saving.
         value = encryption().encrypt(value)
         return _save_value("bot_token", value)
 
+    @staticmethod
     def prod_mode(value: bool):
         return _save_value("prod_mode", bool(value))
     
+    @staticmethod
     def db_username(value: str):
         return _save_value("db_username", value)
     
+    @staticmethod
     def db_password(value: str):
         value = encryption().encrypt(value)
         return _save_value("db_password", value)
-    
+
+    @staticmethod
     def db_host(value: str):
         return _save_value("db_host", value)
-    
+
+    @staticmethod
     def db_port(value: int):
         return _save_value("db_port", int(value))
-    
+
+    @staticmethod
     def db_name(value: str):
         return _save_value("db_name", value)
-    
+
+    @staticmethod
     def bot_name(value: str):
         return _save_value("bot_name", value)
-    
+
+    @staticmethod
     def allow_docker_fallback(value: bool):
         return _save_value("allow_docker_fallback", bool(value))
-    
+
+    @staticmethod
     def primary_maintainer(value: int):
         return _save_value("primary_maintainer", int(value))
-    
+
+    @staticmethod
     def ai_vision_enabled(value: bool):
         return _save_value("ai_vision_enabled", bool(value))
-    
+
+    @staticmethod
     def nonprod_bot_token(value):
         value = encryption().encrypt(value)
         return _save_value("nonprod_bot_token", str(value))

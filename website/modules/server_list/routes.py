@@ -50,6 +50,7 @@ async def get_icon(guild_id: int):
 
     rest = get_rest()
 
+    # TODO: Figure out why this doesn't always get a guild's icon.
     try:
         guild = await rest.fetch_guild(guild_id)
     except (hikari.NotFoundError, hikari.ForbiddenError):

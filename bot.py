@@ -116,6 +116,19 @@ elif "--setup-db" in sys.argv:
     set.prefer_mainydb(False)
     print("DB Setup confirmed. Saved.")
     exit(0)
+elif "--enable-webui-cmds" in sys.argv:
+    print("To enable /dashboard command for the WebUI, please enter the Hostname of the WebUI.")
+    print("This would be whatever address you use to connect to the WebUI, whether that be http://192.168.1.123:8040 or https://yourbot.com")
+    hostname = input(">>> ")
+    if not hostname.startswith("http"):
+        print("Bad input: must be a full link. Missing if its HTTPS or HTTP")
+        exit(0)
+    elif not "." in hostname:
+        print("Bad input: Missing domain (eg, .com)")
+        exit(0)
+    set.webui_hostname(hostname)
+    print("")
+    exit(0)
 
 # ----- INITIAL SETUP SECTION -----
 if not get.bot_token():
