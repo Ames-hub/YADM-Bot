@@ -1,3 +1,4 @@
+from library.database.auditing import server_logs
 from library.database.guilds import dbguild
 import hikari
 import miru
@@ -44,7 +45,6 @@ class views:
         active_style = hikari.ButtonStyle.PRIMARY
         inactive_style = hikari.ButtonStyle.SECONDARY
 
-        # TODO: Add server logging
         class Menu_Init(miru.View):
             @miru.button(
                 label="Toggle Text Scanner",
@@ -61,6 +61,14 @@ class views:
 
                 await ctx.edit_response(viewself.gen_embed(), components=self)
 
+                await server_logs(ctx.guild_id).create_entry(
+                    hikari.Embed(
+                        title="Automod settings changed",
+                        description=f"Text scanning has been turned {"on" if new_state is False else "off"} by {ctx.author.mention}",
+                        colour=0xff0000 if new_state else 0x00ff00
+                    )
+                )
+
             @miru.button(
                 label="Toggle NSFW Scanner",
                 style=active_style if viewself.guild.get.do_image_filtering() else inactive_style
@@ -76,6 +84,14 @@ class views:
 
                 await ctx.edit_response(viewself.gen_embed(), components=self)
 
+                await server_logs(ctx.guild_id).create_entry(
+                    hikari.Embed(
+                        title="Automod settings changed",
+                        description=f"NSFW Image scanning has been turned {"on" if new_state is False else "off"} by {ctx.author.mention}",
+                        colour=0xff0000 if new_state else 0x00ff00
+                    )
+                )
+
             @miru.button(
                 label="Toggle Spam Filter",
                 style=active_style if viewself.guild.get.do_filter_spam() else inactive_style,
@@ -90,6 +106,14 @@ class views:
                 button.style = active_style if new_state else inactive_style
 
                 await ctx.edit_response(viewself.gen_embed(), components=self)
+
+                await server_logs(ctx.guild_id).create_entry(
+                    hikari.Embed(
+                        title="Automod settings changed",
+                        description=f"Spam Filtering has been turned {"on" if new_state is False else "off"} by {ctx.author.mention}",
+                        colour=0xff0000 if new_state else 0x00ff00
+                    )
+                )
 
             async def on_timeout(self) -> None:
                 await viewself.ctx.edit_response(

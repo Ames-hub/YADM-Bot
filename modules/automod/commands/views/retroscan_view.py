@@ -18,7 +18,8 @@ async def do_retro_scan(
         do_penalize:bool,
         do_kick:bool=None,
         do_ban:bool=None,
-        lookback_hours:int=335
+        lookback_hours:int=335,
+        do_observe_scan:bool=False,
     ):
     # We cannot delete msgs older than two weeks, so if they're older than that, do not delete.
     do_delete = True
@@ -62,8 +63,9 @@ async def do_retro_scan(
             continue
         if not message.content:
             continue
-        bad_msg, check_name, flagged_word, _ = automod.text_check(message.content, message.guild_id)
+        bad_msg, check_name, flagged_word, _ = automod.text_check(message.content, message.guild_id, observing=do_observe_scan)
         if bad_msg:
+            # TODO: Make this use escalation too, like handle_guilty original func.
             msg_link = f"message (link: {message.make_link(message.guild_id)})"
             if do_penalize:
                 if do_kick or do_ban:
@@ -214,7 +216,55 @@ class views:
                     if not ctx.author.id == viewself.mod_id:  # Prevents others from clicking it
                         return
 
-                    raise NotImplementedError
-                    # TODO: Implement this
+                    await ctx.respond(
+                        hikari.Embed(
+                            title="Scanning...",
+                            description="This may take a while, please hold tight for a couple minutes!",
+                            colour=0xFFA500
+                        )
+                    )
+
+                    try:
+                        actions_log = await do_retro_scan(
+                            guild_id=ctx.guild_id,
+                            channel_id=viewself.channel,
+                            mod_id=viewself.mod_id,
+                            do_penalize=viewself.penalize,
+                            do_kick=viewself.do_kick,
+                            do_ban=viewself.do_ban,
+                            lookback_hours=viewself.hours_back,
+                            do_observe_scan=True
+                        )
+                    except hikari.ForbiddenError:
+                        await ctx.edit_response(
+                            hikari.Embed(
+                                title="Bad Bot Permissions",
+                                description="We do not have permission to fetch messages that far back.",
+                                colour=0xff0000
+                            )
+                        )
+                        return
+
+                    if actions_log:
+                        bytes = io.BytesIO("\n".join(actions_log).encode('utf-8'))
+                        file = hikari.Bytes(bytes, "actions.txt")
+
+                        embed = (
+                            hikari.Embed(
+                                title="Retroactive scan complete",
+                                description=f"{len(actions_log)} Actions were taken against the detected messages{" and users" if viewself.penalize else ""}"
+                            )
+                        )
+
+                        await ctx.edit_response(embed, attachment=file)
+                    else:
+                        embed = (
+                            hikari.Embed(
+                                title="Retroactive scan complete",
+                                description="There were no found messages that violated the content moderation rules."
+                            )
+                        )
+
+                    await ctx.edit_response(embed, attachment=file)
 
         return Menu_Init()

@@ -5,7 +5,6 @@ from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from library.database import manage as db
 from fastapi import Request, FastAPI
-from website import memory as webdb
 from library import settings
 from library import web_rest
 import importlib
@@ -228,14 +227,26 @@ if __name__ == "__main__":
         print(f"Error: Unable to initialize the database connection. Please check your settings and ensure the database is reachable.")
         raise ConnectionError("Database initialization failed.")
 
-    config = uvicorn.Config(
-        fastapp,
-        host="0.0.0.0",
-        port=WEB_PORT,
-        loop="asyncio",
-        lifespan="on",
-        reload=False,
-    )
+    if settings.get.prod_mode():
+        config = uvicorn.Config(
+            fastapp,
+            host="0.0.0.0",
+            port=WEB_PORT,
+            loop="asyncio",
+            lifespan="on",
+            reload=False,
+            ssl_keyfile="certs/private.key",
+            ssl_certfile="certs/public.pem",
+        )
+    else:
+        config = uvicorn.Config(
+            fastapp,
+            host="0.0.0.0",
+            port=WEB_PORT,
+            loop="asyncio",
+            lifespan="on",
+            reload=True,
+        )
     server = uvicorn.Server(config)
 
     try:

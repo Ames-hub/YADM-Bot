@@ -1,3 +1,4 @@
+from library.database.auditing import server_logs
 from library.database.guilds import dbguild
 import hikari
 import miru
@@ -105,7 +106,6 @@ class views:
         active_style = hikari.ButtonStyle.SUCCESS
         inactive_style = hikari.ButtonStyle.SECONDARY
 
-        # TODO: Add server logging
         class Menu_Init(miru.View):
 
             @miru.button(label="Exit", style=hikari.ButtonStyle.DANGER, row=3)
@@ -143,6 +143,13 @@ class views:
                 viewself.set_category.equality_check(active)
                 button.style = active_style if active else inactive_style
                 await ctx.edit_response(viewself.gen_embed(), components=self)
+                await server_logs(ctx.guild_id).create_entry(
+                    hikari.Embed(
+                        title="Automod checks changed",
+                        description=f"Text scanning \"**Equality Check**\" has been turned {"on" if active is False else "off"} by {ctx.author.mention}",
+                        colour=0x00ff00 if active else 0xFFA500
+                    )
+                )
 
             @miru.button(
                 label="Toggle Symbol",
@@ -156,6 +163,13 @@ class views:
                 viewself.set_category.symbol_check(active)
                 button.style = active_style if active else inactive_style
                 await ctx.edit_response(viewself.gen_embed(), components=self)
+                await server_logs(ctx.guild_id).create_entry(
+                    hikari.Embed(
+                        title="Automod checks changed",
+                        description=f"Text scanning \"**Symbols Check**\" has been turned {"on" if active is False else "off"} by {ctx.author.mention}",
+                        colour=0x00ff00 if active else 0xFFA500
+                    )
+                )
 
             @miru.button(
                 label="Toggle Collapsed",
@@ -169,6 +183,13 @@ class views:
                 viewself.set_category.collapsed_check(active)
                 button.style = active_style if active else inactive_style
                 await ctx.edit_response(viewself.gen_embed(), components=self)
+                await server_logs(ctx.guild_id).create_entry(
+                    hikari.Embed(
+                        title="Automod checks changed",
+                        description=f"Text scanning \"**Collapse Check**\" has been turned {"on" if active is False else "off"} by {ctx.author.mention}",
+                        colour=0x00ff00 if active else 0xFFA500
+                    )
+                )
 
             @miru.button(
                 label="Toggle Spacehack",
@@ -182,6 +203,13 @@ class views:
                 viewself.set_category.spacehack_check(active)
                 button.style = active_style if active else inactive_style
                 await ctx.edit_response(viewself.gen_embed(), components=self)
+                await server_logs(ctx.guild_id).create_entry(
+                    hikari.Embed(
+                        title="Automod checks changed",
+                        description=f"Text scanning \"**Space-hack Check**\" has been turned {"on" if active is False else "off"} by {ctx.author.mention}",
+                        colour=0x00ff00 if active else 0xFFA500
+                    )
+                )
 
             @miru.button(
                 label="Toggle Letter Stitch",
@@ -195,6 +223,13 @@ class views:
                 viewself.set_category.letter_stitch_check(active)
                 button.style = active_style if active else inactive_style
                 await ctx.edit_response(viewself.gen_embed(), components=self)
+                await server_logs(ctx.guild_id).create_entry(
+                    hikari.Embed(
+                        title="Automod checks changed",
+                        description=f"Text scanning \"**Letter-stitching Check**\" has been turned {"on" if active is False else "off"} by {ctx.author.mention}",
+                        colour=0x00ff00 if active else 0xFFA500
+                    )
+                )
 
             @miru.button(
                 label="Toggle Reverse",
@@ -208,6 +243,13 @@ class views:
                 viewself.set_category.reverse_check(active)
                 button.style = active_style if active else inactive_style
                 await ctx.edit_response(viewself.gen_embed(), components=self)
+                await server_logs(ctx.guild_id).create_entry(
+                    hikari.Embed(
+                        title="Automod checks changed",
+                        description=f"Text scanning \"**Reversing Check**\" has been turned {"on" if active is False else "off"} by {ctx.author.mention}",
+                        colour=0x00ff00 if active else 0xFFA500
+                    )
+                )
 
             @miru.button(
                 label="Toggle Similarity",
@@ -221,6 +263,13 @@ class views:
                 viewself.set_category.similarity_check(active)
                 button.style = active_style if active else inactive_style
                 await ctx.edit_response(viewself.gen_embed(), components=self)
+                await server_logs(ctx.guild_id).create_entry(
+                    hikari.Embed(
+                        title="Automod checks changed",
+                        description=f"Text scanning \"**Similarity Check**\" has been turned {"on" if active is False else "off"} by {ctx.author.mention}",
+                        colour=0x00ff00 if active else 0xFFA500
+                    )
+                )
 
             @miru.button(
                 label="Toggle Syntactic Analysis",
@@ -234,5 +283,12 @@ class views:
                 viewself.set_category.syntactic_analysis(active)
                 button.style = active_style if active else inactive_style
                 await ctx.edit_response(viewself.gen_embed(), components=self)
+                await server_logs(ctx.guild_id).create_entry(
+                    hikari.Embed(
+                        title="Automod checks changed",
+                        description=f"Text scanning \"**Syntactic Analysis**\" has been turned {"on" if active is False else "off"} by {ctx.author.mention}",
+                        colour=0x00ff00 if active else 0xFFA500
+                    )
+                )
 
         return Menu_Init(timeout=60)

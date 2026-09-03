@@ -60,9 +60,9 @@ async def discord_callback(request: Request, code: str, state: str):
         )
     
     response = RedirectResponse("/list")
+    is_prod = settings.get.prod_mode()
     response.set_cookie(
         "session_id", session_id,
-        # TODO: This needs to be secure on prod mode, but its fine during development. 
-        httponly=True, secure=False, samesite="lax", max_age=60 * 60 * 24 * 7,
+        httponly=True, secure=is_prod, samesite="lax", max_age=60 * 60 * 24 * 7,
     )
     return response
