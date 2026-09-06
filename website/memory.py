@@ -162,6 +162,8 @@ async def determine_manageable_guilds(session_id:str=None, user_id:int=None, ids
     if not user_session:
         return False
 
+    my_guilds_ids = [guild.id for guild in await get_my_guilds()]
+
     with get_session() as session:
         records = (
             session.query(web_guild_session)
@@ -171,12 +173,16 @@ async def determine_manageable_guilds(session_id:str=None, user_id:int=None, ids
         manageable = []
         if ids_only:
             for record in records:
+                if record.guild not in my_guilds_ids:
+                    continue
                 if record.is_owner:
                     manageable.append(record.guild)
                 elif record.perms_mask & hikari.Permissions.ADMINISTRATOR:
                     manageable.append(record.guild)
         else:
             for record in records:
+                if record.guild not in my_guilds_ids:
+                    continue
                 if record.is_owner:
                     manageable.append(record)
                 elif record.perms_mask & hikari.Permissions.ADMINISTRATOR:

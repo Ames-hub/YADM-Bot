@@ -360,8 +360,8 @@ try:
         # More efficient than usual event loop policy
         import uvloop
         logging.info(f"Using linux uvloop")
-        # VS Code reports the below as deprecated, but thats only on py3.14+. This bot is designed for py3.13.
-        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+        loop = uvloop.new_event_loop()
+        asyncio.set_event_loop(loop)
 
     bm.benchmark("All pre-flight checks completed, initalization of bot commencing.")
     botapp.run(

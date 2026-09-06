@@ -148,7 +148,7 @@ That being said, here's the basic steps:
 For more information, read the "installation.md" file in the project.
 
 1. Clone the repository.
-2. Download python3.13
+2. Download python3.14
 3. Create a venv
 4. Install requirements.txt with pip
 5. Go to `discord.com/developers/applications`, find your bot, and get the bot token.
@@ -159,10 +159,10 @@ For more information, read the "installation.md" file in the project.
 ### With Docker
 
 1. Clone the repository
-2. Download python3.13-bookworm image for docker with `docker pull python:3.13-bookworm`
+2. Download python3.14-bookworm image for docker with `docker pull python:3.14-bookworm`
 3. Create a docker network named "nodeus-network" 
 4. *(If intending to use Postgre or the Web UI)*
-   Create a docker container named "nodeus-bot" with python3.13-bookworm image, which is connected to the network "nodeus-network"
+   Create a docker container named "nodeus-bot" with python3.14-bookworm image, which is connected to the network "nodeus-network"
 5. Copy the cloned repo to this docker container
 6. Go to `discord.com/developers/applications`, find your bot, and get the bot token.
 7. In the "installation page" set it to server install, and enable the scope "bot" and "application commands"
@@ -177,8 +177,8 @@ To install the WebUI, you will want to
 3. Find the client ID and client secret, and find your bot token.
 4. Add a redirect URI to https://example-domain/auth/discord/callback
 5. Clone the repository
-6. Download python3.13-bookworm image for docker with `docker pull python:3.13-bookworm`
-7. Create a docker container named "nodeus-webui" with python3.13-bookworm image, which is connected to the network "nodeus-network"
+6. Download python3.14-bookworm image for docker with `docker pull python:3.14-bookworm`
+7. Create a docker container named "nodeus-webui" with python:3.14-bookworm image, which is connected to the network "nodeus-network"
 8. Copy the cloned repo to this docker container
 9. Install requirements.txt with pip
 10. With Docker, create a postgres docker container named "nodeus-pg" connected to the "nodeus-network" from before that restarts unless stopped.

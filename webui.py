@@ -1,4 +1,5 @@
 from fastapi.responses import PlainTextResponse, HTMLResponse, Response, RedirectResponse
+from starlette.middleware.authentication import AuthenticationMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles

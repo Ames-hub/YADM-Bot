@@ -16,15 +16,15 @@ The second method is copying the repository, and running it on an actual machine
 ```
 git clone https://github.com/Ames-hub/YADM-bot
 ```
-2. Download python3.13-bookworm image for docker with:
+2. Download python3.14-bookworm image for docker with:
 ```
-docker pull python:3.13-bookworm
+docker pull python:3.14-bookworm
 ```
 3. Create a docker network named "nodeus-network", using the command: 
 ```
 docker network create nodeus-network
 ```
-4. Create a docker container named "nodeus-bot" with python3.13-bookworm image, which is connected to the network "nodeus-network" with the restart-policy set to "--unless-stopped", with -v being set to nodeus-bot-data/app. Have it run /app/bot.py on start.
+4. Create a docker container named "nodeus-bot" with python3.14-bookworm image, which is connected to the network "nodeus-network" with the restart-policy set to "--unless-stopped", with -v being set to nodeus-bot-data/app. Have it run /app/bot.py on start.
 ```
 docker run -d \
   --name nodeus-bot \
@@ -53,7 +53,7 @@ If you want to install the WebUI too, you will want to follow the steps in "Inst
 ```
 git clone https://github.com/Ames-hub/YADM-bot
 ```
-2. Download python3.13-bookworm image for docker with:
+2. Download python3.14-bookworm image for docker with:
 ```
 docker pull python:3.13-bookworm
 ```
@@ -61,7 +61,7 @@ docker pull python:3.13-bookworm
 ```
 docker network create nodeus-network
 ```
-4. Create a docker container named "nodeus-webui" with python3.13-bookworm image, which is connected to the network "nodeus-network" with the restart-policy set to "--unless-stopped", with -v being set to nodeus-webui-data/app. Have it run /app/webui.py on start.
+4. Create a docker container named "nodeus-webui" with python3.14-bookworm image, which is connected to the network "nodeus-network" with the restart-policy set to "--unless-stopped", with -v being set to nodeus-webui-data/app. Have it run /app/webui.py on start.
 ```
 docker run -d \
   --name nodeus-webui \
