@@ -50,4 +50,5 @@ body {
     border-radius: 20px;
 
     display: flow-root;
+    overflow-y: auto;
 }

@@ -58,15 +58,21 @@
                 </div>
             </div>
             <div id="warnings_log">
-                <div id="warnings_list">
-                    {% for warning in guild_warnings %}
-                    <span>
-                        <strong>#{{ warning.warn_id }}</strong>
-                        <small>{{ warning.moderator_name }} warned {{ warning.warned_name }} on {{ warning.time.strftime("%d-%m-%Y, at %I:%M %p") }}</small>
-                        <span class="warning-reason">{{ warning.reason }}</span>
-                    </span>
-                    {% endfor %}
-                </div>
+                {% if guild_warnings %}                
+                    <div id="warnings_list">
+                        {% for warning in guild_warnings %}
+                        <span>
+                            <strong>#{{ warning.warn_id }}</strong>
+                            <small>{{ warning.moderator_name }} warned {{ warning.warned_name }} on {{ warning.time.strftime("%d-%m-%Y, at %I:%M %p") }}</small>
+                            <span class="warning-reason">{{ warning.reason }}</span>
+                        </span>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div id="no-warnings-box">
+                        <p>If any of your server's members receive a warning, it'll show up here.</p>
+                    </div>
+                {% endif %}
             </div>
         </div>
     </body>

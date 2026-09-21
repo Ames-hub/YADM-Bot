@@ -3,11 +3,37 @@ from datetime import datetime, timedelta
 from library import automod
 import subprocess
 
-print("Please select option:")
-print("1 - Re-review all observations using current, modern automod.")
-print("2 - Check a specific line of text")
-print("3 - Review flagged for review messages")
-action = int(input(">>> "))
+def clean_whitelist_file():
+    """
+    This function removes duplicates from the library/preset_word_whitelist.txt file, and removes exact matches from the whitelist if they are in
+    The bad words list.
+    """
+    bad_word_list = automod.get_bad_word_list(guild_id=None)
+    old_whitelist = automod.PRESET_WORD_WHITELIST
+    new_whitelist = []
+    removal_list = []
+    progress_indicator = 0
+    for word in old_whitelist:
+        print(f"Beginning to clean whitelist file. This can take a while as we scan through all {len(old_whitelist)} entries.")
+        print(f"Progress: {progress_indicator}/{len(old_whitelist)}")
+        progress_indicator += 1
+        subprocess.run("clear")
+        if word in bad_word_list:
+            removal_list.append(word, "Bad Word")
+            continue  # Do not add it
+        elif word in new_whitelist:
+            removal_list.append((word, "Duplicate"))  
+            continue  # Do not add it, as its a duplicate.
+        else:
+            new_whitelist.append(word)
+
+    with open("library/preset_word_whitelist.txt", "w") as f:
+        f.write("\n".join(new_whitelist))
+
+    for item in removal_list:
+        print(f"REMOVED: \"{item[0]}\" due to \"{item[1]}\"")
+    print(f"Whitelist cleaned, removed {len(removal_list)} items.")
+    return True
 
 def review_bad_messages(bad_entries: list[observations.observation_entry]):
     progress = 1
@@ -67,47 +93,65 @@ def review_bad_messages(bad_entries: list[observations.observation_entry]):
                     print("Wrong answer!")
                     continue
 
-if action == 1:
-    entries = observations.get_all_entries()
 
-    bad_count = 0
-    bad_entries: list[observations.observation_entry] = []
-    start_time = datetime.now().timestamp()
-    for entry in entries:
-        result = automod.text_check(entry.msg_content, observing=True)
-        bad = result[0]
-        if bad:
-            check_name = result[1]
-            flagged_word = result[2]
+while True:
+    print("Please select option:")
+    print("0 - Exit")
+    print("1 - Re-review all observations using current, modern automod.")
+    print("2 - Check a specific line of text.")
+    print("3 - Review flagged for review messages.")
+    print("4 - Clean the whitelist file of bad entries.")
+    action = int(input(">>> "))
 
-            bad_count += 1
-            bad_entries.append(entry)
-            success = observations.reeval_entry(
-                msg_id=entry.msg_id,
-                new_conclusion=f"Message was detected as bad by {check_name} Check, catching \"{flagged_word}\" | {result[3]}",
-                mark_for_review=True,
-            )
+    if action == 0:
+        break
+    elif action == 1:
+        entries = observations.get_all_entries()
+
+        bad_count = 0
+        bad_entries: list[observations.observation_entry] = []
+        start_time = datetime.now().timestamp()
+        for entry in entries:
+            result = automod.text_check(entry.msg_content, observing=True)
+            bad = result[0]
+            if bad:
+                check_name = result[1]
+                flagged_word = result[2]
+
+                bad_count += 1
+                bad_entries.append(entry)
+                success = observations.reeval_entry(
+                    msg_id=entry.msg_id,
+                    new_conclusion=f"Message was detected as bad by {check_name} Check, catching \"{flagged_word}\" | {result[3]}",
+                    mark_for_review=True,
+                )
+                if not success:
+                    input(f"FAILED TO UPDATE ROW FOR MSG ID {entry.msg_id}")
+                continue
+            success = observations.reeval_entry(entry.msg_id, None, mark_for_review=False)
             if not success:
                 input(f"FAILED TO UPDATE ROW FOR MSG ID {entry.msg_id}")
+
+        end_time = datetime.now().timestamp()
+        run_time = timedelta(seconds=(datetime.fromtimestamp(end_time) - datetime.fromtimestamp(start_time)).total_seconds())
+
+        print(f"Re-evaluated {len(entries)} from previously recorded messages in {run_time}.")
+        print(f"Found {bad_count} bad messages, {len(entries) - bad_count} good entries.")
+        print("Print bad entries now?")
+        a = input("Print? (y/n) >>> ")
+        if a == "y":
+            review_bad_messages(bad_entries)
+        else:
+            exit(0)
+    elif action == 2:
+        print("\n")
+        print(automod.text_check(input("test-data >>> ")))
+    elif action == 3:
+        bad_entries = observations.get_all_entries(review_flagged_only=True)
+        if not bad_entries:
+            print("No bad entries.")
             continue
-        success = observations.reeval_entry(entry.msg_id, None, mark_for_review=False)
-        if not success:
-            input(f"FAILED TO UPDATE ROW FOR MSG ID {entry.msg_id}")
-
-    end_time = datetime.now().timestamp()
-    run_time = timedelta(seconds=(datetime.fromtimestamp(end_time) - datetime.fromtimestamp(start_time)).total_seconds())
-
-    print(f"Re-evaluated {len(entries)} from previously recorded messages in {run_time}.")
-    print(f"Found {bad_count} bad messages, {len(entries) - bad_count} good entries.")
-    print("Print bad entries now?")
-    a = input("Print? (y/n) >>> ")
-    if a == "y":
         review_bad_messages(bad_entries)
-    else:
-        exit(0)
-elif action == 2:
-    print("\n")
-    print(automod.text_check(input("test-data >>> ")))
-elif action == 3:
-    bad_entries = observations.get_all_entries(review_flagged_only=True)
-    review_bad_messages(bad_entries)
+    elif action == 4:
+        clean_whitelist_file()
+        print("Whitelist file cleaned.")

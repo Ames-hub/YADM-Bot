@@ -114,7 +114,8 @@ def _save_value(key, value):
             except json.JSONDecodeError:
                 logging.warning("Settings file was corrupted. Overwriting.")
 
-    logging.info(f"Saving bot setting '{key}' with value '{value}'")
+    if "secret" not in key or "token" not in key:
+        logging.info(f"Saving bot setting '{key}' with value '{value}'")
     settings[key] = value
 
     # Write back updated settings
@@ -274,7 +275,8 @@ class set:
     @staticmethod
     def bot_token(value):
         # Protect the bot token by encrypting it before saving.
-        value = encryption().encrypt(value)
+        if value is not None:
+            value = encryption().encrypt(value)
         return _save_value("bot_token", value)
 
     @staticmethod

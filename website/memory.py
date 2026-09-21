@@ -1,8 +1,12 @@
 from library.database.manage import get_session, web_guild_session, user_web_session
 from datetime import datetime, timedelta, timezone
+from sqlalchemy.exc import IntegrityError
+from library.settings import set
 from cachetools import TTLCache
 from library import web_rest
+import logging
 import hikari
+import sys
 
 guild_cache = TTLCache(maxsize=1, ttl=300)
 async def get_my_guilds():
@@ -10,7 +14,13 @@ async def get_my_guilds():
         return guild_cache["guilds"]
 
     rest = web_rest.get_rest()
-    data = await rest.fetch_my_guilds()  # This gets the bot's guilds
+    try:
+        data = await rest.fetch_my_guilds()  # This gets the bot's guilds
+    except hikari.UnauthorizedError:
+        # The token is invalid, raise error and exit!
+        logging.error("Fatal error! Invalid bot token, please regenerate bot token, and re-run webui.py to get the screen to enter it again!")
+        set.bot_token(None)
+        sys.exit()
 
     guild_cache["guilds"] = data
 
@@ -85,7 +95,21 @@ def create_guild_sessions(session_id: str, discord_user_id: int, username: str, 
                     username=username,
                 )
             )
-            db_session.commit()
+            try:
+                db_session.commit()
+            except IntegrityError:
+                db_session.rollback()
+                # This usually means there's already a session open for this user, and it might've expired. So, we terminate it and re-commit.
+                terminate_session(user_id=discord_user_id)
+                db_session.add(
+                    user_web_session(
+                        session_id=session_id,
+                        discord_user_id=discord_user_id,
+                        expires_at=expires_at,
+                        username=username,
+                    )
+                )
+                db_session.commit()
             making_session_cache[str(discord_user_id)] = False  # This prevents an attempt to make multiple user_web_sessions.
         db_session.add(
             web_guild_session(
@@ -143,6 +167,45 @@ def fetch_guild_session(session_id:str, guild_id: int, delete_old:bool=True) -> 
                 session.commit()
                 return None
         return record
+
+def terminate_session(session_id:str=None, user_id:int=None):
+    """
+    Deletes all session records for a user, this eliminates all permissions saved and makes them need to login again.
+    """
+    with get_session() as session:
+        if session_id:
+            web_session_records = (
+                session.query(web_guild_session)
+                .filter(web_guild_session.session_id == session_id)
+                .all()
+            )
+            for item in web_session_records:
+                session.delete(item)
+            user_session_record = (
+                session.query(user_web_session)
+                .filter(user_web_session.session_id == session_id)
+                .one_or_none()
+            )
+            session.delete(user_session_record)
+        else:
+            user_session_record = (
+                session.query(user_web_session)
+                .filter(user_web_session.discord_user_id == user_id)
+                .one_or_none()
+            )
+            session.delete(user_session_record)
+            if not user_session_record:
+                return False
+            web_session_records = (
+                session.query(web_guild_session)
+                .filter(web_guild_session.session_id == user_session_record.session_id)
+                .all()
+            )
+            for item in web_session_records:
+                session.delete(item)
+        session.commit()
+
+    return True
 
 manageable_guilds_cache = TTLCache(maxsize=1000, ttl=300)
 async def determine_manageable_guilds(session_id:str=None, user_id:int=None, ids_only:bool=True) -> list:
