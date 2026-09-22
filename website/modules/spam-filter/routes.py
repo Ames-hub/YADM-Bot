@@ -39,16 +39,26 @@ async def show_page(request: Request, guild_id:int):
     if guild_id not in managed_guilds:
         raise HTTPException(403, "You cannot manage servers you do not own, or are not an admin of.")
 
+    guild = dbguild(guild_id)
+
     return templates.TemplateResponse(
         request,
         "index.html",
         {
             "guild_id": guild_id,
+            "do-escalate": guild.get.do_escalate(),
+            "escalation_settings": {
+                "del_msg": guild.get.spam.escalation.msg_deletion(),
+                "cooldown": guild.get.spam.escalation.cooldown_threshold(),
+                "mute": guild.get.spam.escalation.mute_threshold(),
+                "kick": guild.get.spam.escalation.kick_member(),
+                "ban": guild.get.spam.escalation.ban_member(),                
+            }
         }
     )
 
 @router.post("/api/guild/{guild_id}/modules/set-penalty/spam")
-async def set_text_penalties(request: Request, guild_id:int):
+async def set_spam_penalties(request: Request, guild_id:int):
     session_id = request.cookies.get("session_id")
     if not webdb.verify_session(session_id):
         return RedirectResponse("/auth/discord/login")
@@ -81,11 +91,15 @@ async def set_text_penalties(request: Request, guild_id:int):
             guild.set.spam.do_announce_ban(data[item_name])
         elif item_name == "do-kick_announcement":
             guild.set.spam.do_announce_kick(data[item_name])
+        elif item_name == "do-escalation":
+            guild.set.do_escalate(data[item_name])
         else:
             raise HTTPException("This item name is not known.", status_code=400)
 
+    return HTMLResponse("Done", 200)
+
 @router.get("/api/guild/{guild_id}/modules/get-penalty/spam")
-async def set_text_penalties(request: Request, guild_id:int):
+async def get_spam_penalties(request: Request, guild_id:int):
     session_id = request.cookies.get("session_id")
     if not webdb.verify_session(session_id):
         return RedirectResponse("/auth/discord/login")
@@ -110,4 +124,63 @@ async def set_text_penalties(request: Request, guild_id:int):
             "do-ban_announcement": guild.get.spam.do_announce_ban(),
             "do-kick_announcement": guild.get.spam.do_announce_kick(),
         }
+    )
+
+@router.post("/api/spam-filter/{guild_id}/set-escalation")
+async def set_bot_escalation(request: Request, guild_id:int):
+    session_id = request.cookies.get("session_id")
+    if not webdb.verify_session(session_id):
+        return RedirectResponse("/auth/discord/login")
+    
+    session = webdb.fetch_guild_session(session_id=request.cookies.get("session_id"), guild_id=guild_id)
+    managed_guilds = await webdb.determine_manageable_guilds(session_id=session.session_id)
+
+    if guild_id not in managed_guilds:
+        raise HTTPException(403, "You cannot manage servers you do not own, or are not an admin of.")
+
+    data: dict = await request.json()
+    guild = dbguild(guild_id)
+
+    successes = []
+
+    cat_set = guild.set.spam
+
+    for item_name in data.keys():
+        value = data[item_name]
+        if item_name == "do-ban":
+            if value:
+                ok = cat_set.escalation.ban_member(data[item_name])
+            else:
+                ok = cat_set.do_ban_member(False)
+            successes.append(ok)
+        elif item_name == "do-cooldown":
+            if value:
+                ok = cat_set.escalation.cooldown_threshold(value)
+            else:
+                ok = cat_set.do_cooldown(False)
+            successes.append(ok)
+        elif item_name == "do-delete": 
+            if value:
+                ok = cat_set.escalation.msg_deletion(data[item_name])
+            else:
+                ok = cat_set.do_delete_msg(False)
+            successes.append(ok)
+        elif item_name == "do-kick":
+            if value:
+                ok = cat_set.escalation.kick_member(data[item_name])
+            else:
+                ok = cat_set.do_kick_member(False)
+            successes.append(ok)
+        elif item_name == "do-mutes":
+            if value:
+                ok = cat_set.escalation.mute_threshold(data[item_name])
+            else:
+                ok = cat_set.do_mute_member(False)
+            successes.append(ok)
+        else:
+            raise HTTPException(400, "That option does not exist.")
+
+    return HTMLResponse(
+        "Operation completed. See code for success.",
+        status_code=200 if all(successes) else 500
     )

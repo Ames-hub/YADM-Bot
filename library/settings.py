@@ -52,7 +52,10 @@ class observe_conf:
     def get_enabled():
         with open(SETTINGS_PATH, "r") as f:
             settings: dict = json.load(f)
-        return settings["observation_mode"]
+        try:
+            return settings["observation_mode"]
+        except KeyError:
+            return valid_settings["observation_mode"]
 
     @staticmethod
     def add(guild_id:int):

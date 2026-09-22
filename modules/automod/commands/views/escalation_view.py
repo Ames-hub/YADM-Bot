@@ -20,7 +20,7 @@ def cycle(number:int):
         return 1
     else:
         return 1
-    
+
 def get_cycle_style(number:int):
     if number == 1:
         return strike_1_style
@@ -34,24 +34,40 @@ def get_cycle_style(number:int):
         return strike_1_style
 
 class views:
-    def __init__(self, guild_id, mod_id):
+    def __init__(self, guild_id, mod_id, category:str):
         self.guild_id = guild_id
         self.guild = dbguild(self.guild_id)
         self.mod_id = mod_id
-        self.current_escalation = self.guild.get.text.escalation._get_record()
+        self.category = category
 
-        self.do_del_msg = self.guild.get.text.do_delete_msg()
-        self.do_cooldown = self.guild.get.text.do_cooldown()
-        self.do_mute_member = self.guild.get.text.do_mute_member()
-        self.do_kick_member = self.guild.get.text.do_kick_member()
-        self.do_ban_member = self.guild.get.text.do_ban_member()
-        self.escalation_window = self.guild.get.escalation_window()
+        if category == "text":
+            cat_check = self.guild.get.text
+            cat_set = self.guild.set.text
+        elif category == "images":
+            cat_check = self.guild.get.images
+            cat_set = self.guild.set.images
+        elif category == "spam":
+            cat_check = self.guild.get.spam
+            cat_set = self.guild.set.spam
+        else:
+            raise ValueError("Wrong category type!")
+
+        self.cat_set = cat_set
+        self.cat_check = cat_check
+        self.current_escalation = cat_check.escalation._get_record()
         self.do_escalate = self.guild.get.do_escalate()
+        self.escalation_window = self.guild.get.escalation_window()
+
+        self.do_del_msg = cat_check.do_delete_msg()
+        self.do_cooldown = cat_check.do_cooldown()
+        self.do_mute_member = cat_check.do_mute_member()
+        self.do_kick_member = cat_check.do_kick_member()
+        self.do_ban_member = cat_check.do_ban_member()
 
     def gen_embed(self):
         embed = (
             hikari.Embed(
-                title="Automod Text Filter | Escalation",
+                title=f"Automod {self.category.title()} Filter | Escalation",
                 description=(
                     "Use the buttons below to control how we escalate punishment according to how many times a user is warned.\n\n"
                     "*To punish on one strike, cycle the button to Red.*\n"
@@ -70,10 +86,10 @@ class views:
                 name="No active punishments",
                 value=(
                     "All active punishments have been turned off by the server settings. "
-                    "Please review `/automod text penalties` and see which you'd like to use"
+                    f"Please review `/automod {self.category.lower()} penalties` and see which you'd like to use"
                 )
             )
-        if not self.guild.get.text.do_warn_member():
+        if not self.cat_check.do_warn_member():
             embed.add_field(
                 name="Warnings disabled ⚠️",
                 value=(
@@ -127,8 +143,8 @@ class views:
                     if ctx.author.id != viewself.mod_id:
                         return
                     cycle_no = cycle(viewself.current_escalation.del_msg_threshold)
-                    viewself.guild.set.text.escalation.msg_deletion(cycle_no)
-                    viewself.current_escalation = viewself.guild.get.text.escalation._get_record()
+                    viewself.cat_set.escalation.msg_deletion(cycle_no)
+                    viewself.current_escalation = viewself.cat_check.escalation._get_record()
                     button.label = f"{cycle_no}) Delete Message"
                     button.style = get_cycle_style(cycle_no)
                     await ctx.edit_response(viewself.gen_embed(), components=self)
@@ -151,8 +167,8 @@ class views:
                     if ctx.author.id != viewself.mod_id:
                         return
                     cycle_no = cycle(viewself.current_escalation.cooldown_threshold)
-                    viewself.guild.set.text.escalation.cooldown_threshold(cycle_no)
-                    viewself.current_escalation = viewself.guild.get.text.escalation._get_record()
+                    viewself.cat_set.escalation.cooldown_threshold(cycle_no)
+                    viewself.current_escalation = viewself.cat_check._get_record()
                     button.label = f"{cycle_no}) Cooldown Member"
                     button.style = get_cycle_style(cycle_no)
                     await ctx.edit_response(viewself.gen_embed(), components=self)
@@ -175,7 +191,7 @@ class views:
                     if ctx.author.id != viewself.mod_id:
                         return
                     cycle_no = cycle(viewself.current_escalation.mute_threshold)
-                    viewself.guild.set.text.escalation.mute_threshold(cycle_no)
+                    viewself.cat_set.escalation.mute_threshold(cycle_no)
                     viewself.current_escalation = viewself.guild.get.text.escalation._get_record()
                     button.label = f"{cycle_no}) Mute Member"
                     button.style = get_cycle_style(cycle_no)
@@ -199,7 +215,7 @@ class views:
                     if ctx.author.id != viewself.mod_id:
                         return
                     cycle_no = cycle(viewself.current_escalation.kick_member_threshold)
-                    viewself.guild.set.text.escalation.kick_member(cycle_no)
+                    viewself.cat_set.escalation.kick_member(cycle_no)
                     viewself.current_escalation = viewself.guild.get.text.escalation._get_record()
                     button.label = f"{cycle_no}) Kick Member"
                     button.style = get_cycle_style(cycle_no)
@@ -223,7 +239,7 @@ class views:
                     if ctx.author.id != viewself.mod_id:
                         return
                     cycle_no = cycle(viewself.current_escalation.ban_member_threshold)
-                    viewself.guild.set.text.escalation.ban_member(cycle_no)
+                    viewself.cat_set.escalation.ban_member(cycle_no)
                     viewself.current_escalation = viewself.guild.get.text.escalation._get_record()
                     button.label = f"{cycle_no}) Ban Member"
                     button.style = get_cycle_style(cycle_no)
@@ -270,7 +286,7 @@ class views:
                 async def enable_warnings_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
                     if ctx.author.id != viewself.mod_id:
                         return
-                    viewself.guild.set.text.do_warn_member(True)
+                    viewself.cat_set.do_warn_member(True)
                     viewself.current_escalation = viewself.guild.get.text.escalation._get_record()
                     self.remove_item(button)
                     await ctx.edit_response(viewself.gen_embed(), components=self)

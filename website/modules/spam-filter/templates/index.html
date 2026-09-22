@@ -4,54 +4,25 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Manage Server</title>
-        <link rel="stylesheet" href="/static/spam-filter/index.css"/>
+        <link rel="stylesheet" href="/static/shared/automod-module-base.css"/>
         <link rel="icon" type="image/x-icon" href="/favicon.ico">
     </head>
     <body>
         {% include "components/sidebar.html" %}
         <div id="container">
-            <div id="actions">
-                <div title="Controls if we delete rule-violating messages." class="penalty-item">
-                    <label>DELETE MESSAGES</label>
-                    <button id="toggle-do-delete" class="toggle-btn">OFF</button>
-                </div>
-                <div title="If cooldowns are on, we will mute the user for 30 seconds after a violation to let them 'cooldown.'" class="penalty-item">
-                    <label>DO COOLDOWNS</label>
-                    <button id="toggle-do-cooldown" class="toggle-btn">OFF</button>
-                </div>
-                <div title="Whether to issue warnings to users." class="penalty-item">
-                    <label>ISSUE WARNINGS</label>
-                    <button id="toggle-do-warnings" class="toggle-btn">OFF</button>
-                </div>
-                <div title="Whether to mute someone for a preset amount of time." class="penalty-item">
-                    <label>MUTE MEMBER</label>
-                    <button id="toggle-do-mutes" class="toggle-btn">OFF</button>
-                </div>
-                <div title="Whether we should users when they've infringed on the rules." class="penalty-item">
-                    <label>DO BAN USERS</label>
-                    <button id="toggle-do-ban" class="toggle-btn">OFF</button>
-                </div>
-                <div title="If true, we announce the ban to the user privately. Otherwise, they aren't told." class="penalty-item">
-                    <label>POST BAN</label>
-                    <button id="toggle-do-ban_announcement" class="toggle-btn">OFF</button>
-                </div>
-                <div title="Whether we should kick users from the server for rule violations." class="penalty-item">
-                    <label>DO KICK USERS</label>
-                    <button id="toggle-do-kick" class="toggle-btn">OFF</button>
-                </div>
-                <div title="If true, we announce the kick to the user privately. Otherwise, they aren't told." class="penalty-item">
-                    <label>POST KICK</label>
-                    <button id="toggle-do-kick_announcement" class="toggle-btn">OFF</button>
-                </div>
-                <div title="Whether or not we just silently punish, or tell the user what they did." class="penalty-item">
-                    <label>POST INFRACTION</label>
-                    <button id="toggle-do-announcement" class="toggle-btn">OFF</button>
-                </div>
+            <div id="filter-header">
+                <button id="main-module-button">OFF</button>
+                <h2>Spam Filter</h2>
             </div>
+            {% include "components/penalty-actions.html" %}
+            {% include "components/escalation-flow.html" %}
         </div>
     </body>
     <script>
         let guild_id = "{{ guild_id }}"
     </script>
-    <script src="/static/spam-filter/penalty-buttons.js"></script>
+    <script id="escalation-settings-data" type="application/json">{{ escalation_settings | tojson }}</script>
+    <script src="/static/shared/escalation-flow.js"></script>
+    <script src="/static/shared/penalty-buttons.js"></script>
+    <script src="/static/shared/module-toggle.js"></script>
 </html>

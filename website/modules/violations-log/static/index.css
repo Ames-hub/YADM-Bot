@@ -1,0 +1,162 @@
+#violations_list {
+    padding: 25px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.violation {
+    background-color: #232529;
+    border: 1px solid #3a3d44;
+    border-radius: 12px;
+    overflow: hidden;
+
+    transition: border-color 150ms ease;
+}
+
+.violation:hover {
+    border-color: #4a4d55;
+}
+
+.violation-header {
+    padding: 15px 18px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+
+    border-bottom: 1px solid #36383d;
+}
+
+.violation-header > div {
+    min-width: 0;
+}
+
+.violation-header h2 {
+    display: inline;
+
+    margin: 0;
+
+    color: #f2f3f5;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.violation-header time {
+    color: #72767d;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.violation-id {
+    margin-right: 8px;
+
+    color: #72767d;
+    font-family: monospace;
+    font-size: 12px;
+}
+
+.violation-content {
+    padding: 15px 18px;
+}
+
+.people {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.people > div {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    color: #b5bac1;
+    font-family: monospace;
+    font-size: 13px;
+}
+
+.people .label {
+    color: #72767d;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.arrow {
+    color: #4f5259;
+    font-size: 16px;
+}
+
+.extra-info {
+    margin-top: 12px;
+    padding-top: 12px;
+
+    color: #949ba4;
+    font-size: 13px;
+    line-height: 1.4;
+
+    border-top: 1px solid #303237;
+}
+
+.violation-footer {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+
+    margin-top: 12px;
+
+    color: #686d75;
+    font-size: 11px;
+}
+
+.violation-footer span + span::before {
+    content: "•";
+    margin-right: 14px;
+    color: #45484e;
+}
+
+.empty-state {
+    padding: 80px 20px;
+    text-align: center;
+}
+
+.empty-state h2 {
+    margin: 0 0 6px;
+
+    color: #f2f3f5;
+    font-size: 18px;
+}
+
+.empty-state p {
+    margin: 0;
+
+    color: #72767d;
+    font-size: 13px;
+}
+
+@media (max-width: 700px) {
+    #violations_list {
+        padding: 15px;
+    }
+
+    .violation-header {
+        align-items: flex-start;
+    }
+
+    .people {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .arrow {
+        display: none;
+    }
+
+    .violation-footer {
+        flex-wrap: wrap;
+    }
+}

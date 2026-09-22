@@ -1,5 +1,5 @@
+from modules.automod.commands.imgscan.subgroup import imgscan_subgroup
 from modules.automod.commands.views.escalation_view import views
-from modules.automod.commands.text.subgroup import text_subgroup
 from library.database.guilds import dbguild
 from library.permissions import prechecks
 from library.botapp import miru_client
@@ -16,7 +16,7 @@ choices_options = [
     Choice("Four Warnings", "4")
 ]
 
-@text_subgroup.register
+@imgscan_subgroup.register
 class command(
     lightbulb.SlashCommand,
     name="escalation",
@@ -30,10 +30,10 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
-        await prechecks("text-am-escalation", ctx, hikari.Permissions.ADMINISTRATOR)
+        await prechecks("imgscan-am-escalation", ctx, hikari.Permissions.ADMINISTRATOR)
 
         if not self.del_msg_thres and not self.cooldown_thres and not self.mute_thres and not self.kick_thres and not self.ban_thres:
-            view = views(ctx.guild_id, ctx.user.id, category="text")
+            view = views(ctx.guild_id, ctx.user.id, category="images")
             embed = view.gen_embed()
             view_menu = view.init_view()
 
@@ -50,7 +50,7 @@ class command(
         else:
             guild = dbguild(ctx.guild_id)
 
-            category = "text"
+            category = "imgscan"
             if category == "text":
                 cat_set = guild.set.text
             elif category == "imgscan":

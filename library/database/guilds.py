@@ -11,7 +11,9 @@ from library.database.manage import (
     guild_imagescan_threshold,
     guild_ban_record,
     guild_text_automod_text_checks,
-    guild_text_automod_escalation_settings
+    guild_text_automod_escalation_settings,
+    guild_image_automod_escalation_settings,
+    guild_spam_automod_escalation_settings
 )
 from library.database.auditing import logs_config
 from library.database.auditing import server_logs
@@ -19,10 +21,10 @@ from library.database.welcomer import welcomer
 from sqlalchemy.exc import SQLAlchemyError
 from library import datastore as ds 
 from library.botapp import botapp
+from cachetools import TTLCache
 import datetime
 import logging
 import hikari
-import io
 
 class muting:
     class guilds:
@@ -178,6 +180,43 @@ class muting:
         def list_mutes(self, active_only:bool=True):
             return muting.list_all_mutes(active_only=active_only, guild_id=self.guild_id)
 
+        def get_is_muted(self, user_id:int, exclude_cooldowns:bool=True):
+            with get_session() as session:
+                try:
+                    record = (
+                        session.query(mute_record)
+                        .filter(mute_record.user_id == user_id)
+                        .filter(mute_record.guild_id == self.guild_id)
+                        .one_or_none()  # Users can only have one active mute per guild.
+                    )
+                    if exclude_cooldowns:
+                        if record.is_cooldown:
+                            return False
+                    return record is not None
+                except SQLAlchemyError as err:
+                    logging.error("Error getting if a member of a guild is bot-muted!", exc_info=err)
+                    session.rollback()
+                    return False
+                finally:
+                    session.close()
+
+        def get_mute(self, user_id:int) -> mute_record:
+            with get_session() as session:
+                try:
+                    record = (
+                        session.query(mute_record)
+                        .filter(mute_record.user_id == user_id)
+                        .filter(mute_record.guild_id == self.guild_id)
+                        .one_or_none()  # Users can only have one active mute per guild.
+                    )
+                    return record
+                except SQLAlchemyError as err:
+                    logging.error("Error getting a member's mute case!", exc_info=err)
+                    session.rollback()
+                    return False
+                finally:
+                    session.close()
+
     def list_all_mutes(active_only=True, user_id:int=None, guild_id:int=None) -> list[mute_record]:
         session = get_session()
         try:
@@ -228,16 +267,18 @@ class muting:
                 pass
 
 class violations:
+    @staticmethod
     def create_member_violation(
         guild_id:int,
         reporter_id: int,
+        reporter_name: str,
         offender_id: int,
+        offender_name: str,
         time: datetime,
         violation: str,
         automated: bool,
         whistleblower: str,
         extra_info: str,
-        relevant_img: io.BytesIO = None
     ) -> int:
 
         reporter_id = int(reporter_id)
@@ -257,7 +298,6 @@ class violations:
                 automated=automated,
                 whistleblower=whistleblower,
                 extra_info=extra_info,
-                relevant_img=relevant_img
             )
             session.add(record)
             session.commit()
@@ -270,6 +310,7 @@ class violations:
         finally:
             session.close()
 
+    @staticmethod
     def get_violation_record(entry_id: int) -> member_violation:
         session = get_session()
         try:
@@ -282,6 +323,7 @@ class violations:
         finally:
             session.close()
 
+    @staticmethod
     def get_violations_by_offender(offender_id: int) -> list[member_violation]:
         session = get_session()
         try:
@@ -294,6 +336,7 @@ class violations:
         finally:
             session.close()
 
+    @staticmethod
     def get_violations_by_guild(guild_id: int) -> list[member_violation]:
         session = get_session()
         try:
@@ -308,7 +351,8 @@ class violations:
 
 class _image_filter_penalty_get:
     def __init__(self, guild_id):
-        self.guild_id = guild_id  
+        self.guild_id = guild_id
+        self.escalation = image_filter_penalties_escalation_get(guild_id)
 
     def _get_record(self):
         session = get_session()
@@ -371,7 +415,8 @@ class _image_filter_penalty_get:
 
 class _spam_filter_penalty_get:
     def __init__(self, guild_id):
-        self.guild_id = guild_id    
+        self.guild_id = guild_id
+        self.escalation = spam_filter_penalties_escalation_get(guild_id)
 
     def _get_record(self):
         session = get_session()
@@ -507,6 +552,94 @@ class text_filter_penalties_escalation_get:
                 record = (
                     session.query(guild_text_automod_escalation_settings)
                     .filter(guild_text_automod_escalation_settings.guild_id == self.guild_id)
+                    .one_or_none()
+                )
+            return record
+
+    def msg_deletion(self):
+        record = self._get_record()
+        return record.del_msg_threshold
+
+    def cooldown_threshold(self):
+        record = self._get_record()
+        return record.cooldown_threshold
+
+    def mute_threshold(self):
+        record = self._get_record()
+        return record.mute_threshold
+
+    def kick_member(self):
+        record = self._get_record()
+        return record.kick_member_threshold
+
+    def ban_member(self):
+        record = self._get_record()
+        return record.ban_member_threshold
+
+class spam_filter_penalties_escalation_get:
+    def __init__(self, guild_id):
+        self.guild_id = guild_id
+
+    def _get_record(self) -> guild_spam_automod_escalation_settings:
+        with get_session() as session:
+            record = (
+                session.query(guild_spam_automod_escalation_settings)
+                .filter(guild_spam_automod_escalation_settings.guild_id == self.guild_id)
+                .one_or_none()
+            )
+            if not record:
+                record = guild_spam_automod_escalation_settings(
+                    guild_id=self.guild_id
+                )
+                session.add(record)
+                session.commit()
+                record = (
+                    session.query(guild_spam_automod_escalation_settings)
+                    .filter(guild_spam_automod_escalation_settings.guild_id == self.guild_id)
+                    .one_or_none()
+                )
+            return record
+
+    def msg_deletion(self):
+        record = self._get_record()
+        return record.del_msg_threshold
+
+    def cooldown_threshold(self):
+        record = self._get_record()
+        return record.cooldown_threshold
+
+    def mute_threshold(self):
+        record = self._get_record()
+        return record.mute_threshold
+
+    def kick_member(self):
+        record = self._get_record()
+        return record.kick_member_threshold
+
+    def ban_member(self):
+        record = self._get_record()
+        return record.ban_member_threshold
+
+class image_filter_penalties_escalation_get:
+    def __init__(self, guild_id):
+        self.guild_id = guild_id
+
+    def _get_record(self) -> guild_image_automod_escalation_settings:
+        with get_session() as session:
+            record = (
+                session.query(guild_image_automod_escalation_settings)
+                .filter(guild_image_automod_escalation_settings.guild_id == self.guild_id)
+                .one_or_none()
+            )
+            if not record:
+                record = guild_image_automod_escalation_settings(
+                    guild_id=self.guild_id
+                )
+                session.add(record)
+                session.commit()
+                record = (
+                    session.query(guild_image_automod_escalation_settings)
+                    .filter(guild_image_automod_escalation_settings.guild_id == self.guild_id)
                     .one_or_none()
                 )
             return record
@@ -748,6 +881,100 @@ class _text_filter_checks_set:
     def syntactic_analysis(self, value: bool):
         return self._update(syntactic_analysis=value)
 
+class image_filter_penalties_escalation_set:
+    def __init__(self, guild_id):
+        self.guild_id = guild_id
+
+    def _update(self, **fields):
+        session = get_session()
+        try:
+            record = (
+                session.query(guild_image_automod_escalation_settings)
+                .filter(guild_image_automod_escalation_settings.guild_id == self.guild_id)
+                .one_or_none()
+            )
+
+            if not record:
+                record = guild_image_automod_escalation_settings(
+                    guild_id=self.guild_id,
+                    **fields
+                )
+                session.add(record)
+            else:
+                for key, value in fields.items():
+                    setattr(record, key, value)
+
+            session.commit()
+            return True
+        except SQLAlchemyError as err:
+            logging.error("Error updating image automod escalation settings!", exc_info=err)
+            session.rollback()
+            return False
+        finally:
+            session.close()
+
+    def msg_deletion(self, value:int):
+        return self._update(del_msg_threshold=value)
+
+    def cooldown_threshold(self, value:int):
+        return self._update(cooldown_threshold=value)
+
+    def mute_threshold(self, value:int):
+        return self._update(mute_threshold=value)
+
+    def kick_member(self, value:int):
+        return self._update(kick_member_threshold=value)
+
+    def ban_member(self, value:int):
+        return self._update(ban_member_threshold=value)
+
+class spam_filter_penalties_escalation_set:
+    def __init__(self, guild_id):
+        self.guild_id = guild_id
+
+    def _update(self, **fields):
+        session = get_session()
+        try:
+            record = (
+                session.query(guild_image_automod_escalation_settings)
+                .filter(guild_image_automod_escalation_settings.guild_id == self.guild_id)
+                .one_or_none()
+            )
+
+            if not record:
+                record = guild_image_automod_escalation_settings(
+                    guild_id=self.guild_id,
+                    **fields
+                )
+                session.add(record)
+            else:
+                for key, value in fields.items():
+                    setattr(record, key, value)
+
+            session.commit()
+            return True
+        except SQLAlchemyError as err:
+            logging.error("Error updating image automod escalation settings!", exc_info=err)
+            session.rollback()
+            return False
+        finally:
+            session.close()
+
+    def msg_deletion(self, value:int):
+        return self._update(del_msg_threshold=value)
+
+    def cooldown_threshold(self, value:int):
+        return self._update(cooldown_threshold=value)
+
+    def mute_threshold(self, value:int):
+        return self._update(mute_threshold=value)
+
+    def kick_member(self, value:int):
+        return self._update(kick_member_threshold=value)
+
+    def ban_member(self, value:int):
+        return self._update(ban_member_threshold=value)
+
 class text_filter_penalties_escalation_set:
     def __init__(self, guild_id):
         self.guild_id = guild_id
@@ -896,6 +1123,7 @@ class _text_filter_penalties_set:
 class _spam_filter_set:
     def __init__(self, guild_id):
         self.guild_id = guild_id
+        self.escalation = spam_filter_penalties_escalation_set(guild_id)
 
     def _update(self, **fields):
         session = get_session()
@@ -970,6 +1198,7 @@ class _spam_filter_set:
 class _image_filter_set:
     def __init__(self, guild_id):
         self.guild_id = guild_id
+        self.escalation = image_filter_penalties_escalation_set(guild_id)
 
     def _update(self, **fields):
         session = get_session()
@@ -1389,6 +1618,9 @@ def list_all_bans() -> list[guild_ban_record]:
     finally:
         session.close()
 
+mod_name_cache = TTLCache(1000, ttl=3600)
+offender_name_cache = TTLCache(1000, ttl=1000)
+
 class guild_bans:
     def __init__(self, guild_id:int):
         self.guild_id = int(guild_id)
@@ -1444,19 +1676,6 @@ class guild_bans:
                 ds.d["guild_name_cache"][self.guild_id] = {"name": discord_guild.name, "time": timestamp_now}
                 guild_name = discord_guild.name
 
-        if not infraction_id:
-            automated = moderator_id == ds.d['myid']
-            case_id = violations.create_member_violation(
-                guild_id=self.guild_id,
-                reporter_id=moderator_id,
-                offender_id=banned_id,
-                time=datetime.datetime.now(),
-                violation=reason,
-                automated=automated,
-                whistleblower="Unknown" if automated else "User-triggered",
-                extra_info=None
-            )
-
         if announce_ban:
             msg_send_success = True
             try:
@@ -1487,6 +1706,35 @@ class guild_bans:
             return False
 
         time_to_unban = datetime.datetime.now().timestamp() + ban_seconds
+
+        if not infraction_id:
+            if mod_name_cache.get(moderator_id, None) is None:
+                mod_user = await botapp.rest.fetch_member(self.guild_id, moderator_id)
+                mod_name = mod_user.display_name
+                mod_name_cache[moderator_id] = mod_name
+            else:
+                mod_name = mod_name_cache[moderator_id]
+
+            if offender_name_cache.get(banned_id, None) is None:
+                offender_user = await botapp.rest.fetch_member(self.guild_id, banned_id)
+                offender_name = offender_user.display_name
+                offender_name_cache[banned_id] = offender_name
+            else:
+                offender_name = offender_name_cache[banned_id]
+
+            automated = moderator_id == ds.d['myid']
+            violations.create_member_violation(
+                guild_id=self.guild_id,
+                reporter_id=moderator_id,
+                reporter_name=mod_name,
+                offender_id=banned_id,
+                offender_name=offender_name,
+                time=datetime.datetime.now(),
+                violation=reason,
+                automated=automated,
+                whistleblower="Unknown" if automated else "User-triggered",
+                extra_info=None
+            )
 
         # Add an entry to the database to track their unban timer
         case_id = self.track_ban(
@@ -1865,3 +2113,7 @@ class dbguild:
                 return False
             finally:
                 session.close()
+
+    def get_member_violations(self):
+        """ Alias for violations.get_violations_by_guild. Gets all violations of members of the guild. """
+        return violations.get_violations_by_guild(self.guild_id)

@@ -74,21 +74,39 @@ async def set_bot_escalation(request: Request, guild_id:int):
 
     successes = []
 
+    cat_set = guild.set.text
+
     for item_name in data.keys():
+        value = data[item_name]
         if item_name == "do-ban":
-            ok = guild.set.text.escalation.ban_member(data[item_name])
+            if value:
+                ok = cat_set.escalation.ban_member(data[item_name])
+            else:
+                ok = cat_set.do_ban_member(False)
             successes.append(ok)
         elif item_name == "do-cooldown":
-            ok = guild.set.text.escalation.cooldown_threshold(data[item_name])
+            if value:
+                ok = cat_set.escalation.cooldown_threshold(value)
+            else:
+                ok = cat_set.do_cooldown(False)
             successes.append(ok)
         elif item_name == "do-delete": 
-            ok = guild.set.text.escalation.msg_deletion(data[item_name])
+            if value:
+                ok = cat_set.escalation.msg_deletion(data[item_name])
+            else:
+                ok = cat_set.do_delete_msg(False)
             successes.append(ok)
         elif item_name == "do-kick":
-            ok = guild.set.text.escalation.kick_member(data[item_name])
+            if value:
+                ok = cat_set.escalation.kick_member(data[item_name])
+            else:
+                ok = cat_set.do_kick_member(False)
             successes.append(ok)
         elif item_name == "do-mutes":
-            ok = guild.set.text.escalation.mute_threshold(data[item_name])
+            if value:
+                ok = cat_set.escalation.mute_threshold(data[item_name])
+            else:
+                ok = cat_set.do_mute_member(False)
             successes.append(ok)
         else:
             raise HTTPException(400, "That option does not exist.")
@@ -137,8 +155,10 @@ async def set_text_penalties(request: Request, guild_id:int):
         else:
             raise HTTPException("This item name is not known.", status_code=400)
 
-@router.get("/api/guild/{guild_id}/modules/get-penalty/{module}")
-async def set_text_penalties(request: Request, guild_id:int):
+    return HTMLResponse("Done", 200)
+
+@router.get("/api/guild/{guild_id}/modules/get-penalty/text")
+async def get_text_penalties(request: Request, guild_id:int):
     session_id = request.cookies.get("session_id")
     if not webdb.verify_session(session_id):
         return RedirectResponse("/auth/discord/login")

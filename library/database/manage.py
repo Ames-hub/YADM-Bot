@@ -29,7 +29,9 @@ class member_violation(Base):
 
     guild_id = Column(BigInteger, nullable=True, default=None)
     reporter_id = Column(BigInteger, nullable=False)
+    reporter_name = Column(TEXT, nullable=False)
     offender_id = Column(BigInteger, nullable=False)
+    offender_name = Column(TEXT, nullable=False)
     time = Column(TIMESTAMP, nullable=False)
     entry_id = Column(Integer, primary_key=True, autoincrement=True)
     violation = Column(TEXT, nullable=False)
@@ -39,6 +41,26 @@ class member_violation(Base):
 
 class guild_text_automod_escalation_settings(Base):
     __tablename__ = "guild_text_automod_escalation_settings"
+    
+    guild_id = Column(BigInteger, nullable=False, primary_key=True)
+    del_msg_threshold = Column(Integer, nullable=False, default=1)
+    cooldown_threshold = Column(Integer, nullable=False, default=1)
+    mute_threshold = Column(Integer, nullable=False, default=2)
+    kick_member_threshold = Column(Integer, nullable=False, default=3)
+    ban_member_threshold = Column(Integer, nullable=False, default=4)
+
+class guild_image_automod_escalation_settings(Base):
+    __tablename__ = "guild_image_automod_escalation_settings"
+    
+    guild_id = Column(BigInteger, nullable=False, primary_key=True)
+    del_msg_threshold = Column(Integer, nullable=False, default=1)
+    cooldown_threshold = Column(Integer, nullable=False, default=1)
+    mute_threshold = Column(Integer, nullable=False, default=2)
+    kick_member_threshold = Column(Integer, nullable=False, default=3)
+    ban_member_threshold = Column(Integer, nullable=False, default=4)
+
+class guild_spam_automod_escalation_settings(Base):
+    __tablename__ = "guild_spam_automod_escalation_settings"
     
     guild_id = Column(BigInteger, nullable=False, primary_key=True)
     del_msg_threshold = Column(Integer, nullable=False, default=1)

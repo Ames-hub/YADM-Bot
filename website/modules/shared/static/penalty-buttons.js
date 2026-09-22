@@ -1,4 +1,4 @@
-const PENALTY_MODULE = "image";
+// Escalation flow must always be loaded before this script, so that one will handle finding "PENALTY_MODULE" and all that.
 
 document.addEventListener("DOMContentLoaded", async () => {
     const buttons = document.querySelectorAll("#actions .toggle-btn");
@@ -45,6 +45,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
                 }
+
+                syncEscalationWithPenalties();
             } catch (error) {
                 console.error(`Failed to toggle "${toggleName}":`, error);
 
@@ -54,4 +56,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
         });
     });
+
+    syncEscalationWithPenalties();
 });

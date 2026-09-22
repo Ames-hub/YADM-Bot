@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Manage Server</title>
+        <link rel="stylesheet" href="/static/violations-log/index.css"/>
+        <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    </head>
+    <body>
+        {% include "components/sidebar.html" %}
+
+        <div id="container">
+            <div id="violations_list">
+                {% for item in violations_log %}
+                <article class="violation">
+
+                    <div class="violation-header">
+                        <div>
+                            <span class="violation-id">#{{ item.entry_id }}</span>
+                            <h2>{{ item.violation.replace("<@" ~ item.offender_id ~ ">", "").strip() }}</h2>
+                        </div>
+
+                        <time>{{ item.time }}</time>
+                    </div>
+
+                    <div class="violation-content">
+                        <div class="people">
+                            <div>
+                                <span class="label">Reporter</span>
+                                <span>{{ item.reporter_id }}</span>
+                            </div>
+
+                            <span class="arrow">→</span>
+
+                            <div>
+                                <span class="label">Offender</span>
+                                <span>{{ item.offender_id }}</span>
+                            </div>
+                        </div>
+
+                        {% if item.extra_info %}
+                        <div class="extra-info">
+                            {{ item.extra_info }}
+                        </div>
+                        {% endif %}
+
+                        <div class="violation-footer">
+                            <span>Guild {{ item.guild_id }}</span>
+
+                            {% if item.automated %}
+                                <span>Automated</span>
+                            {% else %}
+                                <span>Manual</span>
+                            {% endif %}
+
+                            {% if item.whistleblower %}
+                                <span>Whistleblower</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                </article>
+                {% else %}
+                <div class="empty-state">
+                    <h2>No violations recorded</h2>
+                    <p>This server doesn't have any violations in its log.</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </body>
+</html>

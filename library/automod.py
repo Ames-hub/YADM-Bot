@@ -351,7 +351,8 @@ async def handle_guilty(
                 use_escalation = guild.get.do_escalate()
                 extra_info = (
                     f"The word '{automod_report['suspected_word']}' was "
-                    f"compared against the word {automod_report['flagged_word']} with the {automod_report['whistleblower']} check, "
+                    f"compared against the word '{automod_report['flagged_word']}' (which was found in their message) "
+                    f"with the {automod_report['whistleblower']} check, "
                     "and the message was found to be in violation."
                 )
             elif automod_type == automod_types.SPAM_FILTER:
@@ -389,19 +390,19 @@ async def handle_guilty(
                     return False
 
             # Always add the violation for the record.
-            case_id = await asyncio.get_event_loop().run_in_executor(
-                None,
-                lambda: violations.create_member_violation(
-                    guild_id=event.guild_id,
-                    reporter_id=botapp.get_me().id,
-                    offender_id=event.author.id,
-                    time=datetime.datetime.now(),
-                    violation=violation,
-                    automated=True,
-                    whistleblower=whistleblower,
-                    extra_info=extra_info
-                )
+            case_id = violations.create_member_violation(
+                guild_id=event.guild_id,
+                reporter_id=botapp.get_me().id,
+                reporter_name=botapp.get_me().display_name,
+                offender_id=event.author.id,
+                offender_name=event.author.display_name,
+                time=datetime.datetime.now(),
+                violation=violation,
+                automated=True,
+                whistleblower=whistleblower,
+                extra_info=extra_info,
             )
+
             bm.benchmark("Member violation created.")
             # IF it so happens that the violation has a problem and doesn't get created, we should just return and not attempt any punishment actions.
             if not case_id:
