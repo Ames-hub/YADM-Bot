@@ -1,15 +1,19 @@
 from fastapi.responses import PlainTextResponse, HTMLResponse, Response, RedirectResponse
-from starlette.middleware.authentication import AuthenticationMiddleware
+from cryptography.hazmat.primitives import hashes, serialization
 from starlette.middleware.sessions import SessionMiddleware
+from cryptography.hazmat.primitives.asymmetric import rsa
+from datetime import datetime, timedelta, timezone
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from library.database import manage as db
+from cryptography.x509.oid import NameOID
 from fastapi import Request, FastAPI
+from cryptography import x509
 from library import settings
 from library import web_rest
+from pathlib import Path
 import importlib
-import datetime
 import asyncio
 import uvicorn
 import logging
@@ -20,7 +24,7 @@ import os
 os.makedirs("logs", exist_ok=True)
 
 logging.basicConfig(
-    filename=f"logs/web-{datetime.datetime.now().strftime('%Y-%m-%d')}.log",
+    filename=f"logs/web-{datetime.now().strftime('%Y-%m-%d')}.log",
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
@@ -219,6 +223,58 @@ for root, dirs, files in os.walk(modules_dir):
                 exc_info=err
             )
 
+def generate_self_signed_cert(
+    key_path: str = "certs/private.key",
+    cert_path: str = "certs/public.pem",
+):
+    # Generate private key
+    private_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=2048,
+    )
+
+    # Certificate identity
+    subject = issuer = x509.Name([
+        x509.NameAttribute(NameOID.COUNTRY_NAME, "AU"),
+        x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Nodeus WebApp"),
+        x509.NameAttribute(NameOID.COMMON_NAME, "localhost"),
+    ])
+
+    # Create self-signed certificate
+    certificate = (
+        x509.CertificateBuilder()
+        .subject_name(subject)
+        .issuer_name(issuer)
+        .public_key(private_key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(datetime.now(timezone.utc))
+        .not_valid_after(datetime.now(timezone.utc) + timedelta(days=365))
+        .add_extension(
+            x509.SubjectAlternativeName([
+                x509.DNSName("localhost"),
+                x509.IPAddress(__import__("ipaddress").ip_address("127.0.0.1")),
+            ]),
+            critical=False,
+        )
+        .sign(private_key, hashes.SHA256())
+    )
+
+    # Save private key
+    Path(key_path).write_bytes(
+        private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+    )
+
+    # Save certificate
+    Path(cert_path).write_bytes(
+        certificate.public_bytes(serialization.Encoding.PEM)
+    )
+
+    return key_path, cert_path
+
 if __name__ == "__main__":
     # Initialize the database connection and create tables if they don't exist
     db_okay = db.initialize()
@@ -228,7 +284,10 @@ if __name__ == "__main__":
         print(f"Error: Unable to initialize the database connection. Please check your settings and ensure the database is reachable.")
         raise ConnectionError("Database initialization failed.")
 
-    if settings.get.prod_mode():
+    prod_mode = settings.get.prod_mode()
+    if prod_mode:
+        if not os.path.exists("certs/private.key") or not os.path.exists("certs/public.pem"):
+            paths = generate_self_signed_cert()
         config = uvicorn.Config(
             fastapp,
             host="0.0.0.0",

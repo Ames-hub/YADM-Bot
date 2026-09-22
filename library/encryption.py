@@ -8,7 +8,7 @@ if os.path.exists('certs') is False:
     os.makedirs('certs')
 
 class encryption:
-    def __init__(self, key_file='certs/private.key'):
+    def __init__(self, key_file='certs/fernet-private.key'):
         self.key_file = key_file
         if not os.path.exists(key_file):
             self.generate_key()
