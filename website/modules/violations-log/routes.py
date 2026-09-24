@@ -46,6 +46,7 @@ async def show_page(request: Request, guild_id:int):
         request,
         "index.html",
         {
+            "guild_id": guild_id,
             "violations_log": violations_log
         }
     )

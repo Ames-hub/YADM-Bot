@@ -371,3 +371,9 @@ except KeyboardInterrupt:
 except hikari.ForbiddenError as err:
     print("Error: Discord has forbidden access. Check bot token. details:", err)
     exit(1)
+except hikari.UnauthorizedError:
+    print("BOT TOKEN HAS BEEN INVALIDATED. PLEASE RESTART BOT TO ENTER TOKEN AGAIN.")
+    if get.prod_mode():
+        set.bot_token(None)
+    else:
+        set.nonprod_bot_token(None)

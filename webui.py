@@ -120,8 +120,7 @@ async def get_logo(request: Request):
 async def handle_root(request: Request):
     session = request.cookies.get("session_id") is not None  # If this is not None but invalid, the next route will handle it.
     if session:
-        from website.modules.server_list.routes import show_page
-        return await show_page(request)
+        return RedirectResponse("/list")
     else:
         return RedirectResponse("/auth/discord/login")
 

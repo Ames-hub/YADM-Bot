@@ -301,7 +301,7 @@ class observation_entry(Base):
 class user_web_session(Base):
     __tablename__ = "user_web_sessions"
 
-    session_id = Column(TEXT, ForeignKey("user_web_sessions.session_id"), primary_key=True)
+    session_id = Column(TEXT, primary_key=True)
     discord_user_id = Column(BigInteger, unique=True, nullable=False)
     expires_at = Column(DateTime, nullable=False)
     username = Column(TEXT, nullable=True)
@@ -428,7 +428,9 @@ def wait_for_db(url: str, retries: int = 30, delay: int = 2, ever_create_db:bool
     global engine, SessionLocal
 
     if ever_create_db:
-        if settings.get.db_port() is None and settings.get.prod_mode() is True:  # If this is none, the rest are also likely None.
+        # If this is none, the rest are also likely None.
+        do_create = (settings.get.db_port() is None and settings.get.prod_mode() is True) and not settings.get.force_use_sqlite()
+        if do_create:
             if settings.get.allow_docker_fallback():
                 logging.info("Postgres Fallback DB Initiated: Creating docker DB using image 'postgres'")
                 create_docker_postgres()
@@ -446,7 +448,7 @@ def wait_for_db(url: str, retries: int = 30, delay: int = 2, ever_create_db:bool
     engine = create_engine(url, echo=False, future=True)
     SessionLocal = sessionmaker(bind=engine, future=True)
 
-    logging.info("DB: Beginning to attempt to connect to PostgreSQL database.")
+    logging.info("DB: Beginning to attempt to connect to database.")
     for i in range(retries):
         try:
             with engine.connect() as conn:
@@ -467,8 +469,9 @@ def initialize() -> bool:
       - prod_mode = True  → PostgreSQL
     """
 
+    force_sqlite = settings.get.force_use_sqlite()
     # sqlite (for non-prod)
-    if not prod_mode:
+    if not prod_mode or force_sqlite:
         logging.info("Non-production mode: using SQLite.")
 
         url = sqlite_url()

@@ -31,7 +31,8 @@ valid_settings = {
     # But, its less ideal for running with the webUI. In fact, its not practically possible.
     # So when this is False, we use Postgres instead.
     "prefer_mainydb": True,
-    "webui-hostname": None
+    "webui-hostname": None,
+    "force-use-sqlite": False,
 }
 
 def make_settings_file():
@@ -155,6 +156,10 @@ class setgroup():
 
 class get:
     @staticmethod
+    def force_use_sqlite():
+        return _get_value("force-use-sqlite", valid_settings["force-use-sqlite"], do_cache=True)
+    
+    @staticmethod
     def webui_hostname():
         return _get_value("webui-hostname", valid_settings["webui-hostname"], do_cache=True)
 
@@ -247,6 +252,10 @@ class get:
         return value
 
 class set:
+    @staticmethod
+    def force_use_sqlite(value:bool):
+        return _save_value("force-use-sqlite", value)
+
     @staticmethod
     def webui_hostname(value:str):
         return _save_value("webui-hostname", value)

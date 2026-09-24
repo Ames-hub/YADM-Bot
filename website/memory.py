@@ -181,6 +181,7 @@ def terminate_session(session_id:str=None, user_id:int=None):
             )
             for item in web_session_records:
                 session.delete(item)
+            session.commit()  # Commit after deleting these or Foreign Keys can cause bugs
             user_session_record = (
                 session.query(user_web_session)
                 .filter(user_web_session.session_id == session_id)
@@ -193,9 +194,6 @@ def terminate_session(session_id:str=None, user_id:int=None):
                 .filter(user_web_session.discord_user_id == user_id)
                 .one_or_none()
             )
-            session.delete(user_session_record)
-            if not user_session_record:
-                return False
             web_session_records = (
                 session.query(web_guild_session)
                 .filter(web_guild_session.session_id == user_session_record.session_id)
@@ -203,6 +201,8 @@ def terminate_session(session_id:str=None, user_id:int=None):
             )
             for item in web_session_records:
                 session.delete(item)
+            session.commit()  # Commit after deleting these or Foreign Keys can cause bugs
+            session.delete(user_session_record)
         session.commit()
 
     return True
