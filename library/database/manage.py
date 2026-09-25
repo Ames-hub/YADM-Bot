@@ -38,6 +38,7 @@ class member_violation(Base):
     automated = Column(BOOLEAN, nullable=False)
     whistleblower = Column(TEXT, nullable=True)
     extra_info = Column(TEXT, nullable=True, default="No Info Stored.")
+    # TODO: Make it so that when a violation is appealed, it 1. Does not count in the escalation frame, 2. Mutes/bans assosciated are undone.
     appealed = Column(BOOLEAN, nullable=False, default=False)
 
 class guild_text_automod_escalation_settings(Base):
