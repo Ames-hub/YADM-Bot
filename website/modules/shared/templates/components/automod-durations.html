@@ -1,0 +1,26 @@
+<div id="automod-durations">
+    <div>
+        <label for="mute-duration">How many hours do users get muted for?</label>
+        <input class="duration-input" id="mute-duration" type="number" min="0">
+        <span>hours</span>
+        <p>This is applied for each automatic mute. </p>
+    </div>
+    <div>
+        <label for="escalationframe-duration">How long do you want us to remember rule violations?</label>
+        <input class="duration-input" id="escalationframe-duration" type="number" min="0">
+        <span>hours</span>
+        <p>This controls how we penalize users, and is controlled by the above escalation levels.</p>
+    </div>
+    <div>
+        <label for="ban-duration">How long are users banned for in hours?</label>
+        <input class="duration-input" id="ban-duration" type="number" min="0">
+        <span>hours</span>
+        <p>This controls how we penalize users, and is controlled by the above escalation levels.</p>
+    </div>
+    <div>
+        <label for="ban-del-duration">How far back do we delete a users messages on ban?</label>
+        <input class="duration-input" id="ban-del-duration" type="number" min="0">
+        <span>hours</span>
+        <p>This is measured in hours, and cannot be longer than 2 weeks.</p>
+    </div>
+</div>

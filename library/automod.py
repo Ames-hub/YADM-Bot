@@ -340,7 +340,7 @@ async def handle_guilty(
             bm.benchmark("Guild name found")
 
             esc_window = guild.get.escalation_window()
-            current_warnings = len(guild.warnings.get_by_user(event.author.id, escalation_window=esc_window))
+            current_warnings = len(guild.violations.get_for_user(event.author.id, escalation_window=esc_window))
 
             use_escalation = False
             if automod_type == automod_types.TEXT_FILTER:

@@ -277,7 +277,7 @@ if __name__ == "__main__":
         raise ConnectionError("Database initialization failed.")
 
 # Always check to see if a DB can be reached or made.
-if (get.allow_docker_fallback() is False and not get.db_host()) and get.prod_mode():
+if (get.allow_docker_fallback() is False and not get.db_host()) and (get.prod_mode() and get.force_use_sqlite() is False):
     logging.error("No external DB configured and Docker fallback is disabled. Cannot proceed.")
     print("Error: Without an external DB configured or Docker fallback enabled, the bot will not function properly.")
     print("Please re-run the setup and configure a database or allow Docker fallback.\n\n")
@@ -294,7 +294,8 @@ if prod_mode:
     if not (hasattr(sys, 'flags') and (sys.flags.optimize >= 1)):
         logging.warning("This bot is in production mode and is being told to run without optimizations! Exitting.")
         print("Error: Production mode requires Python to be run with optimizations enabled (use -O or -OO when calling Python. Eg, python3.13 -O app.py).")
-        raise ValueError("Production mode requires Python optimizations.")
+        if not get.force_use_sqlite():  # If this is True, we don't care about optimizations likely.
+            raise ValueError("Production mode requires Python optimizations.")
 
     if not get.bot_name():
         logging.error("Bot name is not set in production mode! Exitting.")

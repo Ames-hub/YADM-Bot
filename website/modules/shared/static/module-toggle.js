@@ -85,7 +85,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         btn.addEventListener("click", () => {
             const buttonModuleName = btn.id.replace("toggle-", "");
 
+            btn.disabled = true;
             toggleModule(btn, buttonModuleName);
+            btn.enabled = true;
         });
     });
 

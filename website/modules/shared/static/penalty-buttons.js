@@ -32,6 +32,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             const toggleName = btn.id.replace("toggle-", "");
 
+            // Disable this button while the request is being sent
+            btn.disabled = true;
+
             try {
                 const response = await fetch(
                     `/api/guild/${guild_id}/modules/set-penalty/${PENALTY_MODULE}`,
@@ -53,6 +56,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                 // Revert the button if the API request failed
                 btn.classList.toggle("active");
                 btn.textContent = isActive ? "OFF" : "ON";
+            } finally {
+                // Re-enable the button once the request finishes
+                btn.disabled = false;
             }
         });
     });

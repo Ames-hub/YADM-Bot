@@ -36,8 +36,9 @@ class member_violation(Base):
     entry_id = Column(Integer, primary_key=True, autoincrement=True)
     violation = Column(TEXT, nullable=False)
     automated = Column(BOOLEAN, nullable=False)
-    whistleblower = Column(TEXT, nullable=False)
-    extra_info = Column(TEXT, nullable=False, default="No Info Stored.")
+    whistleblower = Column(TEXT, nullable=True)
+    extra_info = Column(TEXT, nullable=True, default="No Info Stored.")
+    appealed = Column(BOOLEAN, nullable=False, default=False)
 
 class guild_text_automod_escalation_settings(Base):
     __tablename__ = "guild_text_automod_escalation_settings"
@@ -176,6 +177,7 @@ class mute_record(Base):
     reason = Column(TEXT, nullable=False)
     moderator_id = Column(BigInteger, nullable=False)
     is_cooldown = Column(BOOLEAN, nullable=False, default=False)
+    violation_case_id = Column(Integer, ForeignKey("member_violations.entry_id"), nullable=False)
 
 class automod_nsfw_scan_feedback(Base):
     __tablename__ = "automod_nsfw_scan_feedback"
@@ -256,6 +258,7 @@ class guild_ban_record(Base):
     moderator_id = Column(BigInteger, nullable=False)
     time_to_unban = Column(DateTime, nullable=False)
     reason = Column(TEXT, nullable=False)
+    active = Column(BOOLEAN, nullable=False)
 
 class reaction_role_group(Base):
     __tablename__ = "reaction_role_groups"

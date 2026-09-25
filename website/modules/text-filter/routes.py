@@ -90,7 +90,7 @@ async def set_bot_escalation(request: Request, guild_id:int):
             else:
                 ok = cat_set.do_cooldown(False)
             successes.append(ok)
-        elif item_name == "do-delete": 
+        elif item_name == "do-delete":
             if value:
                 ok = cat_set.escalation.msg_deletion(data[item_name])
             else:
@@ -185,3 +185,44 @@ async def get_text_penalties(request: Request, guild_id:int):
             "do-escalation": guild.get.do_escalate()
         }
     )
+
+@router.post("/api/guild/{guild_id}/text/durations/{duration_item}")
+async def set_durations(request: Request, guild_id:int, duration_item: str):
+    session_id = request.cookies.get("session_id")
+    if not webdb.verify_session(session_id):
+        return RedirectResponse("/auth/discord/login")
+    
+    session = webdb.fetch_guild_session(session_id=request.cookies.get("session_id"), guild_id=guild_id)
+    managed_guilds = await webdb.determine_manageable_guilds(session_id=session.session_id)
+
+    if guild_id not in managed_guilds:
+        raise HTTPException(403, "You cannot manage servers you do not own, or are not an admin of.")
+
+    guild = dbguild(guild_id)
+
+    data: dict = await request.json()
+    if not str(data.get("value")).isdigit():
+        raise HTTPException(400, "Bad value, must be integer.")
+    elif data['value'] < 0:
+        raise HTTPException(400, "Bad duration length, must be greater than 0.")
+    elif type(data['value']) is float:
+        raise HTTPException(400, "Bad duration, must be an integer, not a float.")
+
+    # UI Is thinking in terms of hours, so convert hours to seconds.
+    duration = int(data['value']) * 3600
+
+    if duration_item == "mute-duration":
+        ok = guild.set.text.set_mute_duration(duration)
+    elif duration_item == "ban-duration":
+        ok = guild.set.text.ban_duration(duration)
+    elif duration_item == "escalationframe-duration":
+        ok = guild.set.escalation_window(duration)
+    elif duration_item == "ban-del-duration":
+        ok = guild.set.text.set_ban_msg_purgetime(duration)
+    else:
+        raise HTTPException(400, "Bad duration item")
+
+    if ok:
+        return HTMLResponse("Success", 200)
+    else:
+        return HTMLResponse("Server Failure", 500)

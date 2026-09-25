@@ -7,16 +7,22 @@ import time
 
 loader = lightbulb.Loader()
 
-async def handle_mute_user(guild_id:int, reason:str, duration_in_seconds:int, user_id:int, respond_func):
+async def handle_mute_user(guild_id:int, mod_id:int, reason:str, duration_in_seconds:int, user_id:int, respond_func):
     guild = dbguild(guild_id)
 
-    success = await guild.muting.mute_member(user_id, reason, duration_in_seconds, hardmute=False)
+    success = await guild.muting.mute_member(
+        user_id=user_id,
+        reason=reason,
+        moderator_id=mod_id,
+        duration_s=duration_in_seconds,
+        hardmute=False
+    )
 
     if success:
         await respond_func(
             hikari.Embed(
                 title="Muted!",
-                description=f"Member has been muted until: <t:{time.time() + duration_in_seconds}>",
+                description=f"Member has been muted until: <t:{int(time.time() + duration_in_seconds)}>",
                 colour=0x0000ff
             )
         )
@@ -36,7 +42,7 @@ class command(
     description="Mute a member of the server!"
 ):
     
-    user = lightbulb.user("target", "Who to mute")
+    target = lightbulb.user("target", "Who to mute")
     reason = lightbulb.string("reason", "Why is this person being muted?")
     duration_minutes = lightbulb.integer("minutes", "How long do we mute them for in minutes?")
 
@@ -47,9 +53,10 @@ class command(
         duration_in_seconds = self.duration_minutes * 60
         
         return await handle_mute_user(
-            ctx.guild_id,
-            self.reason,
-            duration_in_seconds,
-            ctx.user.id,
-            ctx.respond
+            guild_id=ctx.guild_id,
+            mod_id=ctx.user.id,
+            reason=self.reason,
+            duration_in_seconds=duration_in_seconds,
+            user_id=self.target.id,
+            respond_func=ctx.respond
         )

@@ -54,11 +54,9 @@ async def get_icon(guild_id: int):
     try:
         guild = await rest.fetch_guild(guild_id)
     except (hikari.NotFoundError, hikari.ForbiddenError):
-        guild_icons.archive_img(guild_id, placeholder_guild)
         return Response(placeholder_guild, media_type="image/png")
 
     if not guild.icon_hash:
-        guild_icons.archive_img(guild_id, placeholder_guild)
         return Response(placeholder_guild, media_type="image/png")
 
     icon_url = guild.make_icon_url(file_format="PNG").url
@@ -67,7 +65,6 @@ async def get_icon(guild_id: int):
     async with aiohttp.ClientSession() as session:
         async with session.get(icon_url) as response:
             if response.status != 200:
-                guild_icons.archive_img(guild_id, placeholder_guild)
                 return Response(placeholder_guild, media_type="image/png")
 
             img = await response.read()

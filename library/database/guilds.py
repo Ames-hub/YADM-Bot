@@ -31,7 +31,17 @@ class muting:
         def __init__(self, guild_id:int):
             self.guild_id = int(guild_id)
 
-        async def mute_member(self, user_id:int, reason:str, moderator_id:int, duration_s:int=600, hardmute:bool=False, is_cooldown:bool=False):
+        async def mute_member(
+                self,
+                user_id:int,
+                reason:str,
+                moderator_id:int,
+                duration_s:int=600,
+                hardmute:bool=False,
+                is_cooldown:bool=False,
+                violation_id:int=None,
+                whistleblower:str=None
+            ):
             """
             Mute a member in a guild for a specific amount of seconds.
             
@@ -50,16 +60,29 @@ class muting:
             guild_id = self.guild_id
             user_id = int(user_id)
 
+            if moderator_id == ds.d['myid'] and not violation_id:
+                if not whistleblower:
+                    raise ValueError("Cannot be an automated action and have no whistleblower with no prior existing violation.")
+
             muted_role = dbguild(guild_id).get.muted_role_id()
             if not muted_role:
                 success = await self.create_muted_role()
                 muted_role = dbguild(guild_id).get.muted_role_id()
                 if not success:
                     return False
+
+            if offender_name_cache.get(user_id, None) is None:
+                member = await botapp.rest.fetch_member(self.guild_id, user_id)
+                user_username = member.username
+                offender_name_cache[user_id] = user_username
+            else:
+                member = None
+                user_username = offender_name_cache[user_id]
             
             if hardmute:
                 try:
-                    member = await botapp.rest.fetch_member(self.guild_id, user_id)
+                    if member is None:
+                        member = await botapp.rest.fetch_member(self.guild_id, user_id)
                     member_roles = member.get_roles()
                     for role in member_roles:
                         await botapp.rest.remove_role_from_member(
@@ -74,7 +97,8 @@ class muting:
             existing_mutes = muting.list_all_mutes(active_only=True, user_id=user_id, guild_id=guild_id)
             if existing_mutes:
                 # Check what roles the individual has, make sure they still have the muted role
-                member = await botapp.rest.fetch_member(self.guild_id, user_id)
+                if member is None:
+                    member = await botapp.rest.fetch_member(self.guild_id, user_id)
                 member_roles = member.get_roles()
                 if muted_role not in [role.id for role in member_roles]:
                     # If the user doesn't have the muted role, mark all mutes for this user as inactive
@@ -103,10 +127,33 @@ class muting:
             if not is_cooldown:
                 await server_logs(self.guild_id).create_entry(
                     hikari.Embed(
-                        title="Member muted",
+                        title=f"Member \"{user_username}\" muted",
                         description=f"<@{user_id}> has been muted by <@{moderator_id}> until <t:{int(datetime.datetime.now().timestamp() + duration_s)}>",
                         colour=0x850101
                     )
+                )
+
+            if not violation_id:  # We create a violation if it was not already made.
+                if mod_name_cache.get(moderator_id, None) is None:
+                    mod_member = await botapp.rest.fetch_member(self.guild_id, moderator_id)
+                    mod_username = mod_member.username
+                    mod_name_cache[moderator_id] = mod_username
+                else:
+                    mod_username = mod_name_cache[moderator_id]
+                automated = moderator_id == ds.d["myid"]
+                if not whistleblower and not automated:
+                    whistleblower = None
+                violation_id = violations.create_member_violation(
+                    guild_id=self.guild_id,
+                    reporter_id=moderator_id,
+                    reporter_name=mod_username,
+                    offender_id=user_id,
+                    offender_name=user_username,
+                    time=datetime.datetime.now(),
+                    violation=f"Member was muted for reason: \"{reason}\"",
+                    automated=automated,
+                    whistleblower=whistleblower,
+                    extra_info=None
                 )
 
             # Make a record in the DB to say the person needs to be unmuted eventually
@@ -118,7 +165,8 @@ class muting:
                     scheduled_unmute=datetime.datetime.now().timestamp() + duration_s,
                     reason=reason,
                     moderator_id=moderator_id,
-                    is_cooldown=is_cooldown
+                    is_cooldown=is_cooldown,
+                    violation_case_id=violation_id
                 )
                 session.add(record)
                 session.commit()
@@ -292,7 +340,9 @@ class violations:
             record = member_violation(
                 guild_id=guild_id,
                 reporter_id=reporter_id,
+                reporter_name=reporter_name,
                 offender_id=offender_id,
+                offender_name=offender_name,
                 time=time,
                 violation=violation,
                 automated=automated,
@@ -1557,7 +1607,7 @@ class guild_warnings:
         finally:
             session.close()
 
-    def get_by_user(self, user_id, escalation_window:int=None):
+    def get_by_user(self, user_id):
         session = get_session()
         try:
             records = (
@@ -1567,11 +1617,6 @@ class guild_warnings:
                     guild_member_warnings.guild_id == self.guild_id
                 )
             )
-            if escalation_window:
-                escalation_window_start = datetime.datetime.fromtimestamp(
-                    (datetime.datetime.now().timestamp() - escalation_window)
-                )
-                records = records.filter(guild_member_warnings.time >= escalation_window_start)
             records = records.all()
             return records
         except SQLAlchemyError:
@@ -1649,6 +1694,24 @@ class guild_bans:
                 value=ban.reason
             )
         )
+
+        session = get_session()
+        try:
+            record = (
+                session.query(guild_ban_record)
+                .filter(guild_ban_record.guild_id == self.guild_id)
+                .filter(guild_ban_record.banned_id == user_id)
+                .one_or_none()
+            )
+            record.active = False
+            session.commit()
+        except SQLAlchemyError as err:
+            logging.error("Failed listing all bans!", exc_info=err)
+            return None
+        finally:
+            session.close()
+
+        return True
 
     async def ban_user(
             self, banned_id:int,
@@ -1764,7 +1827,8 @@ class guild_bans:
                 banned_id=banned_id,
                 moderator_id=moderator_id,
                 time_to_unban=datetime.datetime.fromtimestamp(time_to_unban),
-                reason=reason
+                reason=reason,
+                active=True
             )
             session.add(record)
             session.commit()
@@ -1788,7 +1852,7 @@ class guild_bans:
                 .filter(guild_ban_record.guild_id == self.guild_id)
             )
             if active_only:
-                records = records.filter(guild_ban_record.time_to_unban >= datetime.datetime.now())
+                records = records.filter(guild_ban_record.active == True)
             return records.all()
         except SQLAlchemyError as err:
             logging.error("Failed listing all bans!", exc_info=err)
@@ -1812,6 +1876,29 @@ class guild_bans:
         finally:
             session.close()
 
+class guild_violations():
+    """
+    Essentially an alias for violations class, but as a useful helper for guilds.
+    """
+    def __init__(self, guild_id):
+        self.guild_id = guild_id
+
+    def get_for_user(self, user_id:int, escalation_window:int):
+        data = violations.get_violations_by_offender(user_id)
+        oldest_allowed = datetime.datetime.fromtimestamp(datetime.datetime.now().timestamp() - escalation_window)
+        parsed = []
+        for item in data:
+            if item.time <= oldest_allowed:
+                parsed.append(item)
+        return parsed
+
+    def get_violation(self, violation_id) -> member_violation:
+        """ Doesn't grab violations from other guilds. """
+        violation = violations.get_violation_record(violation_id)
+        if violation.guild_id != self.guild_id:
+            return None  # Return it only for the guild.
+        return violation
+
 class dbguild:
     def __init__(self, guild_id):
         self.guild_id = guild_id
@@ -1823,6 +1910,7 @@ class dbguild:
         self.bans = guild_bans(guild_id)
         self.logs_config = logs_config(guild_id)
         self.welcomer = welcomer(guild_id)
+        self.violations = guild_violations(guild_id)
 
     def set_automod_defaults(self):
         # Enters the guild ID into a line in the table, which auto-gens defaults.
@@ -1884,7 +1972,8 @@ class dbguild:
                 reason="VIOLATION AUTO COOLDOWN: " + violation,
                 moderator_id=mod_id,
                 duration_s=30,  # 30 sec mute for spam. TODO: Make this configurable.
-                is_cooldown=True
+                is_cooldown=True,
+                violation_id=case_id,
             )
 
         if relevant_msg:
@@ -1909,6 +1998,7 @@ class dbguild:
                 moderator_id=mod_id,
                 reason=violation,
                 duration_s=mute_duration,
+                violation_id=case_id,
             )
 
         try:
@@ -2114,6 +2204,6 @@ class dbguild:
             finally:
                 session.close()
 
-    def get_member_violations(self):
+    def get_member_violations(self, user_id:int, escalation_window:int):
         """ Alias for violations.get_violations_by_guild. Gets all violations of members of the guild. """
         return violations.get_violations_by_guild(self.guild_id)
