@@ -1,5 +1,6 @@
 from library.database.guilds import list_all_bans, dbguild
 from library.database.auditing import server_logs
+from library import datastore as ds
 from datetime import datetime
 import lightbulb
 import hikari
@@ -17,6 +18,7 @@ async def handle_task():
             try:
                 success = await guild.bans.unban_user(
                     user_id=ban.banned_id,
+                    mod_id=ds.d['myid'],
                     reason=reason
                 )
                 logs = server_logs(ban.guild_id)

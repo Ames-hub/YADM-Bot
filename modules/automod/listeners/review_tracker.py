@@ -16,7 +16,7 @@ async def botfunction(event: hikari.GuildReactionAddEvent):
 
     amount = 1
     if event.user_id == primary_maintainer:
-        amount + 99  # The primary maintainer's opinion over-rides other user's.
+        amount + 9999  # The primary maintainer's opinion over-rides other user's.
     
     if event.emoji_name == "👍":
         nsfw_scanner_reviews.modify_upvote_count(event.message_id, add=True, amount=amount)
@@ -33,7 +33,7 @@ async def botfunction(event: hikari.GuildReactionDeleteEvent):
 
     amount = 1
     if event.user_id == primary_maintainer:
-        amount + 99  # The primary maintainer's opinion over-rides other user's.
+        amount + 9999  # The primary maintainer's opinion over-rides other user's.
     
     if event.emoji_name == "👍":
         nsfw_scanner_reviews.modify_upvote_count(event.message_id, add=False, amount=amount)

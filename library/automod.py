@@ -511,7 +511,7 @@ async def handle_guilty(
                                 infraction_id=case_id,
                                 banned_id=event.author.id,
                                 moderator_id=botapp.get_me().id,
-                                msg_del_duration=delete_msg_seconds,
+                                msg_del_seconds=delete_msg_seconds,
                                 ban_seconds=cat_check.ban_duration(),
                                 reason=violation,
                                 announce_ban=announce_ban
@@ -521,7 +521,7 @@ async def handle_guilty(
                             infraction_id=case_id,
                             banned_id=event.author.id,
                             moderator_id=botapp.get_me().id,
-                            msg_del_duration=delete_msg_seconds,
+                            msg_del_seconds=delete_msg_seconds,
                             ban_seconds=cat_check.ban_duration(),
                             reason=violation,
                             announce_ban=announce_ban

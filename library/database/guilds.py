@@ -179,6 +179,106 @@ class muting:
             finally:
                 session.close()
 
+        async def unmute_member(self, user_id:int, do_dm:bool=True):
+            with get_session() as session:
+                mute_case = (
+                    session.query(mute_record)
+                    .filter(mute_record.user_id == user_id)
+                    .filter(mute_record.guild_id == self.guild_id)
+                    .one_or_none()  # Members can only have one active mute per guild.
+                )
+                mute_case.active = False
+                session.commit()
+
+            guild = dbguild(self.guild_id)
+            guild_mute_role = guild.get.muted_role_id()
+
+            unmute_failure = False
+            try:
+                await botapp.rest.remove_role_from_member(
+                    guild=self.guild_id,
+                    user=mute_case.user_id,
+                    role=guild_mute_role
+                )
+                muting.set_mute_inactive(mute_case.case_id)
+            except (hikari.ForbiddenError, hikari.NotFoundError):
+                unmute_failure = True
+
+            if mute_case.is_cooldown:
+                # If this is just a cooldown mute, we don't need to notify the user or log it.
+                # Cooldowns are for after a violation was committed, and only lasts about 30 seconds.
+                muting.set_mute_inactive(mute_case.case_id)
+                return True
+
+            guild_name = ds.d["guild_name_cache"].get(int(self.guild_id), {}).get('name')
+            if not guild_name:
+                try:
+                    discord_guild = await botapp.rest.fetch_guild(self.guild_id)
+                    guild_name = discord_guild.name
+                    ds.d["guild_name_cache"][int(self.guild_id)] = {"name": discord_guild.name, "time": datetime.now().timestamp()}
+                except (hikari.ForbiddenError, hikari.UnauthorizedError, hikari.NotFoundError):
+                    guild_name = None
+
+            if not guild_name:
+                return False # No guild name available. No point in notifying.
+
+            if not unmute_failure:
+                embed = (
+                    hikari.Embed(
+                        title="🔈 Unmuted",
+                        description=f"You have been muted in {guild_name}"
+                    )
+                )
+            else:
+                embed = (
+                    hikari.Embed(
+                        title="🔈 Unmuted (problem!)",
+                        description=f"We attempted to unmute you in *{guild_name}*,\n"
+                        "but it seems we do not have permission by the server owners to do so."
+                    )
+                )
+
+            try:
+                user = await botapp.rest.fetch_user(mute_case.user_id)
+            except (hikari.ForbiddenError, hikari.UnauthorizedError, hikari.NotFoundError):
+                # We give the more basic log here and return if we can't find the user,
+                # because the essential of the task was already done (removing the role)
+                log_embed = (
+                    hikari.Embed(
+                        title="Member Unmuted",
+                        description=f"<@{mute_case.user_id}> Has been unmuted as of <t:{mute_case.scheduled_unmute}:R>",
+                        colour=0x00ff00
+                    )
+                )
+
+                await server_logs(mute_case.guild_id).create_entry(log_embed)
+                return False
+
+            log_embed = (
+                hikari.Embed(
+                    title="Member Unmuted",
+                    description=f"{user.mention} ({user.username}) Has been unmuted as of <t:{int(mute_case.scheduled_unmute)}:R>",
+                    colour=0x00ff00
+                )
+                .add_field(
+                    name="Original Mute Reason",
+                    value=f"\"{mute_case.reason}\""
+                )
+                .add_field(
+                    name="Mute Case Details",
+                    value=f"Case ID: {mute_case.case_id}\nModerator ID: <@{mute_case.moderator_id}> ({mute_case.moderator_id})"
+                )
+            )
+
+            await server_logs(mute_case.guild_id).create_entry(log_embed)
+
+            if do_dm:
+                try:
+                    await user.send(embed)
+                except (hikari.ForbiddenError, hikari.UnauthorizedError, hikari.NotFoundError):
+                    return False
+            return True
+
         async def create_muted_role(self):
             try:
                 new_role = await botapp.rest.create_role(
@@ -254,6 +354,23 @@ class muting:
                     record = (
                         session.query(mute_record)
                         .filter(mute_record.user_id == user_id)
+                        .filter(mute_record.guild_id == self.guild_id)
+                        .one_or_none()  # Users can only have one active mute per guild.
+                    )
+                    return record
+                except SQLAlchemyError as err:
+                    logging.error("Error getting a member's mute case!", exc_info=err)
+                    session.rollback()
+                    return False
+                finally:
+                    session.close()
+
+        def get_mute_by_violaton(self, violation_id:int) -> mute_record:
+            with get_session() as session:
+                try:
+                    record = (
+                        session.query(mute_record)
+                        .filter(mute_record.violation_case_id == violation_id)
                         .filter(mute_record.guild_id == self.guild_id)
                         .one_or_none()  # Users can only have one active mute per guild.
                     )
@@ -398,6 +515,84 @@ class violations:
             )
         finally:
             session.close()
+
+    @staticmethod
+    async def appeal(violation_id:int, mod_id: int) -> tuple[bool, dict]:
+        """
+        Actor ID should be whoever is ordering the appeal. A discord ID.
+        """
+        with get_session() as session:
+            entry = (
+                session.query(member_violation)
+                .filter(member_violation.entry_id == violation_id)
+                .one_or_none()
+            )
+            if not entry:
+                return (False, {})
+            elif not entry.appealed:
+                entry.appealed = True
+            else:
+                return (False, {})  # already appealed
+            session.commit()
+
+        guild = dbguild(entry.guild_id)
+        
+        mute_case = guild.muting.get_mute_by_violaton(violation_id)
+        unmute_ok = None
+        if mute_case:
+            unmute_ok = await guild.muting.unmute_member(mute_case.user_id,  do_dm=False)
+
+        user_id = mute_case.user_id
+
+        ban_case = guild.bans.fetch_ban(violation_id)  # Ban IDs are equal to the assosciated violation ID.
+        unban_ok = None
+        if ban_case:
+            unban_ok = await guild.bans.unban_user(
+                user_id=ban_case.user_id,
+                mod_id=mod_id,
+                reason="Assosciated violation appealed."
+            )
+
+        guild_name = await guild.find_name()
+        vcase: member_violation = violations.get_violation_record(mute_case.violation_case_id)
+
+        embed = (
+            hikari.Embed(
+                title=f"Violation appealed in {guild_name}",
+                description=(
+                    f"<t:{int(vcase.time.timestamp())}:R>, an {"automated" if vcase.automated else "admin-issued"} "
+                    f"violation under ID {vcase.entry_id} was applied to your account.\n\n"
+                    f"This decision was appealed by an administrator, and the assosciated punishments have been undone."
+                )
+            )
+        )
+
+        do_dm_ok = True
+        try:
+            dmc = await botapp.rest.create_dm_channel(user_id)
+            await dmc.send(embed)
+        except (hikari.NotFoundError, hikari.ForbiddenError):
+            do_dm_ok = False
+
+        await server_logs(vcase.guild_id).create_entry(
+            hikari.Embed(
+                title="Violation Appealed!",
+                description=(
+                    f"Admin <@{mod_id}> just appealed violation {vcase.entry_id}, undoing all the penalties assosciated with it "
+                    f"for the flagged user <@{vcase.offender_id}>"
+                ),
+                colour=0x0000ff
+            )
+        )
+
+        return (
+            True,
+            {
+                "unmute_ok": unmute_ok,
+                "unban_ok": unban_ok,
+                "dms_sent": do_dm_ok
+            }
+        )
 
 class _image_filter_penalty_get:
     def __init__(self, guild_id):
@@ -1670,7 +1865,7 @@ class guild_bans:
     def __init__(self, guild_id:int):
         self.guild_id = int(guild_id)
 
-    async def unban_user(self, user_id:int, reason:str):
+    async def unban_user(self, user_id:int, mod_id:int, reason:str):
         ban = self.fetch_ban(user_id)
 
         try:
@@ -1681,12 +1876,12 @@ class guild_bans:
             )
         except (hikari.ForbiddenError, hikari.BadRequestError, hikari.UnauthorizedError):
             return False
-        
+
         logs = server_logs(self.guild_id)
         await logs.create_entry(
             hikari.Embed(
                 title="User unbanned",
-                description=f"<@{ban.banned_id}> was unbanned from the server.",
+                description=f"<@{ban.banned_id}> was unbanned from the server by <@{mod_id}>.",
                 color=0x0000ff
             )
             .add_field(
@@ -1716,7 +1911,7 @@ class guild_bans:
     async def ban_user(
             self, banned_id:int,
             moderator_id:int,
-            msg_del_duration:int,
+            msg_del_seconds:int,
             ban_seconds:int,
             reason:str,
             announce_ban:bool,
@@ -1727,17 +1922,16 @@ class guild_bans:
 
         # Check our cache
         cache_expire_time = 86400  # 1 day in seconds
-        timestamp_now = datetime.datetime.now().timestamp()
-        cache_obj = ds.d["guild_name_cache"].get(self.guild_id, None)
+        
         guild_name = None
-        if cache_obj:
-            if not timestamp_now - cache_obj['time'] >= cache_expire_time:
-                guild_name = cache_obj['name']
-            if not guild_name:
-                # Get from discord, add to cache.
-                discord_guild = await botapp.rest.fetch_guild(self.guild_id)
-                ds.d["guild_name_cache"][self.guild_id] = {"name": discord_guild.name, "time": timestamp_now}
-                guild_name = discord_guild.name
+        if not ds.d["guild_name_cache"].get(self.guild_id, None):
+            timestamp_now = datetime.datetime.now().timestamp()
+            # Get from discord, add to cache.
+            discord_guild = await botapp.rest.fetch_guild(self.guild_id)
+            ds.d["guild_name_cache"][self.guild_id] = {"name": discord_guild.name, "time": timestamp_now}
+            guild_name = discord_guild.name
+        else:
+            guild_name = ds.d["guild_name_cache"][self.guild_id]["name"]
 
         if announce_ban:
             msg_send_success = True
@@ -1758,7 +1952,7 @@ class guild_bans:
             await botapp.rest.ban_user(
                 self.guild_id,
                 banned_id,
-                delete_message_seconds=msg_del_duration,
+                delete_message_seconds=msg_del_seconds,
                 reason=reason
             )
         except (hikari.ForbiddenError, hikari.BadRequestError, hikari.UnauthorizedError):
@@ -1861,6 +2055,7 @@ class guild_bans:
             session.close()
 
     def fetch_ban(self, user_id) -> guild_ban_record:
+        """ Ban ID is equal to violation ID. """
         session = get_session()
         try:
             records = (
@@ -1871,7 +2066,7 @@ class guild_bans:
             )
             return records
         except SQLAlchemyError as err:
-            logging.error("Failed listing all bans!", exc_info=err)
+            logging.error("Failed listing a bans!", exc_info=err)
             return None
         finally:
             session.close()
@@ -1925,9 +2120,11 @@ class dbguild:
         return True
 
     async def find_name(self):
-        # TODO: Make this cache the name for max 7 days.
-        guild = await botapp.rest.fetch_guild(self.guild_id)
-        return guild.name
+        if ds.d['guild_name_cache'].get(self.guild_id, None) is None:
+            guild = await botapp.rest.fetch_guild(self.guild_id)
+            return guild.name
+        else:
+            return ds.d['guild_name_cache'][self.guild_id]['name']
 
     async def handle_like_guilty(self, user_id:int, reason=None, mod_id:int=None, relevant_msg: tuple[int, int]=None, whistleblower:str=None):
         """
@@ -2049,7 +2246,7 @@ class dbguild:
                         case_id=case_id,
                         banned_id=user_id,
                         moderator_id=botapp.get_me().id,
-                        msg_del_duration=delete_msg_seconds,
+                        msg_del_seconds=delete_msg_seconds,
                         ban_seconds=cat_check.ban_duration(),
                         reason=violation,
                         announce_ban=announce_ban
