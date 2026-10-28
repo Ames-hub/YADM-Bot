@@ -9,6 +9,7 @@ import hikari
 loader = lightbulb.Loader()
 
 WINDOW_SECONDS = 5
+MIN_MESSAGES = 4  # Must be at least 2, or the maths breaks.
 
 @loader.listener(hikari.GuildMessageCreateEvent)
 async def botfunction(event: hikari.GuildMessageCreateEvent):
@@ -31,7 +32,7 @@ async def botfunction(event: hikari.GuildMessageCreateEvent):
     ds.d["spam_punish_cache"].setdefault(event.guild_id, {})
     ds.d["spam_sustain_cache"].setdefault(event.guild_id, {})
 
-    current_time = datetime.now().timestamp()
+    current_time = event.message.created_at.timestamp()
 
     # Rolling message window
     user_window = ds.d["spam_cache"][event.guild_id].setdefault(
@@ -39,14 +40,19 @@ async def botfunction(event: hikari.GuildMessageCreateEvent):
         deque()
     )
 
-    user_window.append(current_time)
+    if user_window and current_time < user_window[-1]:
+        # Out-of-order event, keep the window sorted
+        user_window = deque(sorted([*user_window, current_time]))
+        ds.d["spam_cache"][event.guild_id][event.author.id] = user_window
+    else:
+        user_window.append(current_time)
 
     # Remove old timestamps
-    while user_window and current_time - user_window[0] > WINDOW_SECONDS:
+    while user_window and user_window[-1] - user_window[0] > WINDOW_SECONDS:
         user_window.popleft()
 
     # Calculate messages per second
-    if len(user_window) > 1:
+    if len(user_window) >= MIN_MESSAGES:
         span = user_window[-1] - user_window[0]
         messages_per_second = (len(user_window) - 1) / max(span, 0.001)
     else:
@@ -61,10 +67,10 @@ async def botfunction(event: hikari.GuildMessageCreateEvent):
     if messages_per_second >= spam_threshold:
         if sustain_start is None:
             # First time exceeding threshold
-            ds.d["spam_sustain_cache"][event.guild_id][event.author.id] = current_time
-            return
+            sustain_start = current_time
+            ds.d["spam_sustain_cache"][event.guild_id][event.author.id] = sustain_start
 
-        sustained_for = current_time - sustain_start
+        sustained_for = max(current_time - sustain_start, 0.0)
 
         if sustained_for < sustain_secs_limit:
             return

@@ -1,5 +1,7 @@
-from modules.moderation.group import group
+from library.botapp import client
 import lightbulb
 
 loader = lightbulb.Loader()
-warnings_subgroup = group.subgroup("warning", "All the commands for managing warnings")
+warnings_group = lightbulb.Group("warning", "All the commands for managing warnings")
+
+client.register(warnings_group)

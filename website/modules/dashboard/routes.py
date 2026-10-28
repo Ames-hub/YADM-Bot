@@ -184,6 +184,10 @@ async def toggle_module(request: Request, guild_id:int, module_name:str, state:b
         result = guild.set.do_filter_spam(bool(state))
     elif module_name == "img-filter":
         result = guild.set.do_image_filtering(bool(state))
+    elif module_name == "honeypot":
+        if not guild.honeypot.get_channel():
+            await guild.honeypot.setup()
+        result = guild.honeypot.set_enabled(bool(state))
     else:
         raise HTTPException(400, "Incorrect module name")
 

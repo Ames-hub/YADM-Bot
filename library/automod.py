@@ -8,7 +8,6 @@ from library import benchmark as bm
 from difflib import SequenceMatcher
 from library.botapp import botapp
 from library import mainydb
-from enum import Enum
 import imagehash
 import datetime
 import asyncio
@@ -51,10 +50,6 @@ with open('library/slurs_list.txt', 'r') as f:
     slurs_list = f.read().lower().splitlines()
 with open('library/swears_list.txt', 'r') as f:
     swears_list = f.read().lower().splitlines()
-
-# For the syntactic analysis check.
-with open('library/preset_insulting_words.txt', 'r') as f:
-    insulting_words_list = f.read().lower().splitlines()
 
 with open("library/preset_word_whitelist.txt", "r") as f:
     PRESET_WORD_WHITELIST = set(f.read().lower().splitlines())
@@ -618,129 +613,6 @@ class checks:
                 buckets.setdefault(len(word), []).append(word)
             return buckets
 
-    class syntax_analysis_check:
-        """
-        This is a text moderation tool which can break down a word into its component parts and detect insults based on heuristics.
-        It works by:
-
-        1. Breaking down a word into a normalized word: eg, "i'm" to "i am"
-        2. Checking if a banned word is in the message being scanned
-        3. Determining by pronouns who is being referred to, eg "Omg I'm a dumbass" does not flag, but "You're a dumbass" gets flagged.
-        """
-        class verdict(Enum):
-            ALLOW_OK = "ALLOW_OK"
-            DELETE_BAD = "DELETE_BAD"
-            DELETE_PROBABLE = "DELETE_PROBABLE"
-            ALLOW_SELF_DIRECTED = "ALLOW_SELF_DIRECTED"
-
-        def __init__(self):
-            self.insulting_words = insulting_words_list
-            self.self_subject = {"i", "me", "myself", "we", "us", "ourselves"}
-            self.self_possessive = {"my", "mine", "our", "ours"}
-            self.other_subject = {"you", "yourself"}
-            self.other_possessive = {"your", "yours"}
-            self.third_person_subject = {"he", "she", "they", "him", "her", "them", "guy", "gal", "person"}
-            self.third_person_possessive = {"his", "her", "hers", "their", "theirs"}
-            self.imperative_start = {"do", "stop", "try", "don't", "never", "avoid"}
-            self.multi_word_patterns = ["acting like", "looks like"]
-
-        def normalize_text(self, text: str) -> str:
-            text = text.lower()
-            contractions = {
-                "you're": "you are",
-                "youre": "you are",
-                "i'm": "i am",
-                "im": "i am",
-                "he's": "he is",
-                "hes": "he is",
-                "she's": "she is",
-                "shes": "she is",
-                "they're": "they are",
-                "we're": "we are",
-                "were": "we are",
-                "it's": "it is",
-                "don't": "do not",
-                "dont": "do not",
-                "doesn't": "does not",
-                "doesnt": "does not",
-                "didn't": "did not",
-                "didnt": "did not",
-                "can't": "cannot",
-                "cant": "cannot",
-                "u": "you"
-            }
-            for c, full in contractions.items():
-                text = text.replace(c, full)
-            return text
-
-        def tokenize(self, text: str):
-            return re.findall(r'\b\w+\b', text)
-
-        def find_subject(self, tokens, banned_index):
-            window = 5
-            start = max(0, banned_index - window)
-            context = tokens[start:banned_index]
-
-            # A possessive pronoun directly before the flagged word (e.g. "your dog")
-            # marks the flagged word as something owned, not the target of an insult.
-            # Drop it and keep scanning further back for an actual subject/object pronoun.
-            possessives = self.self_possessive | self.other_possessive | self.third_person_possessive
-            if context and context[-1] in possessives:
-                context = context[:-1]
-
-            for w in reversed(context):
-                if w in self.self_subject or w in self.self_possessive:
-                    return "self"
-                elif w in self.other_subject or w in self.other_possessive:
-                    return "other"
-                elif w in self.third_person_subject or w in self.third_person_possessive:
-                    return "other"
-
-            if tokens[0] in self.imperative_start:
-                return "other"
-
-            return None
-
-        def detect_insult(self, text: str):
-            bm.benchmark("Insult detection started.")
-            text_norm = self.normalize_text(text)
-            bm.benchmark("Possible insult message normalised.")
-
-            for pattern in self.multi_word_patterns:
-                if pattern in text_norm:
-                    text_norm = text_norm.replace(pattern, pattern.replace(" ", "_"))
-
-            tokens = self.tokenize(text_norm)
-            bm.benchmark("Possible insult message tokenised.")
-
-            for i, word in enumerate(tokens):
-                check_word = word.replace("_", " ")
-
-                if check_word in self.insulting_words:
-                    subject = self.find_subject(tokens, i)
-                    bm.benchmark("Determined subject.")
-
-                    # Grab small context window around the flagged word
-                    window = 3
-                    start = max(0, i - window)
-                    end = min(len(tokens), i + window + 1)
-                    context_snippet = " ".join(tokens[start:end]).replace("_", " ")
-
-                    result = {
-                        "flagged_word": check_word,
-                        "context": context_snippet,
-                        "original_text": text
-                    }
-
-                    if subject == "other":
-                        return self.verdict.DELETE_BAD, result
-                    elif subject == "self":
-                        return self.verdict.ALLOW_SELF_DIRECTED, result
-                    else:
-                        continue  # Allow it, its inconclusive.
-
-            return self.verdict.ALLOW_OK, None
-
     class ai_vision:
         """
         Yes, boo AI. I know. But this does have a practical application, and its not bad for the environment since its a small local model opposed to
@@ -968,8 +840,9 @@ class checks:
 
             @staticmethod
             def syntactic_analysis(text: str, allow_self_insult:bool=True):
-                checker = checks.syntax_analysis_check()
-                result = checker.detect_insult(text)
+                from library.smartmod import syntax_analysis
+                checker = syntax_analysis()
+                result = checker.checkphrase(text)
                 if allow_self_insult:
                     bad = result[0] not in [checker.verdict.ALLOW_OK, checker.verdict.ALLOW_SELF_DIRECTED]
                 else:

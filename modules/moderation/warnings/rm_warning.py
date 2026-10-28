@@ -1,4 +1,4 @@
-from modules.moderation.warnings.subgroup import warnings_subgroup
+from modules.moderation.warnings.subgroup import warnings_group
 from library.database.guilds import dbguild
 from library.permissions import prechecks
 import lightbulb
@@ -31,7 +31,7 @@ async def handle_rm_warn(guild_id:int, warn_id:int, responder_func):
         )
     
 
-@warnings_subgroup.register
+@warnings_group.register
 class command(
     lightbulb.SlashCommand,
     name="revoke",

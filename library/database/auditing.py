@@ -108,7 +108,7 @@ class logs_config:
             return records[0] if records else None
         except SQLAlchemyError as err:
             logging.error("Error getting the logs channel!", exc_info=err)
-            return []  # Return an empty list if something goes wrong
+            return None  # Return an empty list if something goes wrong
         finally:
             session.close()
 

@@ -122,8 +122,8 @@ class guild_spam_automod_settings(Base):
     announce_infraction = Column(BOOLEAN, nullable=False, default=True)
     announce_kick = Column(BOOLEAN, nullable=False, default=True)
     announce_ban = Column(BOOLEAN, nullable=False, default=True)
-    mps_limit = Column(Integer, nullable=False, default=1)
-    mps_time_limit = Column(Integer, nullable=False, default=2)  # How many seconds the MPS limit can be exceeded before its a violation.
+    mps_limit = Column(Integer, nullable=False, default=2)
+    mps_time_limit = Column(Integer, nullable=False, default=3)
 
 class guild_images_automod_settings(Base):
     __tablename__ = "guild_images_automod_settings"
@@ -338,6 +338,14 @@ class guild_icon_blob(Base):
 
     guild_id = Column(BigInteger, primary_key=True)
     img_blob = Column(LargeBinary, nullable=False)
+
+class guild_honeypot(Base):
+    __tablename__ = "guild_honeypot_configs"
+
+    guild_id = Column(BigInteger, primary_key=True)
+    channel_id = Column(BigInteger, default=None, unique=True)
+    enabled = Column(BOOLEAN, default=False)
+    do_ban = Column(BOOLEAN, default=True)  # If false, we mute instead.
 
 def get_session():
     if SessionLocal is None:

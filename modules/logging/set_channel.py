@@ -1,12 +1,12 @@
-from modules.moderation.logging.subgroup import logging_subgroup
 from library.database.auditing import logs_config, server_logs
 from library.permissions import prechecks
+from modules.logging.group import group
 import lightbulb
 import hikari
 
 loader = lightbulb.Loader()
 
-async def handle_set_log_channel(guild_id:int, channel_id:int, user_id:int, responder_func):
+async def handle_set_log_channel(guild_id:int, channel_id:int, user_id:int):
     config = logs_config(guild_id)
     logs = server_logs(guild_id)
 
@@ -24,7 +24,7 @@ async def handle_set_log_channel(guild_id:int, channel_id:int, user_id:int, resp
 
     success = config.set_logs_channel(channel_id)
     if success:
-        await responder_func(
+        embed = (
             hikari.Embed(
                 title="Log Channel Set!",
                 description=f"The log channel has been set to <#{channel_id}>",
@@ -40,33 +40,32 @@ async def handle_set_log_channel(guild_id:int, channel_id:int, user_id:int, resp
                     colour=0x0000ff
                 )
             )
-
-        return
     else:
-        await responder_func(
+        embed = (
             hikari.Embed(
                 title="Error!",
                 description=f"Couldn't set the logs channel to <#{channel_id}>",
                 color=0xff0000
             )
         )
-        return
 
-@logging_subgroup.register
+    return embed
+
+@group.register
 class command(
     lightbulb.SlashCommand,
     name="channel",
     description="Set the logging channel for the bot!"
 ):
-    
-    channel = lightbulb.channel("logs_channel", "Where do we send the logs?")
 
+    channel = lightbulb.channel("channel", "Which channel do you want us to log to?")
+    
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
         await prechecks("set-logging-channel", ctx, [hikari.Permissions.VIEW_AUDIT_LOG, hikari.Permissions.MANAGE_GUILD])
-        return await handle_set_log_channel(
+        embed = await handle_set_log_channel(
             ctx.guild_id,
             self.channel.id,
             ctx.user.id,
-            ctx.respond
         )
+        await ctx.respond(embed)

@@ -311,6 +311,7 @@ bm.benchmark("Bot environment estimation setup completed.")
 
 # ----- BOT SETUP SECTION -----
 from library.botapp import botapp, client
+from library.other import get_os_name
 import importlib
 import hikari
 
@@ -341,8 +342,6 @@ async def on_shard_ready(event: hikari.ShardReadyEvent) -> None:
     logging.info(msg)
     ds.d["myid"] = event.my_user.id
 
-from library.other import get_os_name
-
 # ------- ds.d configuration ------- #
 ds.d["time_at_boot"] = datetime.datetime.now()
 ds.d["myid"] = None  # Set in the on_shard_ready func.
@@ -350,10 +349,12 @@ ds.d["guild_name_cache"] = TTLCache(1000, 3600)  #  Used by the "handle_guilty" 
 ds.d["PRIMARY_MAINTAINER"] = get.primary_maintainer()  # Used to enable specific features.
 ds.d["guild_owner_ids_cache"] = {}
 ds.d["filter_exemptions"] = {}  # People who are not looked at by the automod. Assigned by admins, and its per-guild.
-ds.d["spam_cache"] = {}
-ds.d["spam_punish_cache"] = {}  # Cache to track when users were last punished for spam, to avoid punishing them multiple times in a short period
+ds.d["spam_cache"] = TTLCache(10000, ttl=60)
+# Cache to track when users were last punished for spam, to avoid punishing them multiple times in a short period
+ds.d["spam_punish_cache"] = TTLCache(10000, ttl=30)
 ds.d["bad_word_list_cache"] = {}
 ds.d["rr_role_names_cache"] = {}
+ds.d["channel_users_talking"] = TTLCache(10000, 240)
 
 try:
     logging.info(f"OS Detected: {get_os_name()}")

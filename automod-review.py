@@ -8,27 +8,32 @@ def clean_whitelist_file():
     This function removes duplicates from the library/preset_word_whitelist.txt file, and removes exact matches from the whitelist if they are in
     The bad words list.
     """
-    bad_word_list = automod.get_bad_word_list(guild_id=None)
+    bad_word_list = automod.get_bad_word_list(guild_id=None)[0]
     old_whitelist = automod.PRESET_WORD_WHITELIST
-    new_whitelist = []
+    new_whitelist = set()
     removal_list = []
     progress_indicator = 0
+    old_whitelist_count = len(old_whitelist)
     for word in old_whitelist:
-        print(f"Beginning to clean whitelist file. This can take a while as we scan through all {len(old_whitelist)} entries.")
-        print(f"Progress: {progress_indicator}/{len(old_whitelist)}")
+        print(f"Beginning to clean whitelist file. This can take a while as we scan through all {old_whitelist_count} entries.")
+        print(f"Progress: {progress_indicator}/{old_whitelist_count}")
         progress_indicator += 1
-        subprocess.run("clear")
-        if word in bad_word_list:
-            removal_list.append(word, "Bad Word")
-            continue  # Do not add it
-        elif word in new_whitelist:
+
+        # Strictly remove all bad words
+        for bad_word in bad_word_list:
+            if bad_word in word:
+                removal_list.append((word, "Bad Word"))
+                continue  # Do not add it
+        
+        if word in new_whitelist:
             removal_list.append((word, "Duplicate"))  
             continue  # Do not add it, as its a duplicate.
-        else:
-            new_whitelist.append(word)
+
+        new_whitelist.add(word)
 
     with open("library/preset_word_whitelist.txt", "w") as f:
-        f.write("\n".join(new_whitelist))
+        print("WRITING NEW LIST.")
+        f.write("\n".join(list(new_whitelist)))
 
     for item in removal_list:
         print(f"REMOVED: \"{item[0]}\" due to \"{item[1]}\"")
@@ -107,6 +112,9 @@ while True:
         break
     elif action == 1:
         entries = observations.get_all_entries()
+        if not entries:
+            print("No entries to review.")
+            continue
 
         bad_count = 0
         bad_entries: list[observations.observation_entry] = []

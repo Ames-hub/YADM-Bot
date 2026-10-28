@@ -15,10 +15,11 @@ from library.database.manage import (
     guild_image_automod_escalation_settings,
     guild_spam_automod_escalation_settings
 )
+from library.database.honeypot import honeypot as guild_honeypot
+from sqlalchemy.exc import OperationalError, IntegrityError
 from library.database.auditing import logs_config
 from library.database.auditing import server_logs
 from library.database.welcomer import welcomer
-from sqlalchemy.exc import SQLAlchemyError
 from library import datastore as ds 
 from library.botapp import botapp
 from cachetools import TTLCache
@@ -41,7 +42,7 @@ class muting:
                 is_cooldown:bool=False,
                 violation_id:int=None,
                 whistleblower:str=None
-            ):
+            ) -> False|int:
             """
             Mute a member in a guild for a specific amount of seconds.
             
@@ -172,7 +173,7 @@ class muting:
                 session.commit()
                 session.refresh(record)
                 return record.case_id
-            except SQLAlchemyError as err:
+            except OperationalError as err:
                 logging.error("Error muting a member of a guild!", exc_info=err)
                 session.rollback()
                 return False
@@ -341,7 +342,7 @@ class muting:
                         if record.is_cooldown:
                             return False
                     return record is not None
-                except SQLAlchemyError as err:
+                except OperationalError as err:
                     logging.error("Error getting if a member of a guild is bot-muted!", exc_info=err)
                     session.rollback()
                     return False
@@ -358,7 +359,7 @@ class muting:
                         .one_or_none()  # Users can only have one active mute per guild.
                     )
                     return record
-                except SQLAlchemyError as err:
+                except OperationalError as err:
                     logging.error("Error getting a member's mute case!", exc_info=err)
                     session.rollback()
                     return False
@@ -375,7 +376,7 @@ class muting:
                         .one_or_none()  # Users can only have one active mute per guild.
                     )
                     return record
-                except SQLAlchemyError as err:
+                except OperationalError as err:
                     logging.error("Error getting a member's mute case!", exc_info=err)
                     session.rollback()
                     return False
@@ -420,7 +421,7 @@ class muting:
 
             session.commit()
             return True
-        except SQLAlchemyError:
+        except OperationalError:
             session.rollback()
             return False
         finally:
@@ -470,7 +471,7 @@ class violations:
             session.commit()
             session.refresh(record)
             return record.entry_id
-        except SQLAlchemyError as err:
+        except OperationalError as err:
             logging.error("Error adding member violation!", exc_info=err)
             session.rollback()
             return False
@@ -666,11 +667,27 @@ class _spam_filter_penalty_get:
     def _get_record(self):
         session = get_session()
         try:
-            return (
+            record = (
                 session.query(guild_spam_automod_settings)
                 .filter(guild_spam_automod_settings.guild_id == self.guild_id)
                 .one_or_none()
             )
+            if not record:
+                record = guild_spam_automod_settings(
+                    guild_id=self.guild_id,
+                )
+                try:
+                    session.add(record)
+                    session.commit()
+                    session.refresh(record)
+                except IntegrityError:
+                    session.rollback()
+                    record = (
+                        session.query(guild_spam_automod_settings)
+                        .filter(guild_spam_automod_settings.guild_id == self.guild_id)
+                        .one_or_none()
+                    )
+            return record
         finally:
             session.close()
 
@@ -737,11 +754,27 @@ class _text_filter_checks_enabled_get:
     def _get_record(self) -> guild_text_automod_text_checks:
         session = get_session()
         try:
-            return (
+            record = (
                 session.query(guild_text_automod_text_checks)
                 .filter(guild_text_automod_text_checks.guild_id == self.guild_id)
                 .one_or_none()
             )
+            if not record:
+                record = guild_spam_automod_settings(
+                    guild_id=self.guild_id,
+                )
+                try:
+                    session.add(record)
+                    session.commit()
+                    session.refresh(record)
+                except IntegrityError:
+                    session.rollback()
+                    record = (
+                        session.query(guild_spam_automod_settings)
+                        .filter(guild_spam_automod_settings.guild_id == self.guild_id)
+                        .one()
+                    )
+            return record
         finally:
             session.close()
 
@@ -790,15 +823,19 @@ class text_filter_penalties_escalation_get:
             )
             if not record:
                 record = guild_text_automod_escalation_settings(
-                    guild_id=self.guild_id
+                    guild_id=self.guild_id,
                 )
-                session.add(record)
-                session.commit()
-                record = (
-                    session.query(guild_text_automod_escalation_settings)
-                    .filter(guild_text_automod_escalation_settings.guild_id == self.guild_id)
-                    .one_or_none()
-                )
+                try:
+                    session.add(record)
+                    session.commit()
+                    session.refresh(record)
+                except IntegrityError:
+                    session.rollback()
+                    record = (
+                        session.query(guild_text_automod_escalation_settings)
+                        .filter(guild_text_automod_escalation_settings.guild_id == self.guild_id)
+                        .one_or_none()
+                    )
             return record
 
     def msg_deletion(self):
@@ -836,13 +873,17 @@ class spam_filter_penalties_escalation_get:
                 record = guild_spam_automod_escalation_settings(
                     guild_id=self.guild_id
                 )
-                session.add(record)
-                session.commit()
-                record = (
-                    session.query(guild_spam_automod_escalation_settings)
-                    .filter(guild_spam_automod_escalation_settings.guild_id == self.guild_id)
-                    .one_or_none()
-                )
+                try:
+                    session.add(record)
+                    session.commit()
+                    session.refresh(record)
+                except IntegrityError:
+                    session.rollback()
+                    record = (
+                        session.query(guild_spam_automod_escalation_settings)
+                        .filter(guild_spam_automod_escalation_settings.guild_id == self.guild_id)
+                        .one_or_none()
+                    )
             return record
 
     def msg_deletion(self):
@@ -926,13 +967,17 @@ class _text_filter_penalty_get:
                 record = guild_text_automod_settings(
                     guild_id=self.guild_id
                 )
-                session.add(record)
-                session.commit()
-                record = (
-                    session.query(guild_text_automod_settings)
-                    .filter(guild_text_automod_settings.guild_id == self.guild_id)
-                    .one_or_none()
-                )
+                try:
+                    session.add(record)
+                    session.commit()
+                    session.refresh(record)
+                except IntegrityError:
+                    session.rollback()
+                    record = (
+                        session.query(guild_text_automod_settings)
+                        .filter(guild_text_automod_settings.guild_id == self.guild_id)
+                        .one_or_none()
+                    )
             return record
 
     def do_delete_msg(self):
@@ -1018,20 +1063,24 @@ class automod_get:
                 .filter(guild_automod_settings.guild_id == self.guild_id)
                 .one_or_none()
             )
+
             if not record:
                 record = guild_automod_settings(
                     guild_id=self.guild_id
                 )
-                session.add(record)
-                session.commit()
-                # Re-fetch item
-                return (
-                    session.query(guild_automod_settings)
-                    .filter(guild_automod_settings.guild_id == self.guild_id)
-                    .one_or_none()
-                )
-            else:
-                return record
+                try:
+                    session.add(record)
+                    session.commit()
+                    session.refresh(record)
+                except IntegrityError:
+                    session.rollback()
+                    record = (
+                        session.query(guild_automod_settings)
+                        .filter(guild_automod_settings.guild_id == self.guild_id)
+                        .one_or_none()
+                    )
+
+            return record
         finally:
             session.close()
 
@@ -1095,7 +1144,7 @@ class _text_filter_checks_set:
 
             session.commit()
             return True
-        except SQLAlchemyError as err:
+        except OperationalError as err:
             logging.error("Error updating text automod settings for which checks are enabled!", exc_info=err)
             session.rollback()
             return False
@@ -1151,7 +1200,7 @@ class image_filter_penalties_escalation_set:
 
             session.commit()
             return True
-        except SQLAlchemyError as err:
+        except OperationalError as err:
             logging.error("Error updating image automod escalation settings!", exc_info=err)
             session.rollback()
             return False
@@ -1198,7 +1247,7 @@ class spam_filter_penalties_escalation_set:
 
             session.commit()
             return True
-        except SQLAlchemyError as err:
+        except OperationalError as err:
             logging.error("Error updating image automod escalation settings!", exc_info=err)
             session.rollback()
             return False
@@ -1245,7 +1294,7 @@ class text_filter_penalties_escalation_set:
 
             session.commit()
             return True
-        except SQLAlchemyError as err:
+        except OperationalError as err:
             logging.error("Error updating text automod settings!", exc_info=err)
             session.rollback()
             return False
@@ -1294,7 +1343,7 @@ class _text_filter_penalties_set:
 
             session.commit()
             return True
-        except SQLAlchemyError as err:
+        except OperationalError as err:
             logging.error("Error updating text automod settings!", exc_info=err)
             session.rollback()
             return False
@@ -1391,7 +1440,7 @@ class _spam_filter_set:
 
             session.commit()
             return True
-        except SQLAlchemyError as err:
+        except OperationalError as err:
             logging.error("Error updating spam automod settings!", exc_info=err)
             session.rollback()
             return False
@@ -1466,7 +1515,7 @@ class _image_filter_set:
 
             session.commit()
             return True
-        except SQLAlchemyError as err:
+        except OperationalError as err:
             logging.error("Error updating image automod settings!", exc_info=err)
             session.rollback()
             return False
@@ -1574,7 +1623,7 @@ class automod_set:
 
             session.commit()
             return True
-        except SQLAlchemyError as err:
+        except OperationalError as err:
             logging.error("Error updating image automod threshold settings!", exc_info=err)
             session.rollback()
             return False
@@ -1601,7 +1650,7 @@ class automod_set:
 
             session.commit()
             return True
-        except SQLAlchemyError as err:
+        except OperationalError as err:
             logging.error("Error updating mute role ID automod settings!", exc_info=err)
             session.rollback()
             return False
@@ -1641,7 +1690,7 @@ class automod_set:
 
             session.commit()
             return True
-        except SQLAlchemyError as err:
+        except OperationalError as err:
             logging.error("Error updating automod settings!", exc_info=err)
             session.rollback()
             return False
@@ -1665,7 +1714,7 @@ class wordlist_modify:
             if ds.d["bad_word_list_cache"].get(self.guild_id, None):
                 del ds.d["bad_word_list_cache"][self.guild_id]
             return True
-        except SQLAlchemyError as err:
+        except OperationalError as err:
             logging.error("Encountered an error in adding a word to the list!", exc_info=err)
             session.rollback()
             return False
@@ -1692,7 +1741,7 @@ class wordlist_modify:
             if ds.d["bad_word_list_cache"].get(self.guild_id, None):
                 del ds.d["bad_word_list_cache"][self.guild_id]
             return True
-        except SQLAlchemyError:
+        except OperationalError:
             session.rollback()
             return False
         finally:
@@ -1723,7 +1772,7 @@ class wordlist_modify:
                 )
             # `records` is a list of tuples, so we extract the first element from each tuple
             return [r[0] for r in records]
-        except SQLAlchemyError as err:
+        except OperationalError as err:
             logging.error("Error getting the word list", exc_info=err)
             return []  # Return an empty list if something goes wrong
         finally:
@@ -1764,7 +1813,7 @@ class guild_warnings:
             session.commit()
             session.refresh(record)
             return record.warn_id
-        except SQLAlchemyError as err:
+        except OperationalError as err:
             logging.error("Error adding member guild warning!", exc_info=err)
             session.rollback()
             return False
@@ -1796,7 +1845,7 @@ class guild_warnings:
             session.delete(record)
             session.commit()
             return True
-        except SQLAlchemyError:
+        except OperationalError:
             session.rollback()
             return False
         finally:
@@ -1814,7 +1863,7 @@ class guild_warnings:
             )
             records = records.all()
             return records
-        except SQLAlchemyError:
+        except OperationalError:
             return {}
         finally:
             session.close()
@@ -1836,7 +1885,7 @@ class guild_warnings:
                 records = records.limit(limit)
 
             records = records.all()
-        except SQLAlchemyError:
+        except OperationalError:
             return None
         finally:
             session.close()
@@ -1852,7 +1901,7 @@ def list_all_bans() -> list[guild_ban_record]:
             .filter(guild_ban_record.time_to_unban >= datetime.datetime.now())
         )
         return records.all()
-    except SQLAlchemyError as err:
+    except OperationalError as err:
         logging.error("Failed listing all bans!", exc_info=err)
         return []  # Return an empty list if something goes wrong
     finally:
@@ -1900,7 +1949,7 @@ class guild_bans:
             )
             record.active = False
             session.commit()
-        except SQLAlchemyError as err:
+        except OperationalError as err:
             logging.error("Failed listing all bans!", exc_info=err)
             return None
         finally:
@@ -2031,7 +2080,7 @@ class guild_bans:
                 return record.case_id
             else:
                 return True
-        except SQLAlchemyError as err:
+        except OperationalError as err:
             logging.error("Error adding member ban record!", exc_info=err)
             session.rollback()
             return False
@@ -2048,7 +2097,7 @@ class guild_bans:
             if active_only:
                 records = records.filter(guild_ban_record.active == True)
             return records.all()
-        except SQLAlchemyError as err:
+        except OperationalError as err:
             logging.error("Failed listing all bans!", exc_info=err)
             return []  # Return an empty list if something goes wrong
         finally:
@@ -2065,7 +2114,7 @@ class guild_bans:
                 .one_or_none()
             )
             return records
-        except SQLAlchemyError as err:
+        except OperationalError as err:
             logging.error("Failed listing a bans!", exc_info=err)
             return None
         finally:
@@ -2106,6 +2155,7 @@ class dbguild:
         self.logs_config = logs_config(guild_id)
         self.welcomer = welcomer(guild_id)
         self.violations = guild_violations(guild_id)
+        self.honeypot = guild_honeypot(guild_id)
 
     def set_automod_defaults(self):
         # Enters the guild ID into a line in the table, which auto-gens defaults.
@@ -2394,13 +2444,13 @@ class dbguild:
                 record = guild_automod_settings(guild_id=self.guild_id)
                 session.add(record)
                 session.commit()
-            except SQLAlchemyError as err:
+            except OperationalError as err:
                 logging.error("Error creating guild automod settings!", exc_info=err)
                 session.rollback()
                 return False
             finally:
                 session.close()
 
-    def get_member_violations(self, user_id:int, escalation_window:int):
+    def get_member_violations(self):
         """ Alias for violations.get_violations_by_guild. Gets all violations of members of the guild. """
         return violations.get_violations_by_guild(self.guild_id)

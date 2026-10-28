@@ -147,6 +147,16 @@ class views:
                 )
                 self.stop()
 
+            async def on_timeout(self) -> None:
+                await viewself.ctx.edit_response(
+                    viewself.resp,
+                    embed=hikari.Embed(
+                        title="Menu Exitted",
+                        description="This menu has closed itself after being left open for too long."
+                    ),
+                    components=[]
+                )
+
             @miru.button(
                 label="Confirm",
                 style=hikari.ButtonStyle.DANGER,

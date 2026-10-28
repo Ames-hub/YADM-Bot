@@ -1,4 +1,4 @@
-from modules.moderation.warnings.subgroup import warnings_subgroup
+from modules.moderation.warnings.subgroup import warnings_group
 from library.database.guilds import dbguild
 from library.permissions import prechecks
 from library import datastore as ds
@@ -70,7 +70,7 @@ async def handle_warn_user(guild_id:int, user:hikari.User, moderator:hikari.User
             )
         )
 
-@warnings_subgroup.register
+@warnings_group.register
 class command(
     lightbulb.SlashCommand,
     name="add",
