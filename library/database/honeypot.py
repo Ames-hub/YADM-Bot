@@ -4,8 +4,8 @@ from sqlalchemy.exc import OperationalError
 from datetime import datetime, timedelta
 from library import datastore as ds
 from library.botapp import botapp
-from library import settings
 import logging
+import asyncio
 import hikari
 
 def gen_del_text(del_success:bool, mute_success:bool):
@@ -199,6 +199,7 @@ class honeypot:
             moderator_id=ds.d["myid"],
             duration_s=-1,
             hardmute=True,
+            whistleblower="honeypot"
         )
 
         del_success = True
@@ -254,7 +255,7 @@ class honeypot:
             )
         except (hikari.ForbiddenError, hikari.UnauthorizedError, hikari.BadRequestError):
             # If we can't ban them, mute them.
-            result = self.handle_honeypot_mute(user_id)
+            result = await self.handle_honeypot_mute(user_id)
             del_success = result[0]
             mute_success = result[1]
 
@@ -312,15 +313,32 @@ class honeypot:
 
             success = del_success is True and mute_success is True
 
+        offender_name = None
+        try_count = 0
+        while try_count < 3:
+            offender_name = ds.d["channel_users_talking"].get(user_id, None)
+            if offender_name == None:
+                # Sleep max 0.3 seconds to get the username.
+                # Its not critical that this step is quick because the penalty has already been dealt.
+                asyncio.sleep(0.1)
+                try_count += 1
+            else:
+                break
+
+        if offender_name is None:
+            offender_name = "None"  # Can't be none-type, so this will have to do.
+
         from library.database.guilds import violations
         violations.create_member_violation(
             guild_id=self.guild_id,
             reporter_id=ds.d['myid'],
             reporter_name=ds.d['myname'],
             offender_id=user_id,
-            offender_name=ds.d["channel_users_talking"][user_id],
+            offender_name=offender_name,
             time=datetime.now(),
             violation="User tripped the server's anti spam-bot honeypot.",
             automated=True,
             whistleblower="honeypot",
         )
+
+        return success

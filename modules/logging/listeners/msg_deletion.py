@@ -6,6 +6,9 @@ loader = lightbulb.Loader()
 
 @loader.listener(hikari.GuildMessageDeleteEvent)
 async def botfunction(event: hikari.GuildMessageDeleteEvent):
+    if not event.old_message:
+        return
+    
     if event.old_message.member.is_bot or event.old_message.member.is_system:
         return
     if not event.old_message.content:  # might be missing from cache

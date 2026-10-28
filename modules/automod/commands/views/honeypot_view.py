@@ -20,7 +20,7 @@ class views:
                     description=(
                         "This is a feature for catching compromised accounts used in spam networks, and just in general spam bots."
                     ),
-                    colour=0x00ffff
+                    colour=0xffff00
                 )
                 .add_field(
                     name="What's a Honeypot?",
@@ -98,6 +98,6 @@ class views:
                     return
 
                 await ctx.edit_response(viewself.gen_embed(go_ahead_okayed=False), components=[])
-                await self.stop()
+                self.stop()
 
         return Menu_Init(timeout=60)

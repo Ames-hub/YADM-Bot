@@ -832,9 +832,9 @@ class _text_filter_checks_enabled_get:
                 except IntegrityError:
                     session.rollback()
                     record = (
-                        session.query(guild_spam_automod_settings)
-                        .filter(guild_spam_automod_settings.guild_id == self.guild_id)
-                        .one()
+                        session.query(guild_text_automod_text_checks)
+                        .filter(guild_text_automod_text_checks.guild_id == self.guild_id)
+                        .one_or_none()
                     )
             return record
         finally:
