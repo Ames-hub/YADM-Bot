@@ -1,4 +1,5 @@
 from library.database.auditing import server_logs
+from library.database.honeypot import honeypot
 from library.database.guilds import dbguild
 import lightbulb
 import hikari
@@ -31,6 +32,17 @@ class views:
                     )
                 )
             )
+
+            pot = honeypot(self.guild_id)
+            honeypot_channel = pot.get_channel()
+            if honeypot_channel is not None:
+                embed.add_field(
+                    name="Honeypot already setup?",
+                    value=(
+                        "Our logs show there's already a honeypot channel created, "
+                        "are you sure you don't want to just enable it instead of make a new one?"
+                    )
+                )
         else:
             embed = (
                 hikari.Embed(
