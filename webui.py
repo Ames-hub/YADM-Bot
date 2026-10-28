@@ -49,8 +49,7 @@ if "--setup-db" in sys.argv:
             "host": db_host,
             "port": db_port,
             "dbname": db_name
-        }),
-        ever_create_db=False
+        })
     )
     settings.setgroup.db_details({
         "user": username,

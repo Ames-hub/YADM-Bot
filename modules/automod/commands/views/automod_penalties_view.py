@@ -151,6 +151,11 @@ class views:
             inline=True
         )
         embed.add_field(
+            name="Notify Moderators",
+            value="✅ Will notify mods on violation" if self.announce_ban else "❌ Will not notify the moderators",
+            inline=False
+        )
+        embed.add_field(
             name="Ban Duration",
             value=ban_duration_text,
             inline=False
@@ -418,6 +423,31 @@ class views:
                         title=f"{viewself.category_text.capitalize()} Setting Changed",
                         description=(
                             f"User bans will now {'be announced' if active else 'not be announced'} on {viewself.category_text} violations."
+                        ),
+                        colour=0x00FF00 if active else 0xFFA500
+                    )
+                    .set_footer(
+                        f"Changed by {ctx.user.username} ({ctx.user.id})",
+                    )
+                )
+
+            @miru.button(
+                label="Toggle Mod Notify",
+                style=active_style if viewself.get_category.do_announce_ban() else inactive_style,
+                row=3
+            )
+            async def toggle_mod_notify_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if viewself.mod_id != ctx.user.id:
+                    return
+                active = not viewself.get_category.notify_mods()
+                viewself.set_category.notify_mods(active)
+                button.style = active_style if active else inactive_style
+                await ctx.edit_response(viewself.gen_embed(), components=self)
+                await server_logs(ctx.guild_id).create_entry(
+                    hikari.Embed(
+                        title=f"{viewself.category_text.capitalize()} Setting Changed",
+                        description=(
+                            f"Moderators will now {'be notified' if active else 'not be notified'} on {viewself.category_text} violations."
                         ),
                         colour=0x00FF00 if active else 0xFFA500
                     )

@@ -104,8 +104,7 @@ elif "--setup-db" in sys.argv:
             "host": db_host,
             "port": db_port,
             "dbname": db_name
-        }),
-        ever_create_db=False
+        })
     )
     setgroup.db_details({
         "user": username,
@@ -277,16 +276,6 @@ if __name__ == "__main__":
         print("Error: Unable to initialize the database connection. Please check your settings and ensure the database is reachable.")
         raise ConnectionError("Database initialization failed.")
 
-# Always check to see if a DB can be reached or made.
-if (get.allow_docker_fallback() is False and not get.db_host()) and (get.prod_mode() and get.force_use_sqlite() is False):
-    logging.error("No external DB configured and Docker fallback is disabled. Cannot proceed.")
-    print("Error: Without an external DB configured or Docker fallback enabled, the bot will not function properly.")
-    print("Please re-run the setup and configure a database or allow Docker fallback.\n\n")
-    print("To rerun the setup, delete the settings.json file and restart the bot.")
-    raise ValueError("No DB configured and Docker fallback disabled.")
-else:
-    logging.warning("Nodeus is running with Sqlite3")
-
 prod_mode = get.prod_mode()
 
 if prod_mode:
@@ -341,10 +330,12 @@ async def on_shard_ready(event: hikari.ShardReadyEvent) -> None:
     print(msg)
     logging.info(msg)
     ds.d["myid"] = event.my_user.id
+    ds.d["myname"] = event.my_user.display_name
 
 # ------- ds.d configuration ------- #
 ds.d["time_at_boot"] = datetime.datetime.now()
 ds.d["myid"] = None  # Set in the on_shard_ready func.
+ds.d["myname"] = None
 ds.d["guild_name_cache"] = TTLCache(1000, 3600)  #  Used by the "handle_guilty" func to avoid spamming the API for guild name requests.
 ds.d["PRIMARY_MAINTAINER"] = get.primary_maintainer()  # Used to enable specific features.
 ds.d["guild_owner_ids_cache"] = {}

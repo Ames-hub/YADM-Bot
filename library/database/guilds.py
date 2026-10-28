@@ -713,6 +713,10 @@ class _image_filter_penalty_get:
         record = self._get_record()
         return record.announce_ban if record else False
 
+    def notify_mods(self):
+        record = self._get_record()
+        return record.notify_mods if record else True
+
 class _spam_filter_penalty_get:
     def __init__(self, guild_id):
         self.guild_id = guild_id
@@ -800,6 +804,10 @@ class _spam_filter_penalty_get:
     def do_announce_ban(self):
         record = self._get_record()
         return record.announce_ban if record else False
+
+    def notify_mods(self):
+        record = self._get_record()
+        return record.notify_mods if record else True
 
 class _text_filter_checks_enabled_get:
     def __init__(self, guild_id):
@@ -1102,6 +1110,10 @@ class _text_filter_penalty_get:
         record = self._get_record()
         return record.use_preset_hardnsfw_list if record else True
 
+    def notify_mods(self):
+        record = self._get_record()
+        return record.notify_mods if record else True
+
 class automod_get:
     def __init__(self, guild_id):
         self.guild_id = guild_id
@@ -1172,6 +1184,10 @@ class automod_get:
             )
         finally:
             session.close()
+
+    def mod_role_id(self):
+        record = self._get_record()
+        return record.mod_role_id if record else None
 
 class _text_filter_checks_set:
     def __init__(self, guild_id):
@@ -1468,6 +1484,9 @@ class _text_filter_penalties_set:
             del ds.d["bad_word_list_cache"][self.guild_id]
         return result
 
+    def notify_mods(self, value: bool):
+        return self._update(notify_mods=value)
+
 class _spam_filter_set:
     def __init__(self, guild_id):
         self.guild_id = guild_id
@@ -1543,6 +1562,9 @@ class _spam_filter_set:
     def do_announce_ban(self, value: bool):
         return self._update(announce_ban=value)
 
+    def notify_mods(self, value: bool):
+        return self._update(notify_mods=value)
+
 class _image_filter_set:
     def __init__(self, guild_id):
         self.guild_id = guild_id
@@ -1611,6 +1633,9 @@ class _image_filter_set:
     
     def do_announce_ban(self, value: bool):
         return self._update(announce_ban=value)
+
+    def notify_mods(self, value: bool):
+        return self._update(notify_mods=value)
 
 class automod_set:
     def __init__(self, guild_id):
@@ -1720,8 +1745,37 @@ class automod_set:
     def do_text_scan(self, value: bool):
         return self._update_main(do_text_scan=value)
 
+    def mod_role_id(self, value: bool):
+        return self._update_main(mod_role_id=value)
+
     def use_wordlist_swears(self, value: bool):
-        return self._update_main()
+        session = get_session()
+        try:
+            record = (
+                session.query(guild_text_automod_settings)
+                .filter(guild_text_automod_settings.guild_id == self.guild_id)
+                .one_or_none()
+            )
+
+            if not record:
+                record = guild_text_automod_settings(
+                    guild_id=self.guild_id,
+                    use_preset_swears_list=value
+                )
+                session.add(record)
+                session.commit()
+                return True
+
+            record.use_preset_swears_list = value
+
+            session.commit()
+            return True
+        except OperationalError as err:
+            logging.error("Error updating mute role ID automod settings!", exc_info=err)
+            session.rollback()
+            return False
+        finally:
+            session.close()
 
     def _update_main(self, **fields):
         session = get_session()

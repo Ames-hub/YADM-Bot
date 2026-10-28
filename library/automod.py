@@ -339,6 +339,7 @@ async def handle_guilty(
 
             use_escalation = False
             if automod_type == automod_types.TEXT_FILTER:
+                automod_type_name = "Text"
                 cat_check = guild.get.text
                 violation = (
                     f"User <@{event.author.id}> ({event.author.username}) broke messaging content moderation rules, which banned the word \"{flagged_word}\"\n\n"
@@ -351,6 +352,7 @@ async def handle_guilty(
                     "and the message was found to be in violation."
                 )
             elif automod_type == automod_types.SPAM_FILTER:
+                automod_type_name = "Spam"
                 cat_check = guild.get.spam
 
                 violation = (
@@ -361,6 +363,7 @@ async def handle_guilty(
                     f"{automod_report['sustained_for']} seconds."
                 )
             elif automod_type == automod_types.IMAGE_FILTER:
+                automod_type_name = "Image"
                 cat_check = guild.get.images
                 violation = (
                     f"User <@{event.author.id}> ({event.author.username}) sent an image that was flagged as NSFW by the {get.bot_name()} automod system."
@@ -372,15 +375,16 @@ async def handle_guilty(
 
             bm.benchmark("Violation message created.")
 
-            if cat_check.do_announce_infraction():
+            do_announce_infraction = cat_check.do_announce_infraction()
+            if do_announce_infraction:
                 try:
-                    msg = await event.message.respond(alert_embed)
+                    infraction_msg = await event.message.respond(alert_embed)
                 except (hikari.ForbiddenError, hikari.NotFoundError, hikari.UnauthorizedError):
                     return False
             else:
                 # Send it privately
                 try:
-                    msg = await event.author.send(alert_embed)
+                    infraction_msg = await event.author.send(alert_embed)
                 except (hikari.ForbiddenError, hikari.NotFoundError, hikari.UnauthorizedError):
                     return False
 
@@ -529,6 +533,45 @@ async def handle_guilty(
                             colour=0xff0000
                         )
                     )
+            if cat_check.notify_mods():
+                mod_role_id = guild.get.mod_role_id()
+                if not mod_role_id:
+                    await logs.create_entry(
+                        hikari.Embed(
+                            title="Can't notify mods",
+                            description=f"A Rule Violation occured in <#{event.channel_id}>, but I don't know what the mod role is to notify people.",
+                            colour=0xff0000
+                        )
+                        .add_field(
+                            name="The fix",
+                            value="To fix this, run `/moderation setmods` and select the relevant role."
+                        )
+                    )
+                else:
+                    embed = (
+                        hikari.Embed(
+                            title="⚠️ Violation Notice ⚠️",
+                            description=f"Attention mods! <@&{mod_role_id}> A {automod_type_name} Violation occured in <#{event.channel_id}>.",
+                            colour=0xff0000
+                        )
+                    )
+                    if not do_del_msg:
+                        embed.add_field(
+                            name="Hyperlink",
+                            value=f"[Click to jump to scene!]({event.message.make_link(event.guild_id)})"
+                        )
+                    else:
+                        if do_announce_infraction:
+                            embed.add_field(
+                                name="Hyperlink",
+                                value=f"[Click to jump to scene!]({infraction_msg.make_link(event.guild_id)})"
+                            )
+                        else:
+                            embed.add_field(
+                                name="Hyperlink",
+                                value=f"Can't generate a jump link, as no relevant messages exist for this incident anymore!"
+                            )
+                    await logs.create_entry(embed)
 
             bm.benchmark("Penalty dispatched to user account.")
 

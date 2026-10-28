@@ -207,6 +207,7 @@ async def get_modules(request: Request, guild_id: int):
         "text-filter": guild.get.do_text_scan(),
         "spam-filter": guild.get.do_filter_spam(),
         "img-filter": guild.get.do_image_filtering(),
+        "honeypot": guild.honeypot.get_enabled(),
         "link-filter": False,  # TODO: When these are implemented, update the data here.
         "mention-filter": False,
         "raid-protection": False,

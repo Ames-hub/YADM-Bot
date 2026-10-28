@@ -92,6 +92,7 @@ class guild_text_automod_settings(Base):
     use_preset_slurs_list = Column(BOOLEAN, nullable=False, default=True)
     use_preset_lessnsfw_list = Column(BOOLEAN, nullable=False, default=False)
     use_preset_hardnsfw_list = Column(BOOLEAN, nullable=False, default=True)
+    notify_mods = Column(BOOLEAN, nullable=False, default=True)
 
 class guild_text_automod_text_checks(Base):
     __tablename__ = "guild_text_automod_text_checks"
@@ -124,6 +125,7 @@ class guild_spam_automod_settings(Base):
     announce_ban = Column(BOOLEAN, nullable=False, default=True)
     mps_limit = Column(Integer, nullable=False, default=2)
     mps_time_limit = Column(Integer, nullable=False, default=3)
+    notify_mods = Column(BOOLEAN, nullable=False, default=False)
 
 class guild_images_automod_settings(Base):
     __tablename__ = "guild_images_automod_settings"
@@ -141,6 +143,7 @@ class guild_images_automod_settings(Base):
     announce_infraction = Column(BOOLEAN, nullable=False, default=True)
     announce_kick = Column(BOOLEAN, nullable=False, default=True)
     announce_ban = Column(BOOLEAN, nullable=False, default=True)
+    notify_mods = Column(BOOLEAN, nullable=False, default=True)
 
 class guild_automod_settings(Base):
     __tablename__ = "guild_automod_settings"
@@ -152,6 +155,7 @@ class guild_automod_settings(Base):
     muted_role_id = Column(BigInteger, nullable=True, default=None)
     do_escalate = Column(BOOLEAN, nullable=False, default=True)
     escalation_window = Column(BigInteger, nullable=False, default=1_209_600)  # 14 Days in seconds. The window is how many seconds must've passed.
+    mod_role_id = Column(BigInteger, nullable=True)
 
 class guild_imagescan_threshold(Base):
     __tablename__ = "guild_imagescan_threshold"
@@ -371,97 +375,18 @@ def postgres_url(details: dict) -> str:
 def sqlite_url() -> str:
     return f"sqlite:///{SQLITE_PATH.absolute()}"
 
-def _gen_password(length: int = 24) -> str:
-    alphabet = string.ascii_letters + string.digits
-    return "".join(secrets.choice(alphabet) for _ in range(length))
-
-def create_docker_postgres(
-    container_name: str = f"yadm-postgres-db",
-    db_name: str = "nodeus",
-    user: str = "nodeus",
-    port: int = 5434,
-    image: str = "postgres"
-) -> bool:
-    """
-    Creates a Dockerized PostgreSQL instance and stores credentials in settings.
-    Safe to call multiple times.
-    """
-    log_msg = "Working on building a PostgreSQL DB With Docker."
-    print(log_msg)
-    logging.info(log_msg)
-
-    password = _gen_password()
-
-    # Check if container already exists
-    check = subprocess.run(
-        ["docker", "ps", "-a", "--filter", f"name={container_name}", "--format", "{{.Names}}"],
-        capture_output=True,
-        text=True
-    )
-
-    if container_name not in check.stdout:
-        logging.info("Creating new PostgreSQL Docker container.")
-
-        result = subprocess.run(
-            [
-                "docker", "run", "-d",
-                "--name", container_name,
-                "-e", f"POSTGRES_DB={db_name}",
-                "-e", f"POSTGRES_USER={user}",
-                "-e", f"POSTGRES_PASSWORD={password}",
-                "-p", f"{port}:5432",
-                image
-            ],
-            capture_output=True,
-            text=True
-        )
-
-        if result.returncode != 0:
-            logging.error("Failed to start PostgreSQL container.", extra={"stderr": result.stderr})
-            return False
-    else:
-        logging.info("PostgreSQL container already exists. Reusing it.")
-
-    # Persist DB details
-    settings.setgroup.db_details(
-        {
-            "host": "localhost",
-            "port": port,
-            "user": user,
-            "password": password,
-            "dbname": db_name,
-        }
-    )
-
-    logging.info("PostgreSQL credentials saved to settings.")
-
-    # Wait until Postgres responds
-    url = postgres_url(settings.getgroup.db_details())
-    if not wait_for_db(url):
-        logging.error("PostgreSQL container started but did not become reachable.")
-        exit(0)
-
-    logging.info("Docker PostgreSQL ready.")
-    return True
-
-def wait_for_db(url: str, retries: int = 30, delay: int = 2, ever_create_db:bool=True) -> bool:
+def wait_for_db(url: str, retries: int = 30, delay: int = 2) -> bool:
     global engine, SessionLocal
 
-    if ever_create_db:
+    if not settings.get.force_use_sqlite() and settings.get.prod_mode():
         # If this is none, the rest are also likely None.
-        do_create = (settings.get.db_port() is None and settings.get.prod_mode() is True) and not settings.get.force_use_sqlite()
-        if do_create:
-            if settings.get.allow_docker_fallback():
-                logging.info("Postgres Fallback DB Initiated: Creating docker DB using image 'postgres'")
-                create_docker_postgres()
-                url = postgres_url(settings.getgroup.db_details())
-            else:
-                error = (
-                    "Error! We are not allowed to make a fallback DB, and no externally configured DB is set while on Production mode. "
-                    "To fix this, please set the following variable in settings: allow_docker_fallback = True OR set a DB"
-                )
-                print(error)
-                raise ConnectionAbortedError(error)
+        if not settings.get.db_host():
+            error = (
+                "Error! No externally configured DB is set while on Production mode. "
+                "To fix this, please set a DB by running webui.py with --setup-db or enable force-use-sqlite in settings.json"
+            )
+            print(error)
+            raise ConnectionAbortedError(error)
 
     logging.info("DB: Creating engine")
 

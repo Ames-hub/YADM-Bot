@@ -234,6 +234,7 @@ class get:
 
     @staticmethod
     def allow_docker_fallback():
+        raise DeprecationWarning
         return _get_value("allow_docker_fallback", valid_settings["allow_docker_fallback"], do_cache=True)
 
     @staticmethod

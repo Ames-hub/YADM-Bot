@@ -4,6 +4,7 @@ from sqlalchemy.exc import OperationalError
 from datetime import datetime, timedelta
 from library import datastore as ds
 from library.botapp import botapp
+from library import settings
 import logging
 import hikari
 
@@ -304,10 +305,22 @@ class honeypot:
         do_ban = self.get_do_ban()
         if do_ban:
             success = await self.handle_honeypot_ban(user_id)
-            return success
         else:
             result = await self.handle_honeypot_mute(user_id)
             del_success = result[0]
             mute_success = result[1]
 
-            return del_success is True and mute_success is True
+            success = del_success is True and mute_success is True
+
+        from library.database.guilds import violations
+        violations.create_member_violation(
+            guild_id=self.guild_id,
+            reporter_id=ds.d['myid'],
+            reporter_name=ds.d['myname'],
+            offender_id=user_id,
+            offender_name=ds.d["channel_users_talking"][user_id],
+            time=datetime.now(),
+            violation="User tripped the server's anti spam-bot honeypot.",
+            automated=True,
+            whistleblower="honeypot",
+        )
