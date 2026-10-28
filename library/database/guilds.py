@@ -13,7 +13,8 @@ from library.database.manage import (
     guild_text_automod_text_checks,
     guild_text_automod_escalation_settings,
     guild_image_automod_escalation_settings,
-    guild_spam_automod_escalation_settings
+    guild_spam_automod_escalation_settings,
+    user_guild_note
 )
 from library.database.honeypot import honeypot as guild_honeypot
 from sqlalchemy.exc import OperationalError, IntegrityError
@@ -26,6 +27,59 @@ from cachetools import TTLCache
 import datetime
 import logging
 import hikari
+
+class user_notes:
+    def __init__(self, user_id:int, guild_id:int):
+        self.user_id = user_id
+        self.guild_id = guild_id
+        self.note_limit = 10
+
+    class errors:
+        class toomanynotes(Exception):
+            def __init__(self, *args):
+                super().__init__(*args)
+        class notenotfound(Exception):
+            def __init__(self, *args):
+                super().__init__(*args)
+
+    def add(self, text:str) -> bool:
+        if len(self.get_all()) >= self.note_limit:
+            raise self.errors.toomanynotes
+        
+        with get_session() as session:
+            record = user_guild_note(
+                guild_id=self.guild_id,
+                user_id=self.user_id,
+                text=text,
+            )
+            session.add(record)
+            session.commit()
+        return True
+
+    def remove(self, note_id:int) -> bool:
+        with get_session() as session:
+            record = (
+                session.query(user_guild_note)
+                .filter(user_guild_note.guild_id == self.guild_id)
+                .filter(user_guild_note.user_id == self.user_id)
+                .filter(user_guild_note.identifier == note_id)
+                .one_or_none()
+            )
+            if not record:
+                raise self.errors.notenotfound
+            session.delete(record)
+            session.commit()
+        return True
+
+    def get_all(self) -> list[user_guild_note]:
+        with get_session() as session:
+            records = (
+                session.query(user_guild_note)
+                .filter(user_guild_note.guild_id == self.guild_id)
+                .filter(user_guild_note.user_id == self.user_id)
+                .all()
+            )
+            return records
 
 class muting:
     class guilds:
@@ -42,7 +96,7 @@ class muting:
                 is_cooldown:bool=False,
                 violation_id:int=None,
                 whistleblower:str=None
-            ) -> False|int:
+            ):
             """
             Mute a member in a guild for a specific amount of seconds.
             

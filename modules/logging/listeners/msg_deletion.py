@@ -19,7 +19,7 @@ async def botfunction(event: hikari.GuildMessageDeleteEvent):
     embed = (
         hikari.Embed(
             title="Message Deleted",
-            description=f"{event.old_message.author.mention} deleted their message in <#{event.channel_id}>.",
+            description=f"{event.old_message.author.mention}'s message in <#{event.channel_id}> was deleted",
             colour=0xff0000
         )
         .add_field(

@@ -355,6 +355,7 @@ ds.d["spam_punish_cache"] = TTLCache(10000, ttl=30)
 ds.d["bad_word_list_cache"] = {}
 ds.d["rr_role_names_cache"] = {}
 ds.d["channel_users_talking"] = TTLCache(10000, 240)
+ds.d["high_ping"] = False
 
 try:
     logging.info(f"OS Detected: {get_os_name()}")

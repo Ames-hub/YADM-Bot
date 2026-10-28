@@ -40,7 +40,8 @@ async def handle_warn_user(guild_id:int, user:hikari.User, moderator:hikari.User
     warn_embed = (
         hikari.Embed(
             title=f"⚠️ Warning Received! ({warn_id})",
-            description=f"You were warned by '{guild_name}' administration for the following reason:\n{reason}"
+            description=f"You were warned by '{guild_name}' trust & safety team for the following reason:\n{reason}",
+            colour=0xff0000
         )
     )
 

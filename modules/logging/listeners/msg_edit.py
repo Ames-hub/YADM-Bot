@@ -81,7 +81,10 @@ async def botfunction(event: hikari.GuildMessageUpdateEvent):
     embed = (
         hikari.Embed(
             title="Message Edit",
-            description=f"{event.member.mention} just editted [their message.]({event.message.make_link(event.guild_id)}) in <#{event.channel_id}>",
+            description=(
+                f"{event.member.mention} just editted their message in <#{event.channel_id}>\n"
+                f"[Jump to message]({event.message.make_link(event.guild_id)})"
+            ),
             colour=0x0000ff
         )
         .add_field(
@@ -103,6 +106,9 @@ async def botfunction(event: hikari.GuildMessageUpdateEvent):
         )
         embed.set_footer("Difference shown in the highlighted and underlined text")
     else:
+        if event.old_message.content.startswith("http") and len(event.old_message.content.split(" ")) == 1:
+            # If the message is a link, and the ENTIRE message is a link, don't log it. This is the message embedding, not being edited.
+            return
         embed.set_footer("There is no text difference in the message, only attachments have changed.")
     
     attached = None

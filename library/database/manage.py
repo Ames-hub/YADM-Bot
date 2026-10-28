@@ -194,8 +194,8 @@ class guild_member_warnings(Base):
 
     warn_id = Column(Integer, primary_key=True, autoincrement=True)
     reason = Column(TEXT, nullable=False)
-    moderator_id = Column(Integer, nullable=False)
-    user_id = Column(Integer, nullable=False)
+    moderator_id = Column(BigInteger, nullable=False)
+    user_id = Column(BigInteger, nullable=False)
     guild_id = Column(BigInteger, nullable=False)
     time = Column(DateTime, nullable=False)
 
@@ -346,6 +346,14 @@ class guild_honeypot(Base):
     channel_id = Column(BigInteger, default=None, unique=True)
     enabled = Column(BOOLEAN, default=False)
     do_ban = Column(BOOLEAN, default=True)  # If false, we mute instead.
+
+class user_guild_note(Base):
+    __tablename__ = "guild_usernotes"
+
+    identifier = Column(Integer, primary_key=True, autoincrement=True)
+    guild_id = Column(BigInteger, nullable=False)
+    user_id = Column(BigInteger, nullable=False)
+    text = Column(TEXT, nullable=False)
 
 def get_session():
     if SessionLocal is None:

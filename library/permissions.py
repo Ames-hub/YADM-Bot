@@ -32,7 +32,10 @@ async def prechecks(
     """
     # High Latency behavior
     if botapp.heartbeat_latency * 1000 > 300 and auto_defer:  # ms
+        ds.d["high_ping"] = True
         await ctx.defer()
+    else:
+        ds.d["high_ping"] = False
 
     guild_id = ctx.guild_id
     user_id = ctx.user.id
