@@ -19,6 +19,7 @@ class views:
         automod_violations_count = len([violation for violation in all_violations if violation.automated == True])
         violations_appealed = len([violation for violation in all_violations if violation.appealed == True])
         warnings_automated = len([warning for warning in all_warnings if warning.moderator_id == ds.d["myid"]])
+        last_10_warnings = [str(warning.warn_id) for warning in all_warnings[-10:]]
 
         target_user = await botapp.rest.fetch_member(self.guild_id, self.target_user.id)
         user_perms = await perms.get_user_permissions(self.guild_id, self.target_user.id)
@@ -79,7 +80,8 @@ class views:
                 name=f"Warnings ({len(all_warnings)})",
                 value=(
                     f"Automated: {warnings_automated}\n"
-                    f"Manual: {len(all_warnings) - warnings_automated}"
+                    f"Manual: {len(all_warnings) - warnings_automated}\n"
+                    f"Latest warnings by ID:\n`{", ".join(last_10_warnings)}`"
                 )
             )
             .set_thumbnail(
@@ -140,6 +142,46 @@ class views:
                 self.message.components = []
                 self.stop()
 
+            @miru.text_select(
+                placeholder="Delete Note",
+                options=[
+                    miru.SelectOption(label=f"Note #{note.identifier}")
+                    for note in user_notes(viewself.target_user.id, viewself.guild_id).get_all()
+                ],
+            )
+            async def get_note_to_delete(self, ctx: miru.ViewContext, select: miru.TextSelect) -> None:
+                if not ctx.user.id == viewself.author_id:
+                    return
+                if ds.d["high_ping"]:
+                    # High ping logic
+                    await ctx.defer()
+                
+                note_id = int(select.values[0].split("#")[1])  # Get all text after the hash
+                notes = user_notes(viewself.author_id, ctx.guild_id)
+                try:
+                    success = notes.remove(note_id)
+                except notes.errors.notenotfound:
+                    embed = await viewself.gen_embed()
+                    embed.add_field(
+                        name="Can't find note",
+                        value="It seems that note was already deleted by someone else?"
+                    )
+                    await ctx.edit_response(embed)
+                    return
+
+                embed = await viewself.gen_embed()
+                if success:
+                    embed.add_field(
+                        name="Note Deleted",
+                        value="**This note has been deleted from the user's profile**"
+                    )
+                else:
+                    embed.add_field(
+                        name="Failed to delete",
+                        value="We were unable to delete that note for this user."
+                    )
+                await ctx.edit_response(embed)
+
             @miru.button(
                 label="Append Note",
                 style=hikari.ButtonStyle.DANGER,
@@ -158,11 +200,24 @@ class views:
 
                     # The callback function is called after the user hits 'Submit'
                     async def callback(self, ctx: miru.ModalContext) -> None:
+                        if not ctx.user.id == viewself.author_id:
+                            return
                         if ds.d["high_ping"]:
                             # High ping logic
                             await ctx.defer()
+
                         notes = user_notes(viewself.author_id, ctx.guild_id)
-                        success = notes.add(self.usernote.value)
+                        try:
+                            success = notes.add(self.usernote.value)
+                        except notes.errors.toomanynotes:
+                            embed = await viewself.gen_embed()
+                            embed.add_field(
+                                name="Too many notes",
+                                value=f"Cannot add that note; you can only have a total of {notes.note_limit} notes per profile."
+                            )
+                            await ctx.edit_response(embed)
+                            return
+                        
                         embed = await viewself.gen_embed()
                         if success:
                             embed.add_field(

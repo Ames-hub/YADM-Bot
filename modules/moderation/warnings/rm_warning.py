@@ -42,7 +42,7 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
-        await prechecks("rm warning", ctx, hikari.Permissions.ADMINISTRATOR)
+        await prechecks("rm warning", ctx, hikari.Permissions.MANAGE_MESSAGES)
         return await handle_rm_warn(
             ctx.guild_id,
             self.warn_id,

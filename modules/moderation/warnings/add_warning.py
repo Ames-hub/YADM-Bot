@@ -74,7 +74,7 @@ async def handle_warn_user(guild_id:int, user:hikari.User, moderator:hikari.User
 @warnings_group.register
 class command(
     lightbulb.SlashCommand,
-    name="add",
+    name="issue",
     description="Give an official warning to someone for what they're doing"
 ):
     
@@ -83,7 +83,7 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
-        await prechecks("add warning", ctx, hikari.Permissions.ADMINISTRATOR)
+        await prechecks("add warning", ctx, hikari.Permissions.MANAGE_MESSAGES)
         return await handle_warn_user(
             ctx.guild_id,
             self.user,

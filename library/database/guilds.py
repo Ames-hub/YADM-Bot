@@ -1899,7 +1899,8 @@ class guild_warnings:
             session.delete(record)
             session.commit()
             return True
-        except OperationalError:
+        except OperationalError as err:
+            logging.error("Error attempting to revoke warning!", exc_info=err)
             session.rollback()
             return False
         finally:
@@ -1917,8 +1918,27 @@ class guild_warnings:
             )
             records = records.all()
             return records
-        except OperationalError:
-            return {}
+        except OperationalError as err:
+            logging.error("Error attempting to get all user's warnings!", exc_info=err)
+            return None
+        finally:
+            session.close()
+
+    def get_by_id(self, warn_id:int) -> guild_member_warnings:
+        session = get_session()
+        try:
+            records = (
+                session.query(guild_member_warnings)
+                .filter(
+                    guild_member_warnings.warn_id == warn_id,
+                    guild_member_warnings.guild_id == self.guild_id
+                )
+            )
+            records = records.one_or_none()
+            return records
+        except OperationalError as err:
+            logging.error("Error attempting to get a warning!", exc_info=err)
+            return None
         finally:
             session.close()
     
