@@ -13,32 +13,26 @@ class command(
     name="status",
     description="Get the status of the honeypot"
 ):
-    
-    enabled = lightbulb.boolean("enabled", "Should the honey-pot be in operation?")
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
-        await prechecks("honeypot toggle", ctx, hikari.Permissions.ADMINISTRATOR)
+        await prechecks("honeypot status", ctx, hikari.Permissions.MANAGE_MESSAGES)
 
         guild = dbguild(ctx.guild_id)
-        success = guild.honeypot.set_enabled(self.enabled)
+        online = guild.honeypot.get_enabled()
 
-        if success:
+        if online:
             await ctx.respond(
                 hikari.Embed(
-                    title="Honeypot Toggled",
-                    description=(
-                        "Honeypot is now looking for people to flag."
-                        if self.enabled else
-                        "Honeypot will no longer handle bots when they're flagged"
-                    )
+                    title="Honeypot Online",
+                    description="The Honeypot is now looking for people to flag."
                 )
             )
         else:
             await ctx.respond(
                 hikari.Embed(
-                    title="Failed",
-                    description="For some reason, we could not toggle the honeypot.",
+                    title="Offline",
+                    description="The honeypot is not currently online, or is not setup.",
                     colour=0xff0000
                 )
             )
