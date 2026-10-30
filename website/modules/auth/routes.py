@@ -1,14 +1,43 @@
+from jinja2 import ChoiceLoader, FileSystemLoader, Environment
+from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
-from website import memory as db
 from fastapi.exceptions import HTTPException
 from fastapi import APIRouter, Request
+from website import memory as webdb
 from urllib.parse import urlencode
+from website import memory as db
 from library import settings
 import secrets
 import httpx
 import uuid
+import os
 
 router = APIRouter()
+
+module_templates_path = os.path.join(os.path.dirname(__file__), "templates")
+shared_templates_path = os.path.join("website", "modules", "shared", "templates")
+
+env = Environment(
+    loader=ChoiceLoader([
+        FileSystemLoader(module_templates_path),
+        FileSystemLoader(shared_templates_path),
+    ])
+)
+templates = Jinja2Templates(env=env)
+
+@router.get("/auth")
+async def login_screen(request: Request):
+    session_id = request.cookies.get("session_id")
+    
+    # Redirect logged-in users to /list
+    if webdb.verify_session(session_id):
+        return RedirectResponse("/list")
+    
+    return templates.TemplateResponse(
+        request,
+        "index.html",
+        {}
+    )
 
 @router.get("/auth/discord/login")
 async def discord_login(request: Request):

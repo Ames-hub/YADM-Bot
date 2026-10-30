@@ -12,6 +12,7 @@ class views:
         self.guild_id = guild_id
         self.guild = dbguild(self.guild_id)
         self.target_user = target_user
+        self.member_status = None
 
     async def gen_embed(self):
         all_violations = violations.get_violations_by_offender(self.target_user.id)
@@ -21,14 +22,14 @@ class views:
         warnings_automated = len([warning for warning in all_warnings if warning.moderator_id == ds.d["myid"]])
         last_10_warnings = [str(warning.warn_id) for warning in all_warnings[-10:]]
 
-        target_user = await botapp.rest.fetch_member(self.guild_id, self.target_user.id)
-        user_perms = await perms.get_user_permissions(self.guild_id, self.target_user.id)
-        if hikari.Permissions.ADMINISTRATOR in user_perms:
-            member_status = "**ADMIN**"
-        elif hikari.Permissions.MANAGE_MESSAGES in user_perms:
-            member_status = "*MODERATOR*"
-        else:
-            member_status = "MEMBER"
+        if not self.member_status:
+            user_perms = await perms.get_user_permissions(self.guild_id, self.target_user.id)
+            if hikari.Permissions.ADMINISTRATOR in user_perms:
+                self.member_status = "**ADMIN**"
+            elif hikari.Permissions.MANAGE_MESSAGES in user_perms:
+                self.member_status = "*MODERATOR*"
+            else:
+                self.member_status = "MEMBER"
 
         if automod_violations_count != 0:
             auto_violation_ratio = round((automod_violations_count / len(all_violations)) * 100, 2)
@@ -59,9 +60,9 @@ class views:
                 description=(
                     f"{len(all_warnings)} warnings • "
                     f"{automod_violations_count} automated flags • "
-                    f"{member_status}\n"
-                    f"Joined server: {target_user.joined_at.strftime('%d-%m-%Y')} • "
-                    f"Discord account created: {target_user.created_at.strftime('%d-%m-%Y')}"
+                    f"{self.member_status}\n"
+                    f"Joined server: {self.target_user.joined_at.strftime('%d-%m-%Y')} • "
+                    f"Discord account created: {self.target_user.created_at.strftime('%d-%m-%Y')}"
                 ),
                 colour=0xff0000
             )
@@ -85,7 +86,7 @@ class views:
                 )
             )
             .set_thumbnail(
-                hikari.URL(target_user.make_guild_avatar_url(), "user_pfp.png")
+                hikari.URL(self.target_user.make_guild_avatar_url(), "user_pfp.png")
             )
         )
 
@@ -102,7 +103,7 @@ class views:
             value="\n".join(note_text) if note_text else "No moderator notes."
         )
 
-        user_mute = self.guild.muting.get_mute(target_user.id)
+        user_mute = self.guild.muting.get_mute(self.target_user.id)
         if user_mute and user_mute.active:
             scheduled_unmute = (
                 f"<t:{int(user_mute.scheduled_unmute)}:f>"
@@ -118,7 +119,7 @@ class views:
                 )
             )
 
-        user_ban = self.guild.bans.fetch_ban(target_user.id)
+        user_ban = self.guild.bans.fetch_ban(self.target_user.id)
         if user_ban and user_ban.active:
             scheduled_unban = (
                 user_ban.time_to_unban.strftime("%d-%m-%Y")
@@ -140,6 +141,35 @@ class views:
         class Menu_Init(miru.View):
             async def on_timeout(self) -> None:
                 self.message.components = []
+                self.stop()
+
+            @miru.button(
+                label="Ban",
+                style=hikari.ButtonStyle.SECONDARY,
+                emoji="🔨"
+            )
+            async def ban_user(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if not ctx.user.id == viewself.author_id:
+                    return
+                
+                # Returns the user to the original view
+                from modules.moderation.views.profile_subviews.confirm_ban_view import views as confirm_view
+                view = confirm_view(
+                    author_id=viewself.author_id,
+                    guild_id=viewself.guild_id,
+                    target_user=viewself.target_user,
+                )
+                embed = await view.gen_embed()
+                view_menu = view.init_view()
+
+                await ctx.edit_response(
+                    embed=embed,
+                    components=view_menu.build(),
+                    flags=hikari.MessageFlag.EPHEMERAL
+                )
+
+                miru_client.start_view(view_menu)
+                await view_menu.wait()
                 self.stop()
 
             @miru.text_select(
@@ -184,7 +214,7 @@ class views:
 
             @miru.button(
                 label="Append Note",
-                style=hikari.ButtonStyle.DANGER,
+                style=hikari.ButtonStyle.SECONDARY,
                 emoji="🗒️"
             )
             async def add_note(self, ctx: miru.ViewContext, button: miru.Button) -> None:

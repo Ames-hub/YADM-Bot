@@ -63,7 +63,7 @@ class honeypot:
                 session.rollback()
                 return False
 
-    def set_channel(self, channel_id:int) -> bool:
+    def set_channel(self, channel_id:int|None) -> bool:
         with get_session() as session:
             try:
                 record = session.query(guild_honeypot).filter(guild_honeypot.guild_id == self.guild_id).one_or_none()
@@ -127,7 +127,10 @@ class honeypot:
                 session.rollback()
                 return False
 
-    async def send_warning(self) -> bool:
+    async def send_warning(self, rest:hikari.impl.RESTClientImpl = None) -> bool:
+        if not rest:
+            rest = botapp.rest
+
         channel_id = self.get_channel()
         if not channel_id:
             return False
@@ -142,17 +145,20 @@ class honeypot:
         )
 
         try:
-            await botapp.rest.create_message(
+            await rest.create_message(
                 channel_id,
                 embed,
             )
         except (hikari.ForbiddenError, hikari.UnauthorizedError, hikari.BadRequestError):
             return False
 
-    async def create(self, name:str="honey", send_warning:bool=False) -> bool:
+    async def create(self, name:str="honey", send_warning:bool=False, rest:hikari.impl.RESTClientImpl = None) -> bool:
+        if rest is None:
+            rest: botapp.rest = botapp.rest
+
         # make the channel
         try:
-            channel = await botapp.rest.create_guild_text_channel(
+            channel = await rest.create_guild_text_channel(
                 self.guild_id,
                 name=name,
                 position=0,
@@ -165,19 +171,19 @@ class honeypot:
             return False
 
         if send_warning:
-            await self.send_warning()
+            await self.send_warning(rest=rest)
         
         self.set_channel(channel.id)
         return True
 
-    async def setup(self, name:str="honey"):
+    async def setup(self, name:str="honey", rest:hikari.impl.RESTClientImpl=None):
         # Create the channel and set it
-        success = await self.create(name)
+        success = await self.create(name, rest=rest)
         if not success:
             return False
 
         # Create the warning message
-        success = await self.send_warning()
+        success = await self.send_warning(rest=rest)
         if not success:
             return False
         
@@ -316,7 +322,7 @@ class honeypot:
         offender_name = None
         try_count = 0
         while try_count < 3:
-            offender_name = ds.d["channel_users_talking"].get(user_id, None)
+            offender_name = ds.d["all_users_talking"].get(user_id, None)
             if offender_name == None:
                 # Sleep max 0.3 seconds to get the username.
                 # Its not critical that this step is quick because the penalty has already been dealt.

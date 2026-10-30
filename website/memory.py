@@ -48,11 +48,10 @@ def verify_session(session_id:int):
             return False
     return user_session is not None
 
-def get_user_session(user_id:int=None, session_id=None) -> user_web_session:
+def get_user_session(user_id:int=None, session_id:str=None) -> user_web_session:
     with get_session() as session:
         user_session = (
             session.query(user_web_session)
-            
         )
         if user_id:
             user_session.filter(user_web_session.discord_user_id == user_id)
@@ -75,6 +74,51 @@ def get_user_session(user_id:int=None, session_id=None) -> user_web_session:
             session.commit()
             return None
         return user_session
+
+def get_guild_session(guild_id:int, session_id:str=None, user_id:int=None) -> web_guild_session:
+    if not session_id and not user_id:
+        raise ValueError("session ID and user ID Cannot both be not None")
+    
+    with get_session() as session:
+        # Gets Session ID and used to check for if its not expired.
+        if user_id:
+            user_session = (
+                session.query(user_web_session)
+                .filter(user_web_session.discord_user_id == user_id)
+                .one_or_none()
+            )
+        elif not user_id and session_id:
+            user_session = (
+                session.query(user_web_session)
+                .filter(user_web_session.session_id == session_id)
+                .one_or_none()
+            )
+
+        if not user_session:
+            return None
+
+        # Deletes if expired.
+        if user_session.expires_at <= datetime.now():
+            session.delete(user_session)
+            records = (
+                session.query(web_guild_session)
+                .filter(web_guild_session.session_id == user_session.session_id)
+                .all()
+            )
+            session.delete(records)
+            session.commit()
+            return None
+
+        guild_session = (
+            session.query(web_guild_session)
+            .filter(web_guild_session.guild == guild_id)
+            .filter(web_guild_session.session_id == user_session.session_id)
+            .one_or_none()
+        )
+        if not guild_session:
+            return None
+
+    return guild_session
 
 making_session_cache = TTLCache(maxsize=10000, ttl=10)
 def create_guild_sessions(session_id: str, discord_user_id: int, username: str, guild: int, guild_name:str, perms_mask:int, is_owner:bool, lifetime_days: int = 7) -> str:

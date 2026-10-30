@@ -2183,7 +2183,7 @@ class guild_bans:
         await server_logs(self.guild_id).create_entry(
             hikari.Embed(
                 title=f"User Banned (Case {case_id})",
-                description=f"<@{banned_id}> Has been banned until <t:{time_to_unban}> for:\n{reason}",
+                description=f"<@{banned_id}> Has been banned until <t:{time_to_unban}> by <@{moderator_id}> for:\n{reason}",
                 colour=0xff0000
             )
         )

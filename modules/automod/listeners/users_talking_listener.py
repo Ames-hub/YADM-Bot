@@ -8,4 +8,7 @@ loader = lightbulb.Loader()
 async def botfunction(event: hikari.GuildMessageCreateEvent):
     if not event.is_human:
         return
-    ds.d["channel_users_talking"][event.author.id] = event.author.display_name
+    if not ds.d["channel_users_talking"].get(event.channel_id):
+        ds.d["channel_users_talking"][event.channel_id] = {}
+    ds.d["channel_users_talking"][event.channel_id][event.author.id] = event.author.display_name
+    ds.d["all_users_talking"][event.author.id] = event.author.display_name

@@ -167,14 +167,6 @@ if not get.bot_token():
             set.bot_name(bot_name)
             print(f"Detected .env file, loading bot name '{bot_name}' from there.\n\n")
 
-        allow_docker_fallback = os.getenv("ALLOW_DOCKER_FALLBACK", "").strip().lower()
-        if allow_docker_fallback in ("y", "yes", "true", "1"):
-            set.allow_docker_fallback(True)
-            print("Detected .env file, enabling Docker fallback from there.\n\n")
-        elif allow_docker_fallback in ("n", "no", "false", "0"):
-            set.allow_docker_fallback(False)
-            print("Detected .env file, disabling Docker fallback from there.\n\n")
-
         db_host = os.getenv("DB_HOST", "").strip()
         db_user = os.getenv("DB_USER", "").strip()
         db_password = os.getenv("DB_PASSWORD", "").strip()
@@ -227,17 +219,6 @@ if not get.bot_token():
         else:
             set.prod_mode(False)
             print("Production mode disabled. Running in development mode.\n\n")
-
-    if allow_docker_fallback is None:
-        print("Do you want to allow me to make a local Docker PostgreSQL database in the case of a fallback? (y/n)")
-        print("This will allow the bot to keep running even if the external DB is unreachable, but requires Docker to be installed and we'd need permissions for it.")
-        allow_docker_fallback = input(">>> ").strip().lower()
-        if allow_docker_fallback in ("y", "yes", ""):  # Default to yes
-            set.allow_docker_fallback(True)
-            print("Docker fallback enabled.\n\n")
-        else:
-            set.allow_docker_fallback(False)
-            print("Docker fallback disabled.\n\n")
 
     if not db_host or not db_user or not db_password or not db_name or not db_port:
         print("Would you like to configure an external PostgreSQL database now? (y/n)")
@@ -345,7 +326,8 @@ ds.d["spam_cache"] = TTLCache(10000, ttl=60)
 ds.d["spam_punish_cache"] = TTLCache(10000, ttl=30)
 ds.d["bad_word_list_cache"] = {}
 ds.d["rr_role_names_cache"] = {}
-ds.d["channel_users_talking"] = TTLCache(10000, 240)
+ds.d["channel_users_talking"] = TTLCache(2000, 240)  # 2000 Channels
+ds.d["all_users_talking"] = TTLCache(10_000, 240)  # 10000 Users
 ds.d["high_ping"] = False
 
 try:

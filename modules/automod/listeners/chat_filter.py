@@ -46,6 +46,7 @@ async def handle_incoming_event(event: hikari.GuildMessageCreateEvent):  # Could
     else:
         full_whistleblower = whistleblower
 
+    bot_action = None
     if guilty:
         desc = (
             f"{event.author.mention}, your message was {"deleted as it was " if guild.get.text.do_delete_msg() else ""}"
@@ -76,33 +77,17 @@ async def handle_incoming_event(event: hikari.GuildMessageCreateEvent):  # Could
                 # Text filter only arg. Flagged word = word that is banned, suspected_word = word in users message that tripped the automod.
                 automod_report={'guilty': guilty, 'whistleblower': whistleblower, 'flagged_word': flagged_word, 'suspected_word': suspected_word}
             )
-        if do_observe:
-            observation = result[3]
-            observations.add_entry(
-                msg_id=event.message.id,
-                channel_id=event.channel_id,
-                username=event.author.username,
-                msg_content=event.message.content,
-                bot_response=f"ACTION: \"{flagged_word}\" has been flagged by the {whistleblower} check. | Report: {observation}"
-            )
+            bot_action = f"ACTION: \"{flagged_word}\" has been flagged by the {whistleblower} check. | Report: {observation}"
+        observation = result[3]
         return True
 
-    if do_observe:
-        check_flags = [value[1]['bad'] for value in result[3].items()]
-        if any(check_flags):
-            whistleblowers = [key for key, value in result[3].items() if value.get('bad')]
-            flagged_words = list(set(value.get('word') for key, value in result[3].items() if value.get('bad')))
-            resp = f"ACTION: {", ".join(flagged_words)} has been flagged by the {", ".join(whistleblowers)} checks. | Report: {result[3]}"
-        else:
-            resp = None
-
-        observations.add_entry(
-            msg_id=event.message.id,
-            channel_id=event.channel_id,
-            username=event.author.username,
-            msg_content=event.message.content,
-            bot_response=resp
-        )
+    observations.add_entry(
+        msg_id=event.message.id,
+        channel_id=event.channel_id,
+        username=event.author.username,
+        msg_content=event.message.content,
+        bot_response=bot_action
+    )
     return True
 
 @loader.listener(hikari.GuildMessageCreateEvent)

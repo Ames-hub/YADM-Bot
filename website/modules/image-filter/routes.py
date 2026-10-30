@@ -5,7 +5,9 @@ from fastapi.exceptions import HTTPException
 from library.database.guilds import dbguild
 from fastapi import APIRouter, Request
 from website import memory as webdb
+from website import management
 from markupsafe import Markup
+import hikari
 import json
 import os
 
@@ -28,17 +30,8 @@ def _tojson_filter(value):
 env.filters["tojson"] = _tojson_filter
 
 @router.get("/dashboard/{guild_id}/image-filter")
+@management.guild_prechecks([hikari.Permissions.MANAGE_MESSAGES])
 async def show_page(request: Request, guild_id:int):
-    session_id = request.cookies.get("session_id")
-    if not webdb.verify_session(session_id):
-        return RedirectResponse("/auth/discord/login")
-    
-    session = webdb.fetch_guild_session(session_id=request.cookies.get("session_id"), guild_id=guild_id)
-    managed_guilds = await webdb.determine_manageable_guilds(session_id=session.session_id)
-
-    if guild_id not in managed_guilds:
-        raise HTTPException(403, "You cannot manage servers you do not own, or are not an admin of.")
-
     guild = dbguild(guild_id)
 
     escalation_settings = {
@@ -61,17 +54,8 @@ async def show_page(request: Request, guild_id:int):
     )
 
 @router.post("/api/guild/{guild_id}/modules/set-penalty/image")
+@management.guild_prechecks([hikari.Permissions.MANAGE_MESSAGES, hikari.Permissions.BAN_MEMBERS, hikari.Permissions.KICK_MEMBERS])
 async def set_image_penalties(request: Request, guild_id:int):
-    session_id = request.cookies.get("session_id")
-    if not webdb.verify_session(session_id):
-        return RedirectResponse("/auth/discord/login")
-    
-    session = webdb.fetch_guild_session(session_id=request.cookies.get("session_id"), guild_id=guild_id)
-    managed_guilds = await webdb.determine_manageable_guilds(session_id=session.session_id)
-
-    if guild_id not in managed_guilds:
-        raise HTTPException(403, "You cannot manage servers you do not own, or are not an admin of.")
-
     data: dict = await request.json()
     guild = dbguild(guild_id)
 
@@ -102,17 +86,8 @@ async def set_image_penalties(request: Request, guild_id:int):
     return HTMLResponse("Done", 200)
 
 @router.get("/api/guild/{guild_id}/modules/get-penalty/image")
+@management.guild_prechecks([hikari.Permissions.MANAGE_MESSAGES])
 async def get_image_penalties(request: Request, guild_id:int):
-    session_id = request.cookies.get("session_id")
-    if not webdb.verify_session(session_id):
-        return RedirectResponse("/auth/discord/login")
-    
-    session = webdb.fetch_guild_session(session_id=request.cookies.get("session_id"), guild_id=guild_id)
-    managed_guilds = await webdb.determine_manageable_guilds(session_id=session.session_id)
-
-    if guild_id not in managed_guilds:
-        raise HTTPException(403, "You cannot manage servers you do not own, or are not an admin of.")
-
     guild = dbguild(guild_id)
     response_data = {
         "do-ban": guild.get.images.do_ban_member(),
@@ -129,17 +104,8 @@ async def get_image_penalties(request: Request, guild_id:int):
     return JSONResponse(response_data, status_code=200)
 
 @router.post("/api/image-filter/{guild_id}/set-escalation")
+@management.guild_prechecks([hikari.Permissions.MANAGE_MESSAGES, hikari.Permissions.BAN_MEMBERS, hikari.Permissions.KICK_MEMBERS])
 async def set_bot_escalation(request: Request, guild_id:int):
-    session_id = request.cookies.get("session_id")
-    if not webdb.verify_session(session_id):
-        return RedirectResponse("/auth/discord/login")
-    
-    session = webdb.fetch_guild_session(session_id=request.cookies.get("session_id"), guild_id=guild_id)
-    managed_guilds = await webdb.determine_manageable_guilds(session_id=session.session_id)
-
-    if guild_id not in managed_guilds:
-        raise HTTPException(403, "You cannot manage servers you do not own, or are not an admin of.")
-
     data: dict = await request.json()
     guild = dbguild(guild_id)
 

@@ -6,7 +6,8 @@ import miru
 
 
 class views:
-    def __init__(self, guild_id, delete_after: datetime.datetime, channel:int, reason:str):
+    def __init__(self, author_id:int, guild_id, delete_after: datetime.datetime, channel:int, reason:str):
+        self.author_id = author_id
         self.guild_id = guild_id
         self.guild = dbguild(self.guild_id)
         self.delete_after: datetime.datetime = delete_after
@@ -26,6 +27,8 @@ class views:
         class Menu_Init(miru.View):
             @miru.button(label="Cancel", style=hikari.ButtonStyle.SECONDARY)
             async def stop_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if not ctx.author.id == viewself.author_id:
+                    return
                 await ctx.edit_response(
                     hikari.Embed(
                         title="Cancelled",
@@ -41,6 +44,8 @@ class views:
                 emoji="🗑️"
             )
             async def delete(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                if not ctx.author.id == viewself.author_id:
+                    return
                 await ctx.edit_response(
                     hikari.Embed(
                         title="Purge Initiated",

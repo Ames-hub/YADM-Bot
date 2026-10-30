@@ -347,7 +347,7 @@ class guild_honeypot(Base):
     __tablename__ = "guild_honeypot_configs"
 
     guild_id = Column(BigInteger, primary_key=True)
-    channel_id = Column(BigInteger, default=None, unique=True)
+    channel_id = Column(BigInteger, default=None, nullable=True, unique=True)
     enabled = Column(BOOLEAN, default=False)
     do_ban = Column(BOOLEAN, default=True)  # If false, we mute instead.
 

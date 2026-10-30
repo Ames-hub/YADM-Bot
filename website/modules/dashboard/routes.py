@@ -7,7 +7,9 @@ from fastapi import APIRouter, Request
 from library.web_rest import get_rest
 from website import memory as webdb
 from cachetools import TTLCache
+from website import management
 from datetime import datetime
+import hikari
 import os
 
 router = APIRouter()
@@ -41,17 +43,8 @@ async def find_username(user_id:int, prefer_display:bool=False):
             return data["name"]
 
 @router.get("/dashboard/{guild_id}")
+@management.guild_prechecks([hikari.Permissions.MANAGE_MESSAGES])
 async def show_page(request: Request, guild_id:int):
-    session_id = request.cookies.get("session_id")
-    if not webdb.verify_session(session_id):
-        return RedirectResponse("/auth/discord/login")
-    
-    session = webdb.fetch_guild_session(session_id=request.cookies.get("session_id"), guild_id=guild_id)
-    managed_guilds = await webdb.determine_manageable_guilds(session_id=session.session_id)
-
-    if guild_id not in managed_guilds:
-        raise HTTPException(403, "You cannot manage servers you do not own, or are not an admin of.")
-
     guild = dbguild(guild_id)
     violation_list: list[member_violation] = violations.get_violations_by_guild(guild_id)
 
@@ -151,11 +144,8 @@ paths = {
 }
 
 @router.get("/api/get-statistic/{stat_name}/svg")
+@management.guild_prechecks()
 async def return_stat_svg(request: Request, stat_name: str):
-    session_id = request.cookies.get("session_id")
-    if not webdb.verify_session(session_id):
-        return RedirectResponse("/auth/discord/login")
-
     svg = paths.get(stat_name)
 
     if svg is None:
@@ -171,11 +161,8 @@ async def return_stat_svg(request: Request, stat_name: str):
     )
 
 @router.post("/api/guild/{guild_id}/modules/toggle/{module_name}/{state}")
+@management.guild_prechecks([hikari.Permissions.MANAGE_MESSAGES, hikari.Permissions.BAN_MEMBERS, hikari.Permissions.KICK_MEMBERS])
 async def toggle_module(request: Request, guild_id:int, module_name:str, state:bool):
-    session_id = request.cookies.get("session_id")
-    if not webdb.verify_session(session_id):
-        return RedirectResponse("/auth/discord/login")
-
     guild = dbguild(guild_id)
 
     if module_name == "text-filter":
@@ -186,7 +173,8 @@ async def toggle_module(request: Request, guild_id:int, module_name:str, state:b
         result = guild.set.do_image_filtering(bool(state))
     elif module_name == "honeypot":
         if not guild.honeypot.get_channel():
-            await guild.honeypot.setup()
+            rest = get_rest()
+            await guild.honeypot.setup(rest=rest)            
         result = guild.honeypot.set_enabled(bool(state))
     else:
         raise HTTPException(400, "Incorrect module name")
@@ -197,11 +185,8 @@ async def toggle_module(request: Request, guild_id:int, module_name:str, state:b
     )
 
 @router.get("/api/guild/{guild_id}/modules")
+@management.guild_prechecks([hikari.Permissions.MANAGE_MESSAGES])
 async def get_modules(request: Request, guild_id: int):
-    session_id = request.cookies.get("session_id")
-    if not webdb.verify_session(session_id):
-        return RedirectResponse("/auth/discord/login")
-
     guild = dbguild(guild_id)
     return {
         "text-filter": guild.get.do_text_scan(),

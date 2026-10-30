@@ -121,7 +121,7 @@ async def handle_root(request: Request):
     if session:
         return RedirectResponse("/list")
     else:
-        return RedirectResponse("/auth/discord/login")
+        return RedirectResponse("/auth")
 
 shared_templates = Jinja2Templates(directory=os.path.join("website", "modules", "shared", "templates"))
 
