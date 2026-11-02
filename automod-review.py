@@ -31,12 +31,24 @@ def clean_whitelist_file():
 
         new_whitelist.add(word)
 
+    txt_list = []
+    for item in removal_list:
+        txt_list.append(f"REMOVED: \"{item[0]}\" due to \"{item[1]}\"")    
+
+    print("Write bad words to removal list? (~/removals.txt)")
+    do_write = input(">>> ") == "y"
+    if do_write:
+        with open("removals.txt", "w") as f:
+            f.write("\n".join(txt_list))
+        print("Written.")
+
     with open("library/preset_word_whitelist.txt", "w") as f:
         print("WRITING NEW LIST.")
         f.write("\n".join(list(new_whitelist)))
 
-    for item in removal_list:
-        print(f"REMOVED: \"{item[0]}\" due to \"{item[1]}\"")
+    for item in txt_list:
+        print(item)
+
     print(f"Whitelist cleaned, removed {len(removal_list)} items.")
     return True
 
@@ -111,16 +123,23 @@ while True:
     if action == 0:
         break
     elif action == 1:
-        entries = observations.get_all_entries()
+        print("Fetching all entries.")
+        entries = observations.get_all_entries(review_flagged_only=False)
+        print("All entries grabbed.")
         if not entries:
             print("No entries to review.")
             continue
+
+        iter_count = 0
+        total_entries = len(entries)
 
         bad_count = 0
         bad_entries: list[observations.observation_entry] = []
         start_time = datetime.now().timestamp()
         for entry in entries:
             result = automod.text_check(entry.msg_content, observing=True)
+            iter_count += 1
+            print(f"Re-evaluating... ({iter_count}/{total_entries})")
             bad = result[0]
             if bad:
                 check_name = result[1]

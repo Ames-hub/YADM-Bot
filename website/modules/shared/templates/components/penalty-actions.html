@@ -20,7 +20,7 @@
         <button id="toggle-do-ban" class="toggle-btn">OFF</button>
     </div>
     <div title="If true, we announce the ban to the user privately. Otherwise, they aren't told." class="penalty-item">
-        <label>POST BAN</label>
+        <label>PUBLISH BAN</label>
         <button id="toggle-do-ban_announcement" class="toggle-btn">OFF</button>
     </div>
     <div title="Whether we should kick users from the server for rule violations." class="penalty-item">
@@ -28,12 +28,16 @@
         <button id="toggle-do-kick" class="toggle-btn">OFF</button>
     </div>
     <div title="If true, we announce the kick to the user privately. Otherwise, they aren't told." class="penalty-item">
-        <label>POST KICK</label>
+        <label>PUBLISH KICK</label>
         <button id="toggle-do-kick_announcement" class="toggle-btn">OFF</button>
     </div>
     <div title="Whether or not we just silently punish, or tell the user what they did." class="penalty-item">
-        <label>POST INFRACTION</label>
+        <label>PUBLISH INFRACTION</label>
         <button id="toggle-do-announcement" class="toggle-btn">OFF</button>
+    </div>
+    <div title="If toggled on, we warn mods whenever we think something's going on." class="penalty-item">
+        <label>NOTIFY MODS</label>
+        <button id="toggle-notify-mods" class="toggle-btn">OFF</button>
     </div>
     <div title="If toggled on, we will take progressively more harsh punishments per your settings for each violation. Required for the below section to do much work." class="penalty-item">
         <label>DO ESCALATION</label>

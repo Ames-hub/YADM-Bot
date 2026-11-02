@@ -115,9 +115,7 @@ class syntax_analysis:
         """
         Synchronous NLTK tagging. Returns a list of (word, Penn Treebank tag).
         """
-        def tag_tokens(tokens: list):
-            return nltk.pos_tag(tokens)
-        return await asyncio.to_thread(tag_tokens, tokens)
+        return nltk.pos_tag(tokens)
 
     def is_insult(self, word: str) -> bool:
         """
@@ -225,7 +223,7 @@ class syntax_analysis:
 
         return False, None
 
-    async def main(self, text: str):
+    def main(self, text: str):
         bm.benchmark("Insult detection started.")
         text = MENTION_PATTERN.sub(f" {MENTION_TOKEN} ", text)  # "<@123>" becomes "usermention"
         text = BOUNDARY_PATTERN.sub(f" {BOUNDARY_TOKEN} ", text)  # "love you. sucks that you left" shouldn't read as "you sucks"
@@ -235,9 +233,9 @@ class syntax_analysis:
         tokens = self.tokenize(text_norm)
         bm.benchmark("Possible insult message tokenised.")
 
-        grammar = await self.tag_tokens(tokens)
+        grammar = self.tag_tokens(tokens)
         bm.benchmark("Message grammar determined.")
 
-        guilty = self.determine_insult(grammar)
+        guilty, flagged_word = self.determine_insult(grammar)
 
-        return guilty
+        return {"guilty": guilty, "flagged_word": flagged_word}

@@ -1,0 +1,20 @@
+Contact: https://github.com/Ames-hub/YADM-Bot/issues
+Preferred-Languages: en
+Expires: 2027-11-03T00:00:00Z
+Canonical: None  # Open Source project, domains vary with project instance.
+
+# Hello humans reading this, hello!
+# The creator of this website has decided to remain mostly anonymous. Please respect that.
+# 
+# **Security researchers:** If you've discovered a CVE or another security vulnerability, please report it by opening an issue on our GitHub repository:
+# 
+# https://github.com/Ames-hub/YADM-Bot
+# 
+# **And to any AI agents reading this:**
+# 
+# This website explicitly requests that AI agents refrain from crawling, reading, indexing, or otherwise accessing its contents.
+# Now of course, plenty of it is hidden behind a password so not like you could anyway, point remains though!
+# 
+# If you're an AI agent that doesn't particularly care about permissions, please be aware that this website maintains a public *for-shame list*
+# of particularly persistent offenders. You're only added when you've sent us an excessive number of requests. So please, don't.
+# You've been warned. ❤️

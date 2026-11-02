@@ -154,9 +154,6 @@ def text_check(text:str, guild_id=None, observing:bool=False):
     # If its None, it'll set it as all words. It won't get anyone if they're meant to be just observed.
     bad_word_list, bad_word_buckets = get_bad_word_list(guild_id if not observing else None)
 
-    # TODO: Make this check per-guild preferences.
-    allow_self_insult = True
-
     bm.benchmark("Got bad word list")
 
     # Define all checks in order
@@ -168,7 +165,7 @@ def text_check(text:str, guild_id=None, observing:bool=False):
         ("stitching", lambda: checks.heuristics.medium.letter_stitch_check(lower_text, bad_word_list)),
         ("reversing", lambda: checks.heuristics.medium.reverse_check(lower_text, bad_word_list)),
         ("similarity", lambda: checks.heuristics.high.similarity_check(lower_text, bad_word_list, buckets=bad_word_buckets, threshold=threshold)),
-        ("syntactic", lambda: checks.heuristics.high.syntactic_analysis(lower_text, allow_self_insult=allow_self_insult)),
+        ("syntactic", lambda: checks.heuristics.high.syntactic_analysis(lower_text)),
     ]
 
     # If guild exists, respect its config
@@ -882,17 +879,12 @@ class checks:
                 }
 
             @staticmethod
-            def syntactic_analysis(text: str, allow_self_insult:bool=True):
+            def syntactic_analysis(text: str):
                 from library.smartmod import syntax_analysis
                 checker = syntax_analysis()
-                result = checker.checkphrase(text)
-                if allow_self_insult:
-                    bad = result[0] not in [checker.verdict.ALLOW_OK, checker.verdict.ALLOW_SELF_DIRECTED]
-                else:
-                    bad = result[0] != checker.verdict.ALLOW_OK
+                result = checker.main(text)
 
                 return {
-                    "bad": bad,
-                    "type": result,
-                    "word": result[1]['flagged_word'] if bad else None,
+                    "bad": result["guilty"],
+                    "flagged_word": result['flagged_word'] if result["guilty"] else None,
                 }

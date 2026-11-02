@@ -77,6 +77,8 @@ async def set_spam_penalties(request: Request, guild_id:int):
             guild.set.spam.do_announce_kick(data[item_name])
         elif item_name == "do-escalation":
             guild.set.do_escalate(data[item_name])
+        elif item_name == "notify-mods":
+            guild.set.spam.notify_mods(data[item_name])
         else:
             raise HTTPException("This item name is not known.", status_code=400)
 
@@ -150,3 +152,35 @@ async def set_bot_escalation(request: Request, guild_id:int):
         "Operation completed. See code for success.",
         status_code=200 if all(successes) else 500
     )
+
+@router.post("/api/guild/{guild_id}/spam/durations/{duration_item}")
+@management.guild_prechecks([hikari.Permissions.MANAGE_MESSAGES])
+async def set_durations(request: Request, guild_id:int, duration_item: str):
+    guild = dbguild(guild_id)
+
+    data: dict = await request.json()
+    if not str(data.get("value")).isdigit():
+        raise HTTPException(400, "Bad value, must be integer.")
+    elif data['value'] < 0:
+        raise HTTPException(400, "Bad duration length, must be greater than 0.")
+    elif type(data['value']) is float:
+        raise HTTPException(400, "Bad duration, must be an integer, not a float.")
+
+    # UI Is thinking in terms of hours, so convert hours to seconds.
+    duration = int(data['value']) * 3600
+
+    if duration_item == "mute-duration":
+        ok = guild.set.spam.set_mute_duration(duration)
+    elif duration_item == "ban-duration":
+        ok = guild.set.spam.ban_duration(duration)
+    elif duration_item == "escalationframe-duration":
+        ok = guild.set.escalation_window(duration)
+    elif duration_item == "ban-del-duration":
+        ok = guild.set.spam.set_ban_msg_purgetime(duration)
+    else:
+        raise HTTPException(400, "Bad duration item")
+
+    if ok:
+        return HTMLResponse("Success", 200)
+    else:
+        return HTMLResponse("Server Failure", 500)

@@ -101,12 +101,20 @@ fastapp = FastAPI(lifespan=lifespan)
 fastapp.add_middleware(SessionMiddleware, secret_key=settings.get.session_secret_key())
 
 with open('website/robots.txt') as f:
-    robots_data = f.read()
+    robots_txt_data = f.read()
 
 @fastapp.get("/robots.txt", response_class=PlainTextResponse)
 async def robots_txt(request: Request):
     logging.info(f"{request.client.host} Is asking for the robots.txt")
-    return robots_data
+    return robots_txt_data
+
+with open('website/security.txt') as f:
+    security_txt_data = f.read()
+
+@fastapp.get("/security.txt", response_class=PlainTextResponse)
+async def robots_txt(request: Request):
+    logging.info(f"{request.client.host} Is asking for the security.txt")
+    return security_txt_data
 
 with open("yadm-logo.png", "rb") as f:
     web_logo = f.read()

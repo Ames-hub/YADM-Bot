@@ -30,11 +30,13 @@ async def show_page(request: Request):
         return RedirectResponse("/auth/discord/login")
 
     managed_guilds: list[db.web_guild_session] = await db.determine_manageable_guilds(session_id=session_id, ids_only=False)
+    bots_servers = await db.get_my_guilds(list_int_ids=True)
     return templates.TemplateResponse(
         request,
         "index.html",
         {
-            "server_list": managed_guilds
+            "server_list": managed_guilds,
+            "my_servers": bots_servers
         }
     )
 

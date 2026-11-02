@@ -22,6 +22,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             btn.classList.toggle("active", isActive);
             btn.textContent = isActive ? "ON" : "OFF";
+            console.log(moduleName)
+            if (['text-filter', 'spam-filter', 'image-filter'].includes(moduleName)) {
+                console.log(`Looking for ${moduleName}-strong to set strong elements colour`)
+                strong_element = document.getElementById(`${moduleName.replace("toggle-", "")}-strong`)
+                strong_element.style.color = !isActive ? "#e74c3c" : "#9099e9"
+            }
+            else {
+                console.log(`Skipped Looking for ${moduleName}, no strong element to set colour for.`)
+            }
         });
 
     } catch (error) {
@@ -48,6 +57,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
+                }
+
+                if (['text-filter', 'spam-filter', 'image-filter'].includes(moduleName)) {
+                    console.log(`Looking for ${moduleName}-strong to set strong elements colour`)
+                    strong_element = document.getElementById(`${moduleName}-strong`)
+                    strong_element.textContent = !isActive ? "Offline" : "Online"
+                    strong_element.style.color = !isActive ? "#e74c3c" : "#9099e9"
                 }
 
                 console.log(

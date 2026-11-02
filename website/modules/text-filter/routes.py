@@ -1,10 +1,9 @@
-from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
 from jinja2 import ChoiceLoader, FileSystemLoader, Environment
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.exceptions import HTTPException
 from library.database.guilds import dbguild
 from fastapi import APIRouter, Request
-from website import memory as webdb
 from website import management
 from markupsafe import Markup
 import hikari
@@ -24,10 +23,10 @@ env = Environment(
 )
 templates = Jinja2Templates(env=env)
 
-def _tojson_filter(value):
+def _to_json_filter(value):
     return Markup(json.dumps(value))
 
-env.filters["tojson"] = _tojson_filter
+env.filters["tojson"] = _to_json_filter
 
 @router.get("/dashboard/{guild_id}/text-filter")
 @management.guild_prechecks([hikari.Permissions.MANAGE_MESSAGES])
@@ -127,6 +126,8 @@ async def set_text_penalties(request: Request, guild_id:int):
             guild.set.text.do_announce_kick(data[item_name])
         elif item_name == "do-escalation":
             guild.set.do_escalate(data[item_name])
+        elif item_name == "notify-mods":
+            guild.set.text.notify_mods(data[item_name])
         else:
             raise HTTPException("This item name is not known.", status_code=400)
 

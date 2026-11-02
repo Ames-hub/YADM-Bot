@@ -104,7 +104,7 @@ async def show_page(request: Request, guild_id:int):
                     "name": "modules",
                     "datums": [
                         {"title": "Text Filter", "value": "Online" if do_text_scan else "Offline"},
-                        {"title": "Anti-Spam", "value": "Online" if do_spam_scan else "Offline"},
+                        {"title": "Spam Filter", "value": "Online" if do_spam_scan else "Offline"},
                         {"title": "Image Filter", "value": "Online" if do_image_scan else "Offline"},
                     ]
                 },
@@ -144,7 +144,6 @@ paths = {
 }
 
 @router.get("/api/get-statistic/{stat_name}/svg")
-@management.guild_prechecks()
 async def return_stat_svg(request: Request, stat_name: str):
     svg = paths.get(stat_name)
 
@@ -169,7 +168,7 @@ async def toggle_module(request: Request, guild_id:int, module_name:str, state:b
         result = guild.set.do_text_scan(bool(state))
     elif module_name == "spam-filter":
         result = guild.set.do_filter_spam(bool(state))
-    elif module_name == "img-filter":
+    elif module_name == "image-filter":
         result = guild.set.do_image_filtering(bool(state))
     elif module_name == "honeypot":
         if not guild.honeypot.get_channel():
@@ -191,7 +190,7 @@ async def get_modules(request: Request, guild_id: int):
     return {
         "text-filter": guild.get.do_text_scan(),
         "spam-filter": guild.get.do_filter_spam(),
-        "img-filter": guild.get.do_image_filtering(),
+        "image-filter": guild.get.do_image_filtering(),
         "honeypot": guild.honeypot.get_enabled(),
         "link-filter": False,  # TODO: When these are implemented, update the data here.
         "mention-filter": False,

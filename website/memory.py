@@ -9,22 +9,24 @@ import hikari
 import sys
 
 guild_cache = TTLCache(maxsize=1, ttl=300)
-async def get_my_guilds():
+async def get_my_guilds(list_int_ids:bool=False) -> list[hikari.Guild]:
     if "guilds" in guild_cache:
         return guild_cache["guilds"]
 
     rest = web_rest.get_rest()
     try:
-        data = await rest.fetch_my_guilds()  # This gets the bot's guilds
+        discord_guilds = await rest.fetch_my_guilds()  # This gets the bot's guilds
     except hikari.UnauthorizedError:
         # The token is invalid, raise error and exit!
         logging.error("Fatal error! Invalid bot token, please regenerate bot token, and re-run webui.py to get the screen to enter it again!")
         set.bot_token(None)
         sys.exit()
 
-    guild_cache["guilds"] = data
+    guild_cache["guilds"] = discord_guilds
+    if list_int_ids:
+        return [int(guild.id) for guild in discord_guilds]
 
-    return data
+    return discord_guilds
 
 def verify_session(session_id:int):
     with get_session() as session:
@@ -284,7 +286,7 @@ async def determine_manageable_guilds(session_id:str=None, user_id:int=None, ids
                     continue
                 if record.is_owner:
                     manageable.append(record.guild)
-                elif record.perms_mask & hikari.Permissions.ADMINISTRATOR:
+                elif record.perms_mask & hikari.Permissions.MANAGE_MESSAGES:
                     manageable.append(record.guild)
         else:
             for record in records:
@@ -292,7 +294,7 @@ async def determine_manageable_guilds(session_id:str=None, user_id:int=None, ids
                     continue
                 if record.is_owner:
                     manageable.append(record)
-                elif record.perms_mask & hikari.Permissions.ADMINISTRATOR:
+                elif record.perms_mask & hikari.Permissions.MANAGE_MESSAGES:
                     manageable.append(record)
 
         if user_id:
