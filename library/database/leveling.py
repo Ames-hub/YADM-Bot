@@ -9,6 +9,7 @@ from library.database.manage import (
 )
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timedelta
+from cachetools import TTLCache
 from math import sqrt
 
 class guild_leveling:
@@ -306,11 +307,16 @@ class _ua_class:
         self.weekly_messages = weekly_messages
         self.level = level
 
+guild_active_role_cache = TTLCache(maxsize=200, ttl=60)
+guild_activity_enabled_cache = TTLCache(maxsize=200, ttl=60)
+
 class user_activity:
     def __init__(self, guild_id:int):
         self.guild_id = guild_id
 
     def get_guild_enabled(self):
+        if guild_activity_enabled_cache.get(self.guild_id) is not None:
+            return guild_activity_enabled_cache.get(self.guild_id)
         with get_session() as session:
             record = (
                 session.query(guild_activitiy_config)
@@ -319,9 +325,12 @@ class user_activity:
             )
             if not record:
                 return False
+            guild_activity_enabled_cache[self.guild_id] = record.enabled
             return record.enabled
 
     def set_guild_enabled(self, enabled:bool):
+        if guild_activity_enabled_cache.get(self.guild_id) is not None:
+            del guild_activity_enabled_cache[self.guild_id]
         with get_session() as session:
             record = (
                 session.query(guild_activitiy_config)
@@ -340,6 +349,8 @@ class user_activity:
         return True
 
     def get_guild_active_role(self):
+        if guild_active_role_cache.get(self.guild_id) is not None:
+            return guild_active_role_cache.get(self.guild_id)
         with get_session() as session:
             record = (
                 session.query(guild_activitiy_config)
@@ -348,9 +359,12 @@ class user_activity:
             )
             if not record:
                 return None
-        return record.active_role
+            guild_active_role_cache[self.guild_id] = record.active_role
+            return record.active_role
 
     def set_guild_active_role(self, role_id:int) -> bool:
+        if guild_active_role_cache.get(self.guild_id) is not None:
+            del guild_active_role_cache[self.guild_id]
         with get_session() as session:
             record = (
                 session.query(guild_activitiy_config)
@@ -423,7 +437,18 @@ class user_activity:
                 return False
             return activity_rec.is_active
 
-    def determine_active() -> dict[list[tuple[int, int]], list[tuple[int, int]]]:
+    @staticmethod
+    def get_all_users() -> list[guild_active_members]:
+        with get_session() as session:
+            activity_records = (
+                session.query(guild_active_members)
+                .all()
+            )
+            return activity_records
+
+
+    @staticmethod
+    def determine_active() -> dict[str, list[tuple[int, int]]]:
         """
         Scans the logs and finds out who's been talking in each guild, and who's not been.
         Returns a dict of 2 lists, 2 keys, first is "newly_active", 2nd is "no_longer_active".
@@ -436,29 +461,36 @@ class user_activity:
                 .all()
             )
 
-        user_msg_counts: dict[dict] = {}
+        user_msg_counts: dict[int, dict[int, int]] = {}
 
-        # Count how many times a user sent a message in each guild.
+        # Count messages per user in each guild.
         for record in records:
-            if user_msg_counts.get(record.guild_id, None) is None:
-                user_msg_counts[record.guild_id] = {}
-                user_msg_counts[record.guild_id][record.user_id] = 1
-            else:
-                if user_msg_counts[record.guild_id].get(record.user_id, None) is None:
-                    user_msg_counts[record.guild_id][record.user_id] = 1
-                else:
-                    user_msg_counts[record.guild_id][record.user_id] += 1
+            guild_users = user_msg_counts.setdefault(record.guild_id, {})
+            guild_users[record.user_id] = guild_users.get(record.user_id, 0) + 1
+
+        # Build a set of users observed within the last 14 days.
+        observed_users = {
+            (record.guild_id, record.user_id)
+            for record in records
+        }
+
+        # Include previously active users who haven't appeared in recent records.
+        for user in user_activity.get_all_users():
+            if user.is_active and (user.guild_id, user.user_id) not in observed_users:
+                user_msg_counts.setdefault(user.guild_id, {})[user.user_id] = 0
 
         no_longer_active = []
         newly_active = []
 
-        for guild_id in user_msg_counts:
+        for guild_id, users in user_msg_counts.items():
             ua = user_activity(guild_id)
-            obj:dict = user_msg_counts[guild_id]
-            for user_id, msg_count in obj.items():
+
+            for user_id, msg_count in users.items():
                 active_prior = ua.get_is_active(user_id)
-                is_active = True if msg_count > 24 else False
+                is_active = msg_count > 24
+
                 ua.set_active(user_id, is_active=is_active)
+
                 if active_prior and not is_active:
                     no_longer_active.append((guild_id, user_id))
                 elif not active_prior and is_active:

@@ -30,6 +30,17 @@ async def handle_incoming_event(event: hikari.GuildMessageCreateEvent):  # Could
     do_text_scan = guild.get.do_text_scan()
     if not do_text_scan:
         if do_observe is False:
+            # We need to add this no matter what
+            # Its for the activity monitor module.
+            observations.add_entry(
+                msg_id=event.message.id,
+                channel_id=event.channel_id,
+                username=event.author.username,
+                user_id=event.author.id,
+                msg_content=event.message.content,
+                bot_action=None,
+                guild_id=event.guild_id,
+            )
             return
 
     message = event.message.content.strip().lower()

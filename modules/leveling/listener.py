@@ -10,12 +10,15 @@ async def botfunction(event: hikari.GuildMessageCreateEvent):
     if not event.is_human:
         return
 
+    guild = dbguild(event.guild_id)
+    if not guild.leveling.get_enabled():
+        return
+
     # You get more points for every 50 characters in the message
     # Gets how many times the text content len goes into 50, then multiplies by 5.
     # Always returns 5 at minimum.
     exp_earned = max((len(event.message.content) // 50) * 5, 5)
 
-    guild = dbguild(event.guild_id)
     result = guild.leveling.give_exp(
         user_id=event.author.id,
         exp=exp_earned,

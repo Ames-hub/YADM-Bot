@@ -11,7 +11,7 @@ async def scan_users_active() -> None:
     no_longer_active = result['no_longer_active']
 
     for guild_id, user_id in newly_active:
-        ua = user_activity()
+        ua = user_activity(guild_id)
         do_activity_monitoring = ua.get_guild_enabled()
         if do_activity_monitoring:
             role_id = ua.get_guild_active_role()
@@ -23,7 +23,7 @@ async def scan_users_active() -> None:
             )
 
     for guild_id, user_id in no_longer_active:
-        ua = user_activity()
+        ua = user_activity(guild_id)
         do_activity_monitoring = ua.get_guild_enabled()
         if do_activity_monitoring:
             role_id = ua.get_guild_active_role()
