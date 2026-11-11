@@ -15,10 +15,10 @@ class views:
         self.reason = reason
 
     def gen_embed(self):
-        date = self.delete_after.strftime('%Y-%b-%d %I:%M %p')
+        timestamp = self.delete_after.timestamp()
         embed = hikari.Embed(
             title="Purge Confirmation",
-            description=f"Do you want to purge messages all messages after {date}? This action is irreversible!",
+            description=f"Do you want to purge messages all messages after <t:{timestamp}:F>? This action is irreversible!",
             colour=0xFFA500
         )
         return embed

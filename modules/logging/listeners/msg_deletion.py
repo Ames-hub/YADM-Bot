@@ -33,21 +33,4 @@ async def botfunction(event: hikari.GuildMessageDeleteEvent):
 
     await server_logs(event.guild_id).create_entry(embed)
 
-@loader.listener(hikari.GuildBulkMessageDeleteEvent)
-async def botfunction(event: hikari.GuildBulkMessageDeleteEvent):
-    del_count = len(event.old_messages)
-
-    logs = logs_config(event.guild_id)
-    do_log = logs.msg_deletions.get_do_logging()
-    if not do_log:
-        return
-
-    embed = (
-        hikari.Embed(
-            title="Bulk Messages Deleted",
-            description=f"{del_count} Messages were deleted in <#{event.channel_id}>",
-            colour=0xff0000
-        )
-    )
-
-    await server_logs(event.guild_id).create_entry(embed)
+# TODO: Re-Implement bulk-deletion tracking.

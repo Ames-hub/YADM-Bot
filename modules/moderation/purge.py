@@ -75,7 +75,8 @@ class command(
             guild_id=ctx.guild_id,
             delete_after=delete_after,
             channel=self.channel,
-            reason=self.reason
+            reason=self.reason,
+            author_id=ctx.user.id
         )
         embed = view.gen_embed()
         view_menu = view.init_view()
