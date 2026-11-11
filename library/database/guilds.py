@@ -18,10 +18,11 @@ from library.database.manage import (
 )
 from library.database.honeypot import honeypot as guild_honeypot
 from sqlalchemy.exc import OperationalError, IntegrityError
+from library.database.leveling import guild_leveling
 from library.database.auditing import logs_config
 from library.database.auditing import server_logs
 from library.database.welcomer import welcomer
-from library import datastore as ds 
+from library import datastore as ds
 from library.botapp import botapp
 from cachetools import TTLCache
 import datetime
@@ -235,6 +236,7 @@ class muting:
                 session.close()
 
         async def unmute_member(self, user_id:int, do_dm:bool=True):
+            unmute_failure = False
             with get_session() as session:
                 mute_case = (
                     session.query(mute_record)
@@ -245,19 +247,18 @@ class muting:
                 mute_case.active = False
                 session.commit()
 
-            guild = dbguild(self.guild_id)
-            guild_mute_role = guild.get.muted_role_id()
+                guild = dbguild(self.guild_id)
+                guild_mute_role = guild.get.muted_role_id()
 
-            unmute_failure = False
-            try:
-                await botapp.rest.remove_role_from_member(
-                    guild=self.guild_id,
-                    user=mute_case.user_id,
-                    role=guild_mute_role
-                )
-                muting.set_mute_inactive(mute_case.case_id)
-            except (hikari.ForbiddenError, hikari.NotFoundError):
-                unmute_failure = True
+                try:
+                    await botapp.rest.remove_role_from_member(
+                        guild=self.guild_id,
+                        user=mute_case.user_id,
+                        role=guild_mute_role
+                    )
+                    muting.set_mute_inactive(mute_case.case_id)
+                except (hikari.ForbiddenError, hikari.NotFoundError):
+                    unmute_failure = True
 
             if mute_case.is_cooldown:
                 # If this is just a cooldown mute, we don't need to notify the user or log it.
@@ -1164,15 +1165,15 @@ class automod_get:
 
     def do_image_filtering(self):
         record = self._get_record()
-        return record.do_image_filtering if record else None
+        return record.do_image_filtering if record else False
 
     def do_filter_spam(self):
         record = self._get_record()
-        return record.do_filter_spam if record else None
+        return record.do_filter_spam if record else False
     
     def do_text_scan(self):
         record = self._get_record()
-        return record.do_text_scan if record else None
+        return record.do_text_scan if record else False
 
     def nsfw_scan_threshold(self):
         session = get_session()
@@ -1745,7 +1746,7 @@ class automod_set:
     def do_text_scan(self, value: bool):
         return self._update_main(do_text_scan=value)
 
-    def mod_role_id(self, value: bool):
+    def mod_role_id(self, value: int):
         return self._update_main(mod_role_id=value)
 
     def use_wordlist_swears(self, value: bool):
@@ -2182,9 +2183,13 @@ class guild_bans:
 
         await server_logs(self.guild_id).create_entry(
             hikari.Embed(
-                title=f"User Banned (Case {case_id})",
+                title=f"User Banned (Case #{case_id})",
                 description=f"<@{banned_id}> Has been banned until <t:{time_to_unban}> by <@{moderator_id}> for:\n{reason}",
                 colour=0xff0000
+            )
+            .add_field(
+                name="Reason",
+                value=f"\"{reason}\""
             )
         )
         return True
@@ -2284,6 +2289,7 @@ class dbguild:
         self.welcomer = welcomer(guild_id)
         self.violations = guild_violations(guild_id)
         self.honeypot = guild_honeypot(guild_id)
+        self.leveling = guild_leveling(guild_id)
 
     def set_automod_defaults(self):
         # Enters the guild ID into a line in the table, which auto-gens defaults.

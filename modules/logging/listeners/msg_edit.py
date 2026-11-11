@@ -69,6 +69,8 @@ def highlight_changes(original: str, changed: str) -> str:
 
 @loader.listener(hikari.GuildMessageUpdateEvent)
 async def botfunction(event: hikari.GuildMessageUpdateEvent):
+    if not event.member:
+        return  # This happens sometimes for some reason
     if event.member.is_bot:
         return
     if not event.old_message.content:  # might be missing from cache

@@ -328,7 +328,9 @@ ds.d["bad_word_list_cache"] = {}
 ds.d["rr_role_names_cache"] = {}
 ds.d["channel_users_talking"] = TTLCache(2000, 240)  # 2000 Channels
 ds.d["all_users_talking"] = TTLCache(10_000, 240)  # 10000 Users
-ds.d["high_ping"] = False
+ds.d["high_ping"] = False  # Set by prechecks func, tells other parts of the bot if the ping is bad.
+# This is a list that a task auto-checks each 10 seconds. Every time we need a mod role but don't know what it is, we add it here to auto-detect one.
+ds.d["modrole-scanner-queue"] = []
 
 try:
     logging.info(f"OS Detected: {get_os_name()}")

@@ -77,16 +77,17 @@ async def handle_incoming_event(event: hikari.GuildMessageCreateEvent):  # Could
                 # Text filter only arg. Flagged word = word that is banned, suspected_word = word in users message that tripped the automod.
                 automod_report={'guilty': guilty, 'whistleblower': whistleblower, 'flagged_word': flagged_word, 'suspected_word': suspected_word}
             )
+            observation = result[3]
             bot_action = f"ACTION: \"{flagged_word}\" has been flagged by the {whistleblower} check. | Report: {observation}"
-        observation = result[3]
-        return True
 
     observations.add_entry(
         msg_id=event.message.id,
         channel_id=event.channel_id,
         username=event.author.username,
+        user_id=event.author.id,
         msg_content=event.message.content,
-        bot_response=bot_action
+        bot_action=bot_action,
+        guild_id=event.guild_id,
     )
     return True
 

@@ -406,43 +406,60 @@ async def handle_guilty(
                 return False
 
             do_mute_member = cat_check.do_mute_member()
+            do_kick_member = cat_check.do_kick_member()
+            do_ban_member = cat_check.do_ban_member()
+            ban_esc_threshold = cat_check.escalation.ban_member()
+            kick_member_threshold = cat_check.escalation.kick_member()
 
-            # if we're not to mute, put them on cooldown if told to do so. (Cooldown is a short, short mute)
-            if cat_check.do_cooldown() and not do_mute_member:
-                if use_escalation:
-                    cooldown_threshold = cat_check.escalation.cooldown_threshold()
-                    if current_warnings == cooldown_threshold:
-                        await guild.muting.mute_member(
-                            user_id=event.author.id,
-                            reason="VIOLATION AUTO COOLDOWN: " + violation,
-                            moderator_id=botapp.get_me().id,
-                            duration_s=30,  # 30 sec mute for spam. TODO: Make this configurable.
-                            is_cooldown=True
-                        )
-                else:
-                    await guild.muting.mute_member(
-                        user_id=event.author.id,
-                        reason="VIOLATION AUTO COOLDOWN: " + violation,
-                        moderator_id=botapp.get_me().id,
-                        duration_s=30,  # 30 sec mute for spam. TODO: Make this configurable.
-                        is_cooldown=True
-                    )
+            # Returns true if the user should be kicked or Banned.
+            do_guild_removal = (
+                (do_ban_member and current_warnings == ban_esc_threshold)
+                or
+                (do_kick_member and current_warnings == kick_member_threshold)
+            )
 
-            do_del_msg = cat_check.do_delete_msg()
+            cooldown_threshold = cat_check.escalation.cooldown_threshold()
+            do_cooldown = (  # True if the user should be given a chat cooldown.
+                (cat_check.do_cooldown() and not do_mute_member and not do_guild_removal and current_warnings == cooldown_threshold)
+                if use_escalation else
+                (cat_check.do_cooldown() and not do_mute_member and not do_guild_removal)
+            )
+
+            # if we're not to mute, put them on cooldown if told to do so. (Cooldown is a very short mute)
+            if do_cooldown:
+                await guild.muting.mute_member(
+                    user_id=event.author.id,
+                    reason="VIOLATION AUTO COOLDOWN: " + violation,
+                    moderator_id=botapp.get_me().id,
+                    duration_s=30,  # 30 sec mute for spam. TODO: Make this configurable.
+                    is_cooldown=True,
+                    violation_id=case_id
+                )
+
+            msg_deletion_threshold = cat_check.escalation.msg_deletion()
+            config_del_msg = cat_check.do_delete_msg()
+
+            # Returns True if either case fits for deleting the message.
+            do_del_msg = (
+                (use_escalation and current_warnings == msg_deletion_threshold and config_del_msg)
+                or
+                (config_del_msg is True and not use_escalation)
+            )
+
+            # TODO: Implement escalation to warnings.
+            do_warn_member = cat_check.do_warn_member()
+
             if do_del_msg:
-                if use_escalation:
-                    msg_deletion_threshold = cat_check.escalation.msg_deletion()
-                    if current_warnings == msg_deletion_threshold:
-                        await event.message.delete()
-                else:
-                    await event.message.delete()
-            if cat_check.do_warn_member():
+                await event.message.delete()
+            if do_warn_member:
                 guild.warnings.add_warning(
                     reason=violation,
                     mod_id=botapp.get_me().id,
                     user_id=event.author.id,
                 )
-            if do_mute_member:
+
+            # Skip muting if we're just gonna remove them.
+            if do_mute_member and not do_guild_removal:
                 mute_duration = cat_check.get_mute_duration()
                 if use_escalation:
                     mute_threshold = cat_check.escalation.mute_threshold()
@@ -452,6 +469,7 @@ async def handle_guilty(
                             moderator_id=botapp.get_me().id,
                             reason=violation,
                             duration_s=mute_duration,
+                            violation_id=case_id
                         )
                 else:
                     await guild.muting.mute_member(
@@ -459,14 +477,13 @@ async def handle_guilty(
                         moderator_id=botapp.get_me().id,
                         reason=violation,
                         duration_s=mute_duration,
+                        violation_id=case_id
                     )
-            if cat_check.do_kick_member():
+            if do_kick_member:
                 kick_msg = hikari.Embed(
                     title="Kicked",
                     description=f"You've been detected as breaking the rules of {guild_name} and have been kicked.\nReason: {violation}"
                 )
-                if use_escalation:
-                    kick_member_threshold = cat_check.escalation.kick_member()
                 if cat_check.do_announce_kick():
                     if use_escalation:
                         if current_warnings == kick_member_threshold:
@@ -496,13 +513,13 @@ async def handle_guilty(
                     )
                     await msg.delete()
                 del msg
-            if cat_check.do_ban_member():
+            if do_ban_member:
                 delete_msg_seconds = cat_check.get_ban_msg_purgetime()
-
                 announce_ban = cat_check.do_announce_ban()
+
                 try:
                     if use_escalation:
-                        if current_warnings == cat_check.escalation.ban_member():
+                        if current_warnings == ban_esc_threshold:
                             await guild.bans.ban_user(
                                 infraction_id=case_id,
                                 banned_id=event.author.id,
@@ -551,11 +568,23 @@ async def handle_guilty(
                             description=f"Attention mods! <@&{mod_role_id}> A {automod_type_name} Violation occured in <#{event.channel_id}>.",
                             colour=0xff0000
                         )
+                        .add_field(
+                            name="Action Taken",
+                            value=(
+                                f"Removed from server: {'Yes' if do_guild_removal else 'No'}\n"
+                                f"Message deleted: {'Yes' if do_del_msg else 'No'}\n"
+                                f"User Muted/Given Cooldown: {'Yes' if do_mute_member or do_cooldown else 'No'}\n"
+                                f"{"Member was warned" if do_warn_member else "No warning was issued."}"
+                            )
+                        )
                     )
                     if not do_del_msg:
                         embed.add_field(
                             name="Hyperlink",
-                            value=f"[Click to jump to scene!]({event.message.make_link(event.guild_id)})"
+                            value=(
+                                f"[Click to jump to scene!]({event.message.make_link(event.guild_id)})\n"
+                                f"[Click to jump to response!]({infraction_msg.make_link(event.guild_id)})"
+                            )
                         )
                     else:
                         if do_announce_infraction:
@@ -585,7 +614,7 @@ async def handle_guilty(
                     name="Violating Content",
                     value=f"{event.author.display_name} said:\n\"{event.message.content}\""
                 )
-            if automod_type == automod_types.SPAM_FILTER:
+            if automod_type == automod_types.SPAM_FILTER and do_cooldown:
                 logs_embed.add_field(name="❄️ Time-out", value="User has been put in a 30 second time-out for spamming messages.")
             logs_embed.add_field(
                 name="Review",

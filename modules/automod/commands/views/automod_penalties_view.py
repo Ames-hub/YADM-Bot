@@ -30,7 +30,15 @@ class views:
         else:
             raise ValueError("Invalid automoderation category!")
 
+        self.ensure_table_exists()
         self.refresh_automod_data()
+
+    def ensure_table_exists(self):
+        record = self.get_category._get_record()
+        if not record:
+            # This sets it to false, which is already the default and is what it'd be set to if the record did not exist.
+            # This indirectly ensures the row in the table exists.
+            self.set_category.do_delete_msg(False)
 
     def refresh_automod_data(self):
         self.do_delete_msg = self.get_category.do_delete_msg()

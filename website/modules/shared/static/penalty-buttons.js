@@ -31,6 +31,14 @@ document.addEventListener("DOMContentLoaded", async () => {
             btn.textContent = isActive ? "ON" : "OFF";
 
             const toggleName = btn.id.replace("toggle-", "");
+            if (toggleName === "do-escalation" && !isActive) {
+                warning = document.getElementById("escalation-disabled-warning")
+                warning.style.display = "block"
+            }
+            else if (toggleName === "do-escalation" && isActive) {
+                warning = document.getElementById("escalation-disabled-warning")
+                warning.style.display = "none"
+            }
 
             // Disable this button while the request is being sent
             btn.disabled = true;

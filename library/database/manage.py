@@ -86,13 +86,13 @@ class guild_text_automod_settings(Base):
     sim_check_threshold = Column(FLOAT, nullable=False, default=0.85)
     do_cooldown = Column(BOOLEAN, nullable=False, default=True)
     announce_infraction = Column(BOOLEAN, nullable=False, default=True)
-    announce_kick = Column(BOOLEAN, nullable=False, default=True)
-    announce_ban = Column(BOOLEAN, nullable=False, default=True)
+    announce_kick = Column(BOOLEAN, nullable=False, default=False)
+    announce_ban = Column(BOOLEAN, nullable=False, default=False)
+    notify_mods = Column(BOOLEAN, nullable=False, default=True)
     use_preset_swears_list = Column(BOOLEAN, nullable=False, default=True)
     use_preset_slurs_list = Column(BOOLEAN, nullable=False, default=True)
     use_preset_lessnsfw_list = Column(BOOLEAN, nullable=False, default=False)
     use_preset_hardnsfw_list = Column(BOOLEAN, nullable=False, default=True)
-    notify_mods = Column(BOOLEAN, nullable=False, default=True)
 
 class guild_text_automod_text_checks(Base):
     __tablename__ = "guild_text_automod_text_checks"
@@ -295,10 +295,12 @@ class observation_entry(Base):
     __tablename__ = "observation_logs"
     msg_id = Column(BigInteger, nullable=False, primary_key=True)
     username = Column(TEXT, nullable=False)
-    timestamp = Column(BigInteger, nullable=False)
+    user_id = Column(BigInteger, nullable=False)
+    guild_id = Column(BigInteger, nullable=False)
+    timestamp = Column(DateTime, nullable=False)
     channel_id = Column(BigInteger, nullable=False)
     msg_content = Column(TEXT, nullable=False)
-    bot_response = Column(TEXT, nullable=True)
+    bot_action = Column(TEXT, nullable=True)
     reeval_date = Column(DateTime, nullable=True)
     # After being scanned and marked as bad by the automod, this is set to True.
     needs_review = Column(BOOLEAN, nullable=False, default=False)
@@ -358,6 +360,45 @@ class user_guild_note(Base):
     guild_id = Column(BigInteger, nullable=False)
     user_id = Column(BigInteger, nullable=False)
     text = Column(TEXT, nullable=False)
+
+class guild_leveling_exp(Base):
+    __tablename__ = "guild_leveling_exp"
+
+    identifier = Column(Integer, primary_key=True, autoincrement=True)
+    guild_id = Column(BigInteger, nullable=False)
+    user_id = Column(BigInteger, nullable=False)
+    exp = Column(Integer, nullable=False, default=0)
+    level = Column(Integer, nullable=False, default=0)
+
+class guild_leveling_config(Base):
+    __tablename__ = "guild_leveling_config"
+
+    guild_id = Column(BigInteger, primary_key=True)
+    lvl_channel_id = Column(BigInteger, default=None)
+
+class guild_leveling_role(Base):
+    __tablename__ = "guild_leveling_roles"
+
+    identifier = Column(Integer, primary_key=True, autoincrement=True)
+    guild_id = Column(BigInteger, nullable=False)
+    role_id = Column(BigInteger, nullable=False, unique=True)
+    level_needed = Column(Integer, nullable=False)
+
+class guild_active_members(Base):
+    __tablename__ = "guild_active_members"
+
+    identifier = Column(Integer, primary_key=True, autoincrement=True)
+    guild_id = Column(BigInteger, nullable=False)
+    user_id = Column(BigInteger, nullable=False)
+    is_active = Column(BOOLEAN, default=False)
+    last_checked = Column(DateTime)
+
+class guild_activitiy_config(Base):
+    __tablename__ = "guild_activitiy_configs"
+
+    guild_id = Column(BigInteger, primary_key=True)
+    active_role = Column(BigInteger, default=None)
+    enabled = Column(BOOLEAN, default=False)
 
 def get_session():
     if SessionLocal is None:

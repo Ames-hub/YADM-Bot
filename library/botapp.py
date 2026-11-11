@@ -26,7 +26,14 @@ else:
 DEBUG = os.getenv('DEBUG', 'false').lower() == 'true'
 BOT_TOKEN = get.appropriate_bot_token()
 
-intents_list = [HKIntents.GUILD_MESSAGES, HKIntents.GUILDS, HKIntents.MESSAGE_CONTENT, HKIntents.GUILD_MESSAGE_REACTIONS, HKIntents.GUILD_MEMBERS]
+intents_list = [
+    HKIntents.GUILD_MESSAGES,
+    HKIntents.GUILDS,
+    HKIntents.MESSAGE_CONTENT,
+    HKIntents.GUILD_MESSAGE_REACTIONS,
+    HKIntents.GUILD_MEMBERS,
+    HKIntents.GUILD_MODERATION
+]
 intents = 0
 for intent in intents_list:
     intents += intent

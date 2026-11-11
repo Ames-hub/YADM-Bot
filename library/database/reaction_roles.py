@@ -132,6 +132,8 @@ def get_emoji_type(text):
 
 class rr_group:
     def __init__(self, group_id:int):
+        if not group_id:
+            raise rr_errors.UngroupedMessage()
         if not get_is_grouped(group_id):
             raise rr_errors.UngroupedMessage()
 

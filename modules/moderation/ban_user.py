@@ -16,6 +16,7 @@ class command(
     
     target = lightbulb.user("target", "Who to Ban")
     reason = lightbulb.string("reason", "Why are they being banned?")
+    ban_duration = lightbulb.integer("ban_hours", "How many hours should they be banned for?")
     hours_deletion = lightbulb.integer("delete_hours", "how many hours worth of their messages should be deleted?", min_value=0)
 
     @lightbulb.invoke
@@ -29,6 +30,9 @@ class command(
             banned_id=self.target.id,
             moderator_id=ctx.user.id,
             msg_del_seconds=del_seconds,
+            ban_seconds=self.ban_duration,
+            reason=self.reason,
+            announce_ban=True
         )
 
         unban_timestamp = int(datetime.now().timestamp() - del_seconds)

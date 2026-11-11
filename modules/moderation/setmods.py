@@ -13,7 +13,7 @@ class command(
     description="Decide who is the moderator of the server by a role."
 ):
     
-    target_role = lightbulb.user("role", "Which role will all moderators have?")
+    target_role = lightbulb.role("role", "Which role will all moderators have?")
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
@@ -26,7 +26,7 @@ class command(
             await ctx.respond(
                 hikari.Embed(
                     title="Moderator Role Set",
-                    description="All users with this role will now be treated as moderators (ontop of those will sufficient permissions 😉)",
+                    description="All users with this role will now be treated as moderators",
                     colour=0x0000ff
                 )
             )

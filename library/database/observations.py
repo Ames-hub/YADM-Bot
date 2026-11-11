@@ -12,7 +12,7 @@ def reeval_entry(msg_id:int, new_conclusion: str|None, mark_for_review:bool=True
         if not result:
             return False
 
-        result.bot_response = new_conclusion
+        result.bot_action = new_conclusion
         result.reeval_date = datetime.now(timezone.utc)
         if do_confirm:
             result.confirmed = True  # Mark it as confirmed, as the automod decision was determined as correct.
@@ -28,18 +28,20 @@ def reeval_entry(msg_id:int, new_conclusion: str|None, mark_for_review:bool=True
         session.commit()
     return True
 
-def add_entry(msg_id:int, channel_id:int, username:int, msg_content:str, bot_response:str|None):
+def add_entry(msg_id:int, channel_id:int, username:int, user_id:int, msg_content:str, guild_id:int, bot_action:str|None):
     if not isinstance(msg_content, str) or not msg_content:
         return False
     try:
         with get_session() as session:
             record = observation_entry(
-                timestamp=datetime.now().timestamp(),
+                timestamp=datetime.now(),
                 msg_id=msg_id,
                 username=username,
+                user_id=user_id,
                 channel_id=channel_id,
                 msg_content=msg_content,
-                bot_response=bot_response,
+                bot_action=bot_action,
+                guild_id=guild_id
             )
             session.add(record)
             session.commit()

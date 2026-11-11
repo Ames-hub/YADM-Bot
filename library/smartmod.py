@@ -1,6 +1,5 @@
 from library import benchmark as bm
 from library import datastore as ds
-import asyncio
 import nltk
 import re
 
@@ -111,7 +110,7 @@ class syntax_analysis:
         """
         return TOKEN_PATTERN.findall(text)
 
-    async def tag_tokens(self, tokens: list):
+    def tag_tokens(self, tokens: list):
         """
         Synchronous NLTK tagging. Returns a list of (word, Penn Treebank tag).
         """

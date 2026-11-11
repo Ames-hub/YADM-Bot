@@ -48,7 +48,7 @@ async def show_page(request: Request, guild_id:int):
         "index.html",
         {
             "guild_id": guild_id,
-            "do-escalate": do_escalate,
+            "do_escalate": do_escalate,
             "escalation_settings": escalation_settings
         }
     )

@@ -58,25 +58,25 @@ def review_bad_messages(bad_entries: list[observations.observation_entry]):
     for entry in bad_entries:
         subprocess.run("clear")
         print(f"MSG ID: {entry.msg_id}\n\n'{entry.msg_content}' ({progress}/{bad_entries_count})")
-        if entry.bot_response:
-            print(entry.bot_response.split(" | ")[0])
+        if entry.bot_action:
+            print(entry.bot_action.split(" | ")[0])
         progress += 1
         if entry.confirmed:
             print(f"! This message was previously marked as {'rule-violating!' if entry.bad_message else 'clean!'} !")
-            if entry.bad_message and entry.bot_response == None:
+            if entry.bad_message and entry.bot_action == None:
                 # This means it was confirmed bad, but now the bot response has been removed, indicating it was false-negatived.
                 print("This message was false-negatived!")
-            elif entry.bad_message is False and entry.bot_response is not None:
+            elif entry.bad_message is False and entry.bot_action is not None:
                 # This means it was confirmed good, but now the bot has re-scanned and did something to it, meaning it was false-positived.
                 print("This message was false-positived!")
             input("...")  # Wait to continue
             continue
         else:
-            if "equality Check" in entry.bot_response:
+            if "equality Check" in entry.bot_action:
                 # Equality check can quite literally not be wrong. Its too basic to fail. So, we auto-confirm the item.
                 observations.reeval_entry(
                     entry.msg_id,
-                    new_conclusion=entry.bot_response,
+                    new_conclusion=entry.bot_action,
                     mark_for_review=False,
                     do_confirm=True,
                     bad_msg=True
@@ -84,23 +84,23 @@ def review_bad_messages(bad_entries: list[observations.observation_entry]):
                 print("Auto-assigned as bad, due to equality check being incapable of false-positives.")
                 continue
             while True:  # Retry logic
-                print(f"\nAction taken: {"RULE-BREAKING" if entry.bot_response else "CLEAN"}")
+                print(f"\nAction taken: {"RULE-BREAKING" if entry.bot_action else "CLEAN"}")
                 confirmed = input("Correct? (y/n) >>> ").lower()
                 if confirmed == "y":
-                    bad_msg = True if entry.bot_response else False
+                    bad_msg = True if entry.bot_action else False
                     observations.reeval_entry(
                         entry.msg_id,
-                        new_conclusion=entry.bot_response,
+                        new_conclusion=entry.bot_action,
                         mark_for_review=False,
                         do_confirm=True,
                         bad_msg=bad_msg
                     )
                     break
                 elif confirmed == "n":
-                    bad_msg = True if entry.bot_response else False
+                    bad_msg = True if entry.bot_action else False
                     observations.reeval_entry(
                         entry.msg_id,
-                        new_conclusion=entry.bot_response,
+                        new_conclusion=entry.bot_action,
                         mark_for_review=False,
                         do_confirm=True,
                         bad_msg=bad_msg

@@ -1,4 +1,7 @@
 <div id="escalation-flow">
+    <div id="escalation-disabled-warning" {% if do_escalate %}style="display: none;"{% endif %}>
+        Escalation is disabled, these settings will not apply until it is enabled.
+    </div>
     <div id="escalation-palette">
         <div class="escalation-chip" draggable="true" data-action="do-ban">Ban</div>
         <div class="escalation-chip" draggable="true" data-action="do-kick">Kick</div>

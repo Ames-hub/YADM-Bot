@@ -322,3 +322,14 @@
         height: 170px;
     }
 }
+
+#escalation-disabled-warning {
+    background-color: rgba(218, 63, 63, 0.8);
+    color: white;
+    border-radius: 20px;
+    padding: 10px;
+
+    margin-bottom: 10px;
+    -webkit-text-stroke: 0.2px black;
+    paint-order: stroke fill;
+}   

@@ -38,7 +38,7 @@ async def show_page(request: Request, guild_id:int):
         "index.html",
         {
             "guild_id": guild_id,
-            "do-escalate": guild.get.do_escalate(),
+            "do_escalate": guild.get.do_escalate(),
             "escalation_settings": {
                 "del_msg": guild.get.text.escalation.msg_deletion(),
                 "cooldown": guild.get.text.escalation.cooldown_threshold(),
