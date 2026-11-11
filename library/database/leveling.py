@@ -337,6 +337,7 @@ class user_activity:
             else:
                 record.enabled = enabled
             session.commit()
+        return True
 
     def get_guild_active_role(self):
         with get_session() as session:
@@ -365,6 +366,7 @@ class user_activity:
             else:
                 record.active_role = role_id
             session.commit()
+        return True
 
     def get(self, user_id:int) -> _ua_class:
         with get_session() as session:

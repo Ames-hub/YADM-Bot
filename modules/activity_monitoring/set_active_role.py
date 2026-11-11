@@ -35,6 +35,6 @@ class command(
                 hikari.Embed(
                     title="Unknown error",
                     description="Couldn't do that!",
-                    colour=0x00ff00
+                    colour=0xff0000
                 )
             )

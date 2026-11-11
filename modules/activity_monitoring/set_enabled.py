@@ -1,6 +1,7 @@
 from modules.activity_monitoring.group import group
 from library.database.leveling import user_activity
 from library.permissions import prechecks
+from library.database import auditing
 import lightbulb
 import hikari
 
@@ -27,6 +28,13 @@ class command(
                 hikari.Embed(
                     title="Activity Monitoring Enabled",
                     description="When a user starts being active in the server, we'll give them the active role.",
+                    colour=0x00ff00
+                )
+            )
+            await auditing.server_logs(ctx.guild_id).create_entry(
+                hikari.Embed(
+                    title="Activity Monitoring Enabled",
+                    description=f"{ctx.user.mention} enabled activity monitoring for this server.",
                     colour=0x00ff00
                 )
             )
