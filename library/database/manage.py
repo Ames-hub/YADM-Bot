@@ -374,6 +374,7 @@ class guild_leveling_config(Base):
     __tablename__ = "guild_leveling_config"
 
     guild_id = Column(BigInteger, primary_key=True)
+    enabled = Column(BOOLEAN, default=False)
     lvl_channel_id = Column(BigInteger, default=None)
 
 class guild_leveling_role(Base):

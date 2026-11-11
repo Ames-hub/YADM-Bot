@@ -21,15 +21,25 @@ class command(
         await prechecks("give-leveling-exp", ctx, permission=[hikari.Permissions.MANAGE_MESSAGES])
 
         guild = dbguild(ctx.guild_id)
+
+        if not guild.leveling.get_enabled():
+            await ctx.respond(
+                hikari.Embed(
+                    title="Leveling Disabled",
+                    description="You cannot give a user chat exp while leveling is disabled.",
+                    colour=0xff9c00
+                )
+            )
+            return
+
         result = guild.leveling.give_exp(self.target.id, msgs=self.give_points, check_level=True)
         success = result['success']
         lvled_up = result['lvl_is_diff']
 
         if success:
-            new_user_level = (guild.leveling.get_user(self.target.id).exp // guild.leveling.msg_score_value)
             embed = hikari.Embed(
                 title="Points Given",
-                description=f"This user has been given {self.give_points} points, taking them to level {new_user_level}",
+                description=f"This user has been given {self.give_points} points",
                 colour=0x00ff00
             )
             if lvled_up:

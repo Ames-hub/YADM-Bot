@@ -16,6 +16,26 @@ class guild_leveling:
         self.guild_id = guild_id
         self.msg_score_value = 5  # How many points 1 msg is worth
 
+    def get_enabled(self):
+        with get_session() as session:
+            record = (
+                session.query(guild_leveling_config)
+                .filter(guild_leveling_config.guild_id == self.guild_id)
+                .one_or_none()
+            )
+        return record.enabled if record else False
+
+    def set_enabled(self, value:bool):
+        with get_session() as session:
+            record = (
+                session.query(guild_leveling_config)
+                .filter(guild_leveling_config.guild_id == self.guild_id)
+                .one_or_none()
+            )
+            record.enabled = value
+            session.commit()
+        return True
+
     def get_dedicated_channel(self):
         with get_session() as session:
             record = (
@@ -23,7 +43,7 @@ class guild_leveling:
                 .filter(guild_leveling_config.guild_id == self.guild_id)
                 .one_or_none()
             )
-        return record.lvl_channel_id if record.lvl_channel_id else None
+        return record.lvl_channel_id if record else None
 
     def set_dedicated_channel(self, channel_id):
         with get_session() as session:
@@ -107,7 +127,7 @@ class guild_leveling:
                 .filter(guild_leveling_exp.user_id == user_id)
                 .one_or_none()
             )
-            old_lvl = record.level if record.level else 0
+            old_lvl = record.level if record else 0
 
             if exp:
                 new_exp = int(record.exp - exp)

@@ -9,8 +9,8 @@ loader = lightbulb.Loader()
 @group.register
 class command(
     lightbulb.SlashCommand,
-    name="leaderboard",
-    description="Get the top 10 chatters of the server!"
+    name="setchannel",
+    description="Get where we send level-up notifications to"
 ):
 
     channel = lightbulb.channel("channel", "Where do we send level-up notifications?")

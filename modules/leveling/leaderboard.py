@@ -40,10 +40,27 @@ class command(
                 title="⭐ Chat Leaderboard ⭐",
                 description="The top 10 Chatters of the server are displayed here!"
             )
-            .add_field(
-                name="Top 10",
+        )
+        if len(leaderboard) == 0:
+            embed.add_field(
+                name=f"Nobody's Placed!",
+                value="There's been no messages sent that are tracked on the leaderboard."
+            )
+        elif len(leaderboard) < 10:
+            embed.add_field(
+                name=f"Top {len(leaderboard)}",
                 value="\n".join(string_list)
             )
-        )
+        else:
+            embed.add_field(
+                name=f"Top 10",
+                value="\n".join(string_list)
+            )
+
+        if not guild.leveling.get_enabled():
+            embed.add_field(
+                name="Leveling disabled",
+                value="Positioning on this leaderboard is fixed until the admins re-enable user leveling."
+            )
 
         await ctx.respond(embed)
