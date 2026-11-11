@@ -5,7 +5,7 @@ import hikari
 
 loader = lightbulb.Loader()
 
-@loader.listener(hikari.GuildMessageDeleteEvent)
+@loader.listener(hikari.GuildMessageCreateEvent)
 async def botfunction(event: hikari.GuildMessageCreateEvent):
     if not event.is_human:
         return
@@ -28,7 +28,7 @@ async def botfunction(event: hikari.GuildMessageCreateEvent):
         if new_lvl > old_lvl:
             embed = hikari.Embed(
                 title="Level Up! ✨",
-                description=f"Congratulations {event.author.mention}, you just levelled up to level {new_lvl}!",
+                description=f"Congratulations {event.author.mention},\nyou just leveled up to level {new_lvl}!",
                 colour=0xFFD700
             )
             guild_perk = guild.leveling.get_guild_level_perk(new_lvl)
@@ -37,6 +37,20 @@ async def botfunction(event: hikari.GuildMessageCreateEvent):
                     name="New Perks!",
                     value=f"You've unlocked the perks that come with the role <@&{guild_perk.role_id}>"
                 )
+                try:
+                    await botapp.rest.add_role_to_member(
+                        event.guild_id,
+                        event.author.id,
+                        guild_perk.role_id,
+                        reason="User leveled up!"
+                    )
+                except (hikari.ForbiddenError, hikari.UnauthorizedError, hikari.BadRequestError, hikari.NotFoundError):
+                    embed.add_field(
+                        name="Error adding perk!",
+                        value=f"We tried to add the perk role, but it seems we lack permission to do so, or the role does not exist anymore."
+                    )
+                    # Remove it so we don't spam discord with impossible requests.
+                    guild.leveling.rm_level_role(guild_perk.role_id)
 
             channel = guild.leveling.get_dedicated_channel()
             if channel is not None:

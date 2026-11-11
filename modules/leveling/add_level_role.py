@@ -1,12 +1,12 @@
 from library.database.guilds import dbguild, server_logs
-from modules.leveling.exp_subgroup import exp_subgroup
 from library.permissions import prechecks
+from modules.leveling.group import group
 import lightbulb
 import hikari
 
 loader = lightbulb.Loader()
 
-@exp_subgroup.register
+@group.register
 class command(
     lightbulb.SlashCommand,
     name="addperk",
@@ -21,6 +21,19 @@ class command(
         await prechecks("add-leveling-perk", ctx, permission=[hikari.Permissions.ADMINISTRATOR])
 
         guild = dbguild(ctx.guild_id)
+
+        # Checks if its already a perk
+        guild_perk = guild.leveling.get_guild_perk_by_role(self.role.id)
+        if guild_perk is not None:
+            await ctx.respond(
+                hikari.Embed(
+                    title="Already a perk",
+                    description=f"Cannot add that perk, because this role is already a perk for level {guild_perk.level_needed}.",
+                    colour=0xff0000
+                )
+            )
+            return
+
         success = guild.leveling.add_level_role(self.role.id, self.level)
 
         if success:

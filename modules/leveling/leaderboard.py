@@ -38,7 +38,8 @@ class command(
         embed = (
             hikari.Embed(
                 title="⭐ Chat Leaderboard ⭐",
-                description="The top 10 Chatters of the server are displayed here!"
+                description="The top 10 Chatters of the server are displayed here!",
+                colour=0xffd700
             )
         )
         if len(leaderboard) == 0:

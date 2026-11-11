@@ -18,15 +18,16 @@ class command(
         await prechecks("leveling-get-me", ctx)
 
         guild = dbguild(ctx.guild_id)
-        user = guild.leveling.get_user()
-        board_position = guild.leveling.get_leaderboard_position()
+        user = guild.leveling.get_user(ctx.user.id)
+        board_position = guild.leveling.get_leaderboard_position(ctx.user.id)
 
         embed = (
             hikari.Embed(
                 title=f"{ctx.user.display_name} - Leaderboard",
                 description=(
-                    f"{user.exp} points • Level {user.level} • #{board_position}\n\n"
-                )
+                    f"{user.exp} points • Level {user.level} • Position #{board_position}\n\n"
+                ),
+                colour=0xffd700
             )
         )
 

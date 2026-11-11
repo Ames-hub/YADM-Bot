@@ -1,12 +1,12 @@
 from library.database.guilds import dbguild, server_logs
-from modules.leveling.exp_subgroup import exp_subgroup
 from library.permissions import prechecks
+from modules.leveling.group import group
 import lightbulb
 import hikari
 
 loader = lightbulb.Loader()
 
-@exp_subgroup.register
+@group.register
 class command(
     lightbulb.SlashCommand,
     name="give",

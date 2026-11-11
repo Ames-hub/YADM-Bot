@@ -32,6 +32,14 @@ class guild_leveling:
                 .filter(guild_leveling_config.guild_id == self.guild_id)
                 .one_or_none()
             )
+            if not record:
+                record = guild_leveling_config(
+                    guild_id=self.guild_id,
+                    enabled=value
+                )
+                session.add(record)
+                session.commit()
+                return True
             record.enabled = value
             session.commit()
         return True
@@ -89,7 +97,17 @@ class guild_leveling:
                 .filter(guild_leveling_exp.user_id == user_id)
                 .one_or_none()
             )
-            old_lvl = record.level if record.level else 0
+            if not record:
+                record = guild_leveling_exp(
+                    guild_id=self.guild_id,
+                    user_id=user_id,
+                    exp=exp,
+                    level=0
+                )
+                session.add(record)
+                session.commit()
+                session.refresh(record)
+            old_lvl = record.level
 
             if exp:
                 new_exp = int(record.exp + exp)
@@ -127,7 +145,33 @@ class guild_leveling:
                 .filter(guild_leveling_exp.user_id == user_id)
                 .one_or_none()
             )
-            old_lvl = record.level if record else 0
+            if not record:
+                record = guild_leveling_exp(
+                    guild_id=self.guild_id,
+                    user_id=user_id,
+                    exp=0,
+                    level=0
+                )
+                session.add(record)
+                session.commit()
+                session.refresh(record)
+
+            old_lvl = record.level
+            
+            # Don't let it fall below 0.
+            if record.exp - exp <= 0:
+                record.exp = 0
+                record.level = 0
+                session.commit()
+                if check_level:
+                    return {
+                        "success": True,
+                        "lvl_is_diff": 0 != old_lvl,
+                        "old_lvl": old_lvl,
+                        "new_lvl": 0
+                    }
+                else:
+                    return True
 
             if exp:
                 new_exp = int(record.exp - exp)
@@ -235,6 +279,16 @@ class guild_leveling:
             session.delete(record)
             session.commit()
         return True
+
+    def get_guild_perk_by_role(self, role_id:int) -> guild_leveling_role:
+        with get_session() as session:
+            record = (
+                session.query(guild_leveling_role)
+                .filter(guild_leveling_role.guild_id == self.guild_id)
+                .filter(guild_leveling_role.role_id == role_id)
+                .one_or_none()
+            )
+        return record
 
     def get_guild_level_perk(self, level:int) -> guild_leveling_role:
         with get_session() as session:

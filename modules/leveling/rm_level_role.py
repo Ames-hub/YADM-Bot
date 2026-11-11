@@ -1,12 +1,12 @@
 from library.database.guilds import dbguild, server_logs
-from modules.leveling.exp_subgroup import exp_subgroup
 from library.permissions import prechecks
+from modules.leveling.group import group
 import lightbulb
 import hikari
 
 loader = lightbulb.Loader()
 
-@exp_subgroup.register
+@group.register
 class command(
     lightbulb.SlashCommand,
     name="rmperk",
@@ -20,6 +20,19 @@ class command(
         await prechecks("remove-leveling-perk", ctx, permission=[hikari.Permissions.BAN_MEMBERS, hikari.Permissions.KICK_MEMBERS])  # Admin perms
 
         guild = dbguild(ctx.guild_id)
+        
+        # Makes sure it is already a perk
+        guild_perk = guild.leveling.get_guild_perk_by_role(self.role.id)
+        if guild_perk is None:
+            await ctx.respond(
+                hikari.Embed(
+                    title="Not a perk",
+                    description=f"No perk for that role has been added yet.",
+                    colour=0xff0000
+                )
+            )
+            return
+
         success = guild.leveling.rm_level_role(self.role.id)
 
         if success:
