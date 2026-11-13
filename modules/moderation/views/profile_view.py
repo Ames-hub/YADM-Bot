@@ -1,7 +1,8 @@
-from library.database.guilds import dbguild, violations, user_notes
-from library.botapp import botapp, miru_client
+from library.database.guilds import violations, user_notes, dbguild
+from library.botapp import miru_client
 from library.permissions import perms
 from library import datastore as ds
+from library import settings
 import hikari
 import miru
 
@@ -13,6 +14,7 @@ class views:
         self.guild = dbguild(self.guild_id)
         self.target_user = target_user
         self.member_status = None
+        self.note_count = len(user_notes(target_user.id, guild_id).get_all())
 
     async def gen_embed(self):
         all_violations = violations.get_violations_by_offender(self.target_user.id)
@@ -30,6 +32,8 @@ class views:
                 self.member_status = "*MODERATOR*"
             else:
                 self.member_status = "MEMBER"
+
+        is_maintainer = self.target_user.id == settings.get.primary_maintainer()
 
         if automod_violations_count != 0:
             auto_violation_ratio = round((automod_violations_count / len(all_violations)) * 100, 2)
@@ -60,7 +64,7 @@ class views:
                 description=(
                     f"{len(all_warnings)} warnings • "
                     f"{automod_violations_count} automated flags • "
-                    f"{self.member_status}\n"
+                    f"{self.member_status}\n{"__Primary Bot Maintainer__\n\n" if is_maintainer else ""}"
                     f"Joined server: {self.target_user.joined_at.strftime('%d-%m-%Y')} • "
                     f"Discord account created: {self.target_user.created_at.strftime('%d-%m-%Y')}"
                 ),
@@ -82,7 +86,8 @@ class views:
                 value=(
                     f"Automated: {warnings_automated}\n"
                     f"Manual: {len(all_warnings) - warnings_automated}\n"
-                    f"Latest warnings by ID:\n`{", ".join(last_10_warnings)}`"
+                    f"Latest warnings by ID:\n"
+                    f"`{', '.join(last_10_warnings) if last_10_warnings else 'No warnings on record.'}`"
                 )
             )
             .set_thumbnail(
@@ -140,77 +145,116 @@ class views:
     def init_view(viewself):
         class Menu_Init(miru.View):
             async def on_timeout(self) -> None:
-                self.message.components = []
-                self.stop()
-
-            @miru.button(
-                label="Ban",
-                style=hikari.ButtonStyle.SECONDARY,
-                emoji="🔨"
-            )
-            async def ban_user(self, ctx: miru.ViewContext, button: miru.Button) -> None:
-                if not ctx.user.id == viewself.author_id:
-                    return
-                
-                # Returns the user to the original view
-                from modules.moderation.views.profile_subviews.confirm_ban_view import views as confirm_view
-                view = confirm_view(
-                    author_id=viewself.author_id,
-                    guild_id=viewself.guild_id,
-                    target_user=viewself.target_user,
-                )
-                embed = await view.gen_embed()
-                view_menu = view.init_view()
-
-                await ctx.edit_response(
-                    embed=embed,
-                    components=view_menu.build(),
-                    flags=hikari.MessageFlag.EPHEMERAL
-                )
-
-                miru_client.start_view(view_menu)
-                await view_menu.wait()
-                self.stop()
-
-            @miru.text_select(
-                placeholder="Delete Note",
-                options=[
-                    miru.SelectOption(label=f"Note #{note.identifier}")
-                    for note in user_notes(viewself.target_user.id, viewself.guild_id).get_all()
-                ],
-            )
-            async def get_note_to_delete(self, ctx: miru.ViewContext, select: miru.TextSelect) -> None:
-                if not ctx.user.id == viewself.author_id:
-                    return
-                if ds.d["high_ping"]:
-                    # High ping logic
-                    await ctx.defer()
-                
-                note_id = int(select.values[0].split("#")[1])  # Get all text after the hash
-                notes = user_notes(viewself.author_id, ctx.guild_id)
-                try:
-                    success = notes.remove(note_id)
-                except notes.errors.notenotfound:
-                    embed = await viewself.gen_embed()
-                    embed.add_field(
-                        name="Can't find note",
-                        value="It seems that note was already deleted by someone else?"
-                    )
-                    await ctx.edit_response(embed)
-                    return
-
                 embed = await viewself.gen_embed()
-                if success:
-                    embed.add_field(
-                        name="Note Deleted",
-                        value="**This note has been deleted from the user's profile**"
+                await viewself.ctx.edit_response(
+                    viewself.resp,
+                    embed=embed,
+                    components=[]
+                )
+                self.stop()
+
+            if viewself.guild.bans.fetch_ban(user_id=viewself.target_user.id) is None:
+                @miru.button(
+                    label="Ban",
+                    style=hikari.ButtonStyle.SECONDARY,
+                    emoji="🔨"
+                )
+                async def ban_user(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                    if not ctx.user.id == viewself.author_id:
+                        return
+                    
+                    # Returns the user to the original view
+                    from modules.moderation.views.profile_subviews.confirm_ban_view import views as confirm_view
+                    view = confirm_view(
+                        author_id=viewself.author_id,
+                        guild_id=viewself.guild_id,
+                        target_user=viewself.target_user,
                     )
-                else:
-                    embed.add_field(
-                        name="Failed to delete",
-                        value="We were unable to delete that note for this user."
+                    embed = await view.gen_embed()
+                    view_menu = view.init_view()
+
+                    await ctx.edit_response(
+                        embed=embed,
+                        components=view_menu.build(),
+                        flags=hikari.MessageFlag.EPHEMERAL
                     )
-                await ctx.edit_response(embed)
+
+                    miru_client.start_view(view_menu)
+                    await view_menu.wait()
+                    self.stop()
+            else:
+                @miru.button(
+                    label="Unban",
+                    style=hikari.ButtonStyle.SECONDARY,
+                    emoji="🔨"
+                )
+                async def unban_user(self, ctx: miru.ViewContext, button: miru.Button) -> None:
+                    if not ctx.user.id == viewself.author_id:
+                        return
+                    
+                    # Returns the user to the original view
+                    embed = await viewself.gen_embed()
+                    # TODO: Update this to use its own view that asks for the reason.
+                    unban_attempt_ok = await viewself.guild.bans.unban_user(
+                        viewself.target_user.id, viewself.author_id, reason="No reason provided."
+                    )
+                    if unban_attempt_ok:
+                        embed.add_field(
+                            name="User Unban",
+                            value="This user's ban was revoked, and can rejoin at any time now."
+                        )
+                    else:
+                        embed.add_field(
+                            name="Unban Failed",
+                            value="An error occured trying to unban this user, do we have sufficient permissions?"
+                        )
+
+                    await ctx.edit_response(
+                        embed=embed,
+                        flags=hikari.MessageFlag.EPHEMERAL
+                    )
+
+            if viewself.note_count != 0:
+                @miru.text_select(
+                    placeholder="Delete Note",
+                    options=[
+                        miru.SelectOption(label=f"Note #{note.identifier}")
+                        for note in user_notes(viewself.target_user.id, viewself.guild_id).get_all()
+                    ],
+                )
+                async def get_note_to_delete(self, ctx: miru.ViewContext, select: miru.TextSelect) -> None:
+                    if not ctx.user.id == viewself.author_id:
+                        return
+                    if ds.d["high_ping"]:
+                        # High ping logic
+                        await ctx.defer()
+                    
+                    note_id = int(select.values[0].split("#")[1])  # Get all text after the hash
+                    notes = user_notes(viewself.author_id, ctx.guild_id)
+                    try:
+                        success = notes.remove(note_id)
+                    except notes.errors.notenotfound:
+                        embed = await viewself.gen_embed()
+                        embed.add_field(
+                            name="Can't find note",
+                            value="It seems that note was already deleted by someone else?"
+                        )
+                        await ctx.edit_response(embed)
+                        return
+
+                    embed = await viewself.gen_embed()
+                    if success:
+                        embed.add_field(
+                            name="Note Deleted",
+                            value="**This note has been deleted from the user's profile**"
+                        )
+                        viewself.note_count -= 1
+                    else:
+                        embed.add_field(
+                            name="Failed to delete",
+                            value="We were unable to delete that note for this user."
+                        )
+                    await ctx.edit_response(embed)
 
             @miru.button(
                 label="Append Note",
@@ -238,7 +282,7 @@ class views:
 
                         notes = user_notes(viewself.author_id, ctx.guild_id)
                         try:
-                            success = notes.add(self.usernote.value)
+                            success = notes.add(f"{self.usernote.value} - <@{ctx.author.id}>")
                         except notes.errors.toomanynotes:
                             embed = await viewself.gen_embed()
                             embed.add_field(
@@ -254,6 +298,7 @@ class views:
                                 name="Note Added",
                                 value="**This note has been added to the user's account**"
                             )
+                            viewself.note_count += 1
                         else:
                             embed.add_field(
                                 name="Failed to add",

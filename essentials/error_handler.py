@@ -152,7 +152,7 @@ async def handler(exc: lightbulb.exceptions.ExecutionPipelineFailedException) ->
 
     ctx = exc.context
 
-    await ctx.respond(
+    embed = (
         hikari.Embed(
             title="Error Handler",
             description=(
@@ -166,6 +166,14 @@ async def handler(exc: lightbulb.exceptions.ExecutionPipelineFailedException) ->
             value=f"||In this command, we encountered a \"{original_exception}\" error.||"
         )
     )
+
+    try:
+        await ctx.respond(embed)
+    except hikari.NotFoundError:  # Might be an unknown interaction
+        await botapp.rest.create_message(
+            channel=exc.context.channel_id,
+            content=embed,
+        )
 
     tb = traceback.format_exception(type(original_exception), original_exception, original_exception.__traceback__)
 

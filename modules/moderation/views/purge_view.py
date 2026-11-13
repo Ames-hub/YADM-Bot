@@ -18,7 +18,7 @@ class views:
         timestamp = self.delete_after.timestamp()
         embed = hikari.Embed(
             title="Purge Confirmation",
-            description=f"Do you want to purge messages all messages after <t:{timestamp}:F>? This action is irreversible!",
+            description=f"Do you want to purge messages all messages after <t:{int(timestamp)}:F>? This action is irreversible!",
             colour=0xFFA500
         )
         return embed

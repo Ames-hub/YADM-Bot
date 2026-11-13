@@ -2043,7 +2043,7 @@ class guild_bans:
     def __init__(self, guild_id:int):
         self.guild_id = int(guild_id)
 
-    async def unban_user(self, user_id:int, mod_id:int, reason:str):
+    async def unban_user(self, user_id:int, mod_id:int, reason:str) -> bool:
         ban = self.fetch_ban(user_id)
 
         try:
@@ -2237,7 +2237,6 @@ class guild_bans:
             session.close()
 
     def fetch_ban(self, user_id) -> guild_ban_record:
-        """ Ban ID is equal to violation ID. """
         session = get_session()
         try:
             records = (
@@ -2248,7 +2247,7 @@ class guild_bans:
             )
             return records
         except OperationalError as err:
-            logging.error("Failed listing a bans!", exc_info=err)
+            logging.error("Failed getting a ban!", exc_info=err)
             return None
         finally:
             session.close()

@@ -172,14 +172,23 @@ def create_guild_sessions(session_id: str, discord_user_id: int, username: str, 
 
 def remove_guild_session(guild_id:int, session_id:str=None, discord_user_id: int=None):
     with get_session() as session:
-        records = session.query(web_guild_session).filter(web_guild_session.guild == guild_id)
         if session_id:
+            records = session.query(web_guild_session).filter(web_guild_session.guild == guild_id)
             records = records.filter(web_guild_session.session_id == session_id)
-        if discord_user_id:
-            records = records.filter(web_guild_session.discord_user_id == discord_user_id)
+        elif discord_user_id:
+            record = session.query(user_web_session).filter(user_web_session.discord_user_id == discord_user_id).one_or_none()
+            if not record:
+                return False
+            records = (
+                session.query(web_guild_session)
+                .filter(web_guild_session.session_id == record.session_id)
+                .filter(web_guild_session.guild == guild_id)
+            )
+
         records = records.all()
         if records:
-            session.delete(records)
+            for record in records:
+                session.delete(record)
             session.commit()
             return True
         else:

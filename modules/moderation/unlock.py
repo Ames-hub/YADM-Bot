@@ -24,7 +24,7 @@ class command(
         await server_logs(ctx.guild_id).create_entry(
             hikari.Embed(
                 title="Channel Unlock",
-                description=f"On {datetime.now().strftime('%Y-%b-%d %I:%M %p')} <#{self.channel}> has been unlocked by <@{ctx.user.id}>.",
+                description=f"On <t:{int(datetime.now().timestamp())}:f> <#{self.channel}> was unlocked by <@{ctx.user.id}>.",
                 colour=0x00FF00
             )
         )

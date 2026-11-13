@@ -237,7 +237,7 @@ def text_check(text:str, guild_id=None, observing:bool=False):
                     if verdict_whitelist_overwrite(verdict):
                         verdict = None
 
-            if guild_id:
+            if guild_id and name != "syntactic":  # Whitelist doesn't apply to syntactic analysis
                 if result['word'] in guild_whitelist_words:
                     verdict = None  # over-ride
 
