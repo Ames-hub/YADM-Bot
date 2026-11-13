@@ -7,10 +7,14 @@ from library.database.manage import (
     guild_activitiy_config,
     guild_leveling_config
 )
+from library.database.auditing import server_logs
 from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timedelta
+from library.botapp import botapp
 from cachetools import TTLCache
 from math import sqrt
+import logging
+import hikari
 
 class guild_leveling:
     def __init__(self, guild_id:int):
@@ -313,6 +317,96 @@ guild_activity_enabled_cache = TTLCache(maxsize=200, ttl=60)
 class user_activity:
     def __init__(self, guild_id:int):
         self.guild_id = guild_id
+
+    @staticmethod
+    async def scan_users_active():
+        """
+        Gets and applies the changes to each guild for each user. Can take a while to execute.
+        """
+        result = user_activity.determine_active()
+        newly_active = result['newly_active']
+        no_longer_active = result['no_longer_active']
+
+        guilds_to_be_warned: list[list[int, str]] = []
+
+        for guild_id, user_id in newly_active:
+            ua = user_activity(guild_id)
+            do_activity_monitoring = ua.get_guild_enabled()
+            if do_activity_monitoring:
+                role_id = ua.get_guild_active_role()
+                try:
+                    await botapp.rest.add_role_to_member(
+                        guild=guild_id,
+                        user=user_id,
+                        role=role_id,
+                        reason="User was flagged as being active in the community."
+                    )
+                except hikari.NotFoundError as err:
+                    if guild_id not in guilds_to_be_warned:
+                        errlower = err.message.lower()
+                        if "role" in errlower:
+                            guilds_to_be_warned.append([guild_id, "The active member role does not exist anymore, admins should assign a new role."])
+                            ua.set_guild_active_role(None)
+                            ua.set_guild_enabled(False)
+                        elif "user" in errlower or "member" in errlower:
+                            pass
+                except hikari.ForbiddenError:
+                    if guild_id not in guilds_to_be_warned:
+                        guilds_to_be_warned.append([
+                            guild_id,
+                            f"We can't give or take the <@&{role_id}> role to users as we don't have sufficient permissions."
+                        ])
+                        ua.set_guild_enabled(False)
+
+        for guild_id, user_id in no_longer_active:
+            ua = user_activity(guild_id)
+            do_activity_monitoring = ua.get_guild_enabled()
+            if do_activity_monitoring:
+                role_id = ua.get_guild_active_role()
+                try:
+                    await botapp.rest.remove_role_from_member(
+                        guild=guild_id,
+                        user=user_id,
+                        role=role_id,
+                        reason="User was flagged as no longer being active in the community."
+                    )
+                except hikari.NotFoundError as err:
+                    if guild_id not in guilds_to_be_warned:
+                        errlower = err.message.lower()
+                        if "role" in errlower:
+                            guilds_to_be_warned.append([guild_id, "The active member role does not exist anymore, admins should assign a new role."])
+                            ua.set_guild_active_role(None)
+                            ua.set_guild_enabled(False)
+                        elif "user" in errlower or "member" in errlower:
+                            pass
+                except hikari.ForbiddenError:
+                    if guild_id not in guilds_to_be_warned:
+                        guilds_to_be_warned.append([
+                            guild_id,
+                            f"We can't give or take the <@&{role_id}> role to users as we don't have sufficient permissions."
+                        ])
+                        ua.set_guild_enabled(False)
+
+        for item in guilds_to_be_warned:
+            try:
+                guild_id = item[0]
+                problem = item[1]
+            except IndexError as err:
+                logging.error("Error attempting to unpack a list.", exc_info=err)
+                continue
+            await server_logs(guild_id).create_entry(
+                hikari.Embed(
+                    title="User Activity Error",
+                    description=problem,
+                    colour=0xff0000
+                )
+                .add_field(
+                    name="Module Disabled",
+                    value="User activity monitoring has been disabled until you fix the issue. To re-enable it, run `/activity toggle`."
+                )
+            )
+
+        return True
 
     def get_guild_enabled(self):
         if guild_activity_enabled_cache.get(self.guild_id) is not None:
