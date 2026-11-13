@@ -17,7 +17,7 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
-        await prechecks("activity-set-active-role", ctx)
+        await prechecks("activity-set-active-role", ctx, [hikari.Permissions.MANAGE_ROLES, hikari.Permissions.MANAGE_GUILD])
 
         ua = user_activity(ctx.guild_id)
         success = ua.set_guild_active_role(self.role.id)

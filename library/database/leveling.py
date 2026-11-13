@@ -314,6 +314,9 @@ class _ua_class:
 guild_active_role_cache = TTLCache(maxsize=200, ttl=60)
 guild_activity_enabled_cache = TTLCache(maxsize=200, ttl=60)
 
+activity_threshold = 14  # Must have this many messages to be called active
+activity_days_threshold = 7  # Must be the threshold of messages over this many days to be called active.
+
 class user_activity:
     def __init__(self, guild_id:int):
         self.guild_id = guild_id
@@ -482,12 +485,12 @@ class user_activity:
                 session.query(observation_entry)
                 .filter(observation_entry.user_id == user_id)
                 .filter(observation_entry.guild_id == self.guild_id)
-                .filter(observation_entry.timestamp > (datetime.now() - timedelta(days=14)))
+                .filter(observation_entry.timestamp > (datetime.now() - timedelta(days=activity_days_threshold)))
                 .all()
             )
 
-            # If there's more than 24 messages sent in the last 2 weeks, the user is active.
-            is_active = len(records) >= 25
+            # If there's more than the threshold sent in the last 2 weeks, the user is active.
+            is_active = len(records) >= activity_threshold
 
             constructed_class = _ua_class(
                 is_active=is_active,
@@ -520,6 +523,9 @@ class user_activity:
         return True
 
     def get_is_active(self, user_id:int):
+        """
+        Memory-based, may use old / outdated data.
+        """
         with get_session() as session:
             activity_rec = (
                 session.query(guild_active_members)
@@ -527,9 +533,51 @@ class user_activity:
                 .filter(guild_active_members.guild_id == self.guild_id)
                 .one_or_none()
             )
+
             if not activity_rec:
-                return False
-            return activity_rec.is_active
+                is_active = self.is_user_active(user_id)
+                return is_active
+            
+        return activity_rec.is_active
+
+    def is_user_active(self, user_id: int) -> bool:
+        """
+        Checks whether a specific user is considered active in a specific guild.
+        Returns True if their message count meets the activity threshold.
+        """
+        with get_session() as session:
+            msg_count = (
+                session.query(observation_entry)
+                .filter(
+                    observation_entry.guild_id == self.guild_id,
+                    observation_entry.user_id == user_id,
+                    observation_entry.timestamp > (
+                        datetime.now() - timedelta(days=activity_days_threshold)
+                    )
+                )
+                .count()
+            )
+
+        is_active = msg_count >= activity_threshold
+
+        logging.info(
+            f"User {user_id} is {'active' if is_active else 'not active'} "
+            f"with {msg_count} messages in guild {self.guild_id}"
+        )
+
+        self.set_active(user_id, is_active)
+
+        return is_active
+
+    def get_msgs_count(self, user_id:int) -> int:
+        with get_session() as session:
+            count = (
+                session.query(observation_entry)
+                .filter(observation_entry.timestamp > (datetime.now() - timedelta(days=activity_days_threshold)))
+                .filter(observation_entry.user_id == user_id)
+                .count()
+            )
+        return count
 
     @staticmethod
     def get_all_users() -> list[guild_active_members]:
@@ -539,7 +587,6 @@ class user_activity:
                 .all()
             )
             return activity_records
-
 
     @staticmethod
     def determine_active() -> dict[str, list[tuple[int, int]]]:
@@ -551,7 +598,7 @@ class user_activity:
         with get_session() as session:
             records = (
                 session.query(observation_entry)
-                .filter(observation_entry.timestamp > (datetime.now() - timedelta(days=14)))
+                .filter(observation_entry.timestamp > (datetime.now() - timedelta(days=activity_days_threshold)))
                 .all()
             )
 
@@ -562,7 +609,7 @@ class user_activity:
             guild_users = user_msg_counts.setdefault(record.guild_id, {})
             guild_users[record.user_id] = guild_users.get(record.user_id, 0) + 1
 
-        # Build a set of users observed within the last 14 days.
+        # Build a set of users observed within the threshold for days.
         observed_users = {
             (record.guild_id, record.user_id)
             for record in records
@@ -581,7 +628,13 @@ class user_activity:
 
             for user_id, msg_count in users.items():
                 active_prior = ua.get_is_active(user_id)
-                is_active = msg_count > 24
+                is_active = msg_count >= activity_threshold
+                
+                log_msg = (
+                    f"User {user_id} is {'active' if is_active else 'not active'} with {msg_count} messages "
+                    f"in guild {guild_id}, Prior activity? {active_prior}"
+                )
+                logging.info(log_msg)
 
                 ua.set_active(user_id, is_active=is_active)
 

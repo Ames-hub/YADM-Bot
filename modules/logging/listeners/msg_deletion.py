@@ -40,7 +40,7 @@ async def botfunction(event: hikari.GuildMessageDeleteEvent):
                 continue
             if not record.target_id == event.old_message.author.id:  # Verifies the message belongs to the user
                 continue
-            if not abs(record.created_at - deletion_time).total_seconds() <= 5:  # Ensures the message is only recently deleted
+            if not int(record.created_at.timestamp() - deletion_time.timestamp()) <= 10:  # Ensures the message is only recently deleted
                 continue
             if not record.options.channel_id == event.channel_id:
                 continue

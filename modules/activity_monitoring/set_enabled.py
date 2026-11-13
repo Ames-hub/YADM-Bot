@@ -18,7 +18,7 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
-        await prechecks("activity-set-enabled", ctx)
+        await prechecks("activity-set-enabled", ctx, [hikari.Permissions.ADMINISTRATOR])
 
         ua = user_activity(ctx.guild_id)
         success = ua.set_guild_enabled(self.enabled)

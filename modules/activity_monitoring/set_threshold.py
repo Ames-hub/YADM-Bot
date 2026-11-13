@@ -17,7 +17,7 @@ class command(
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
-        await prechecks("activity-set-threshold", ctx)
+        await prechecks("activity-set-threshold", ctx, [hikari.Permissions.ADMINISTRATOR])
 
         await ctx.respond(
             hikari.Embed(
