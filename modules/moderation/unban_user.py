@@ -16,7 +16,6 @@ class command(
     
     target = lightbulb.user("target", "Who to Ban")
     reason = lightbulb.string("reason", "Why are they being banned?")
-    hours_deletion = lightbulb.integer("delete_hours", "how many hours worth of their messages should be deleted?", min_value=0)
 
     @lightbulb.invoke
     async def invoke(self, ctx: lightbulb.Context) -> None:
@@ -24,11 +23,21 @@ class command(
 
         guild = dbguild(ctx.guild_id)
 
-        success = await guild.bans.unban_user(
-            user_id=self.target.id,
-            mod_id=ctx.user.id,
-            reason=self.reason,
-        )
+        try:
+            success = await guild.bans.unban_user(
+                user_id=self.target.id,
+                mod_id=ctx.user.id,
+                reason=self.reason,
+            )
+        except guild.bans.errors.user_not_banned:
+            await ctx.respond(
+                hikari.Embed(
+                    title="User not banned",
+                    description="There's no record of this user being banned!",
+                    colour=0xff0000
+                )
+            )
+            return
 
         if success:
             await ctx.respond(

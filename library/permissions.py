@@ -150,10 +150,10 @@ class perms:
 
         user_perms = await perms.get_user_permissions(guild_id, user_id)
 
-        if permission in user_perms:
+        if user_perms & permission:
             return True
         else:
-            if hikari.Permissions.ADMINISTRATOR in user_perms:
+            if user_perms & hikari.Permissions.ADMINISTRATOR:
                 return True
             return False
 
@@ -161,35 +161,39 @@ class perms:
     async def get_user_permissions(guild_id, user_id):
         user_id = int(user_id)
         guild_id = int(guild_id)
-        if perms_cache.get(f"{guild_id}-{user_id}", False):
-            return perms_cache[f"{guild_id}-{user_id}"]
 
-        member:hikari.Member = await botapp.rest.fetch_member(guild=guild_id, user=user_id)
+        cache_key = f"{guild_id}-{user_id}"
 
-        # If the user is the owner of the guild, return all permissions.
+        if cache_key in perms_cache:
+            return perms_cache[cache_key]
+
+        try:
+            member: hikari.Member = await botapp.rest.fetch_member(
+                guild=guild_id,
+                user=user_id
+            )
+        except (hikari.NotFoundError, hikari.ForbiddenError):
+            perms_cache[cache_key] = hikari.Permissions.NONE
+            return hikari.Permissions.NONE
+
+        # Guild owner has every permission.
         owner_id = await perms.get_guild_owner_id(guild_id)
 
         if owner_id == member.id:
-            perms_list = [
-                # All the major permissions
-                hikari.Permissions.ADMINISTRATOR,
-                hikari.Permissions.MANAGE_GUILD,
-                hikari.Permissions.MANAGE_ROLES,
-            ]
-            perms_cache[f"{guild_id}-{user_id}"] = perms_list
-            return perms_list
+            permissions = hikari.Permissions.ADMINISTRATOR
+            perms_cache[cache_key] = permissions
+            return permissions
 
-        perms_list = []
+        # Combine permissions from every role.
+        permissions = hikari.Permissions.NONE
+
         roles = await member.fetch_roles()
-        for role in roles:
-            for perm in role.permissions:
-                if perm not in perms_list:
-                    perms_list.append(perm)
-                else:
-                    continue
 
-        perms_cache[f"{guild_id}-{user_id}"] = perms_list
-        return perms_list
+        for role in roles:
+            permissions |= role.permissions
+
+        perms_cache[cache_key] = permissions
+        return permissions
 
     @staticmethod
     async def get_guild_owner_id(guild_id):

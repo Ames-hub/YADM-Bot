@@ -26,7 +26,7 @@ class command(
 
         warn_id = guild.warnings.add_warning(
             reason=self.reason,
-            mod_id=self.moderator.id,
+            mod_id=ctx.user.id,
             user_id=self.target_user.id,
         )
 
@@ -71,7 +71,7 @@ class command(
             if not notify_okay:
                 embed.add_field(
                     name="No Notification",
-                    value=f"{self.user.mention} Wasn't able to be notified of their warning."
+                    value=f"{self.target_user.mention} Wasn't able to be notified of their warning."
                 )
 
             await ctx.respond(embed)

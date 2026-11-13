@@ -602,12 +602,15 @@ class violations:
 
         ban_case = guild.bans.fetch_ban(violation_id)  # Ban IDs are equal to the assosciated violation ID.
         unban_ok = None
-        if ban_case:
-            unban_ok = await guild.bans.unban_user(
-                user_id=ban_case.user_id,
-                mod_id=mod_id,
-                reason="Assosciated violation appealed."
-            )
+        if ban_case and ban_case.active:
+            try:
+                unban_ok = await guild.bans.unban_user(
+                    user_id=ban_case.user_id,
+                    mod_id=mod_id,
+                    reason="Assosciated violation appealed."
+                )
+            except guild.bans.errors.user_not_banned:
+                pass  # Ignore it
 
         guild_name = await guild.find_name()
         vcase: member_violation = violations.get_violation_record(mute_case.violation_case_id)
@@ -2043,46 +2046,106 @@ class guild_bans:
     def __init__(self, guild_id:int):
         self.guild_id = int(guild_id)
 
-    async def unban_user(self, user_id:int, mod_id:int, reason:str) -> bool:
-        ban = self.fetch_ban(user_id)
+    class errors:
+        class user_not_banned(Exception):
+            def __init__(self, *args):
+                super().__init__(*args)
 
-        try:
-            await botapp.rest.unban_member(
-                ban.guild_id,
-                ban.banned_id,
-                reason=reason
-            )
-        except (hikari.ForbiddenError, hikari.BadRequestError, hikari.UnauthorizedError):
-            return False
+    async def unban_user(self, user_id:int, mod_id:int, reason:str, time_to_unban:int=None) -> bool:
+        """
+        Handles the full process of unbanning a user.
+        To delay the unban, 
+        """
+        ban = self.fetch_ban(user_id)
+        unban_timestamp = None
+
+        if not ban:
+            raise guild_bans.errors.user_not_banned
+
+        if not time_to_unban:
+            try:
+                await botapp.rest.unban_member(
+                    ban.guild_id,
+                    ban.banned_id,
+                    reason=f"Moderator with ID {mod_id} says: {reason}" if ds.d['myid'] != mod_id else reason
+                )
+
+                with get_session() as session:
+                    try:
+                        record = (
+                            session.query(guild_ban_record)
+                            .filter(guild_ban_record.guild_id == self.guild_id)
+                            .filter(guild_ban_record.banned_id == user_id)
+                            .one_or_none()
+                        )
+                        record.active = False
+                        session.commit()
+                    except OperationalError as err:
+                        logging.error("Failed getting the ban and setting its active state!", exc_info=err)
+                        return None
+                    finally:
+                        session.close()
+
+            except (hikari.ForbiddenError, hikari.BadRequestError, hikari.UnauthorizedError):
+                return False
+        else:
+            unban_timestamp = int(datetime.datetime.now().timestamp() + time_to_unban)
+            with get_session() as session:
+                try:
+                    record = (
+                        session.query(guild_ban_record)
+                        .filter(guild_ban_record.guild_id == self.guild_id)
+                        .filter(guild_ban_record.banned_id == user_id)
+                        .one_or_none()
+                    )
+                    record.time_to_unban = datetime.datetime.fromtimestamp(unban_timestamp)
+                    session.commit()
+                except OperationalError as err:
+                    logging.error("Failed getting the ban and setting the Time-to-unban!", exc_info=err)
+                    return None
+                finally:
+                    session.close()
 
         logs = server_logs(self.guild_id)
-        await logs.create_entry(
-            hikari.Embed(
-                title="User unbanned",
-                description=f"<@{ban.banned_id}> was unbanned from the server by <@{mod_id}>.",
-                color=0x0000ff
+        if not time_to_unban:
+            await logs.create_entry(
+                hikari.Embed(
+                    title="User unbanned",
+                    description=f"<@{ban.banned_id}> was unbanned from the server by <@{mod_id}>.",
+                    color=0x0000ff
+                )
+                .add_field(
+                    name="Unban reason",
+                    value=f"\"{reason}\""
+                )
+                .add_field(
+                    name="Original Reason for ban",
+                    value=ban.reason
+                )
             )
-            .add_field(
-                name="Original Reason for ban",
-                value=ban.reason
+        else:
+            await logs.create_entry(
+                hikari.Embed(
+                    title="User Unban Scheduled",
+                    description=f"<@{ban.banned_id}> has been scheduled to be unbanned from the server by <@{mod_id}>.",
+                    color=0x0000ff
+                )
+                .add_field(
+                    name="Time to unban",
+                    value=(
+                        f"Relative: <t:{unban_timestamp}:R\n"
+                        f"Full Timestamp: <t:{unban_timestamp}:F>"
+                    )
+                )
+                .add_field(
+                    name="Unban reason",
+                    value=f"\"{reason}\""
+                )
+                .add_field(
+                    name="Original Reason for ban",
+                    value=ban.reason
+                )
             )
-        )
-
-        session = get_session()
-        try:
-            record = (
-                session.query(guild_ban_record)
-                .filter(guild_ban_record.guild_id == self.guild_id)
-                .filter(guild_ban_record.banned_id == user_id)
-                .one_or_none()
-            )
-            record.active = False
-            session.commit()
-        except OperationalError as err:
-            logging.error("Failed listing all bans!", exc_info=err)
-            return None
-        finally:
-            session.close()
 
         return True
 
@@ -2097,9 +2160,6 @@ class guild_bans:
         ) -> bool:
         if ban_seconds <= 0:
             return -1
-
-        # Check our cache
-        cache_expire_time = 86400  # 1 day in seconds
         
         guild_name = None
         if not ds.d["guild_name_cache"].get(self.guild_id, None):

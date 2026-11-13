@@ -26,12 +26,14 @@ class views:
 
         if not self.member_status:
             user_perms = await perms.get_user_permissions(self.guild_id, self.target_user.id)
-            if hikari.Permissions.ADMINISTRATOR in user_perms:
+            if hikari.Permissions.ADMINISTRATOR & user_perms:
                 self.member_status = "**ADMIN**"
-            elif hikari.Permissions.MANAGE_MESSAGES in user_perms:
+            elif hikari.Permissions.MANAGE_MESSAGES & user_perms:
                 self.member_status = "*MODERATOR*"
-            else:
+            elif hikari.Permissions.MANAGE_MESSAGES & user_perms:
                 self.member_status = "MEMBER"
+            else:
+                self.member_status = "Not in server"
 
         is_maintainer = self.target_user.id == settings.get.primary_maintainer()
 
@@ -58,6 +60,14 @@ class views:
             else:
                 continue
 
+        in_guild = True  # Assumes they're in a guild we're in.
+        try:
+            joined_server_text = self.target_user.joined_at.strftime('%d-%m-%Y')
+        except AttributeError: 
+            in_guild = False
+            joined_server_text = "N/A"
+
+        # TODO: Make this show user activity in a community too. (If possible) 
         embed = (
             hikari.Embed(
                 title=f"User Profile: {self.target_user.display_name}",
@@ -65,7 +75,7 @@ class views:
                     f"{len(all_warnings)} warnings • "
                     f"{automod_violations_count} automated flags • "
                     f"{self.member_status}\n{"__Primary Bot Maintainer__\n\n" if is_maintainer else ""}"
-                    f"Joined server: {self.target_user.joined_at.strftime('%d-%m-%Y')} • "
+                    f"Joined server: {joined_server_text} • "
                     f"Discord account created: {self.target_user.created_at.strftime('%d-%m-%Y')}"
                 ),
                 colour=0xff0000
@@ -90,10 +100,12 @@ class views:
                     f"`{', '.join(last_10_warnings) if last_10_warnings else 'No warnings on record.'}`"
                 )
             )
-            .set_thumbnail(
+        )
+
+        if in_guild:
+            embed.set_thumbnail(
                 hikari.URL(self.target_user.make_guild_avatar_url(), "user_pfp.png")
             )
-        )
 
         notes = user_notes(self.target_user.id, self.guild_id)
         all_notes = notes.get_all()

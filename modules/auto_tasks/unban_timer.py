@@ -16,11 +16,14 @@ async def handle_task():
             guild = dbguild(ban.guild_id)
             reason = f"Ban countdown as set by user with ID {ban.moderator_id} had expired"
             try:
-                success = await guild.bans.unban_user(
-                    user_id=ban.banned_id,
-                    mod_id=ds.d['myid'],
-                    reason=reason
-                )
+                try:
+                    success = await guild.bans.unban_user(
+                        user_id=ban.banned_id,
+                        mod_id=ds.d['myid'],
+                        reason=reason
+                    )
+                except guild.bans.errors.user_not_banned:
+                    continue
                 logs = server_logs(ban.guild_id)
                 if not success:
                     await logs.create_entry(

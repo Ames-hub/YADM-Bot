@@ -10,6 +10,8 @@ async def handle_task(event: hikari.events.MemberUpdateEvent):
     This is an essential permissions task for the WebUI.
     This looks for user role updates, and haves it check if they're still an admin. If they are, it does nothing. If not, it lets the web UI know.
     """
+    if not event.old_member or not event.member:
+        return
     old_roles = event.old_member.role_ids
     new_roles = event.member.role_ids
     if old_roles == new_roles:
