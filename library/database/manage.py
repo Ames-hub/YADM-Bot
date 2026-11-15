@@ -7,10 +7,7 @@ from sqlalchemy.exc import OperationalError
 from library.settings import get
 from library import settings
 from pathlib import Path
-import subprocess
 import logging
-import secrets
-import string
 import time
 
 
@@ -400,6 +397,27 @@ class guild_activitiy_config(Base):
     guild_id = Column(BigInteger, primary_key=True)
     active_role = Column(BigInteger, default=None)
     enabled = Column(BOOLEAN, default=False)
+
+class guild_activitiy_role_perk(Base):
+    __tablename__ = "guild_activitiy_role_perks"
+
+    perk_id = Column(Integer, primary_key=True)
+    guild_id = Column(BigInteger, nullable=False)
+    role_id = Column(BigInteger, nullable=False)
+    msgs_required = Column(Integer, nullable=False)
+    # This is always "GT", "GTE", "LT" or "LTE". Defaults to "GTE".
+    # Short for "Greater than", "Greater than or equal to", or "Less than" and "Less than or equal to"
+    # Uses it to look for what they need to get the perk, ie, more than 10 msgs to get it or less than 10 msgs to get it.
+    operator = Column(TEXT, nullable=False, default="GTE")
+
+class guild_activitiy_perks_given(Base):
+    # Keeps track of who we've given the perk roles to so we don't spam discord with removal or give requests.
+    __tablename__ = "guild_activitiy_role_perks_given"
+
+    guild_id = Column(BigInteger, primary_key=True)
+    user_id = Column(BigInteger, nullable=False)
+    # The role they currently have. None if they're not eligable for any
+    given_role = Column(BigInteger, nullable=True)
 
 def get_session():
     if SessionLocal is None:

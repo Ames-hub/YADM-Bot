@@ -34,7 +34,12 @@ class command(
             await auditing.server_logs(ctx.guild_id).create_entry(
                 hikari.Embed(
                     title="Activity Monitoring Enabled",
-                    description=f"{ctx.user.mention} enabled activity monitoring for this server.",
+                    description=(
+                        f"{ctx.user.mention} enabled activity monitoring for this server.\n\n"
+                        "This enables activity perks to be given (users who talk enough get special roles) with the command `/activity addperk` "
+                        "and enables users who are just generally active (>25msgs in 1 week) to get a special 'active user' role, assigned with "
+                        "`/activity setactiverole`!"
+                    ),
                     colour=0x00ff00
                 )
             )

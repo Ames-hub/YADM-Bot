@@ -15,7 +15,7 @@ async def botfunction(event: hikari.MessageCreateEvent):
             hikari.Embed(
                 title="DEBUG COMMAND DETECTED",
                 description=(
-                    "Primary maintainer has requested all guilds and all users be scanned for weekly activity, "
+                    "One of the maintainers have requested all guilds and all users be scanned for weekly texting activity, "
                     "and that roles be applied accordingly. The changes may take a while to take effect."
                 ),
                 colour=0x0000ff

@@ -42,9 +42,16 @@ async def prechecks(
 
     if not bot_admin_only:
         if permission is not None:
-            if await perms.is_privileged(permission, guild_id, user_id) is False:
-                await ctx.respond(perms.embeds.forbidden())
-                raise perms.errors.user_perm_error
+            # Its a single, unlisted permission
+            if type(permission) is not list:
+                if await perms.is_privileged(permission, guild_id, user_id) is False:
+                    await ctx.respond(perms.embeds.forbidden())
+                    raise perms.errors.user_perm_error
+            else:
+                for perm in permission:  # Handle it as a list.
+                    if await perms.is_privileged(perm, guild_id, user_id) is False:
+                        await ctx.respond(perms.embeds.forbidden())
+                        raise perms.errors.user_perm_error
     else:
         allowed = ctx.user.id == get.primary_maintainer()
         if allowed:

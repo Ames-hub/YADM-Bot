@@ -1,5 +1,6 @@
 from modules.activity_monitoring.group import group
 from library.database.leveling import user_activity
+from library.database.auditing import server_logs
 from library.permissions import prechecks
 import lightbulb
 import hikari
@@ -27,6 +28,13 @@ class command(
                 hikari.Embed(
                     title="Role Set",
                     description="That role will be given to users who send more than 25 messages per week.",
+                    colour=0x00ff00
+                )
+            )
+            await server_logs(ctx.guild_id).create_entry(
+                hikari.Embed(
+                    title="Active Member Role Set",
+                    description=f"The role given to active members of the guild (>=25 messages per week) was changed to <@&{self.role.id}>",
                     colour=0x00ff00
                 )
             )
