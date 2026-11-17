@@ -6,19 +6,34 @@ import miru
 
 
 class views:
-    def __init__(self, author_id:int, guild_id, delete_after: datetime.datetime, channel:int, reason:str):
+    def __init__(
+            self,
+            author_id:int,
+            guild_id:int,
+            delete_after: datetime.datetime,
+            channel:int,
+            reason:str,
+            deletion_target:hikari.Member,
+            delete_amount:int
+        ):
+
         self.author_id = author_id
         self.guild_id = guild_id
         self.guild = dbguild(self.guild_id)
         self.delete_after: datetime.datetime = delete_after
         self.channel_id = channel
         self.reason = reason
+        self.deletion_target = deletion_target
+        self.delete_amount = delete_amount
 
     def gen_embed(self):
         timestamp = self.delete_after.timestamp()
         embed = hikari.Embed(
             title="Purge Confirmation",
-            description=f"Do you want to purge messages all messages after <t:{int(timestamp)}:F>? This action is irreversible!",
+            description=(
+                f"Do you want to purge messages {"all" if self.delete_amount is None else f"{self.delete_amount}x"} messages after "
+                f"<t:{int(timestamp)}:F>? This action is irreversible!"
+            ),
             colour=0xFFA500
         )
         return embed
@@ -62,7 +77,9 @@ class views:
                     moderator_id=ctx.user.id,
                     channel_id=viewself.channel_id,
                     after=viewself.delete_after,
-                    reason=viewself.reason
+                    reason=viewself.reason,
+                    deletion_target_id=viewself.deletion_target.id if viewself.deletion_target else None,
+                    delete_amount=viewself.delete_amount if viewself.delete_amount else None
                 )
                 if not success:
                     await ctx.edit_response(

@@ -1,9 +1,10 @@
 from library.database.guilds import dbguild
 from library import datastore as ds
-from datetime import datetime
+from cachetools import TTLCache
 from collections import deque
 from library import automod
 import lightbulb
+import hashlib
 import hikari
 
 loader = lightbulb.Loader()
@@ -13,20 +14,16 @@ MIN_MESSAGES = 4  # Must be at least 2, or the maths breaks.
 
 @loader.listener(hikari.GuildMessageCreateEvent)
 async def botfunction(event: hikari.GuildMessageCreateEvent):
+    """
+    Checks for sending lots of messages over a short-ish period of time.
+    """
     if not event.is_human:
         return
 
     guild = dbguild(event.guild_id)
-    if not guild.get.do_filter_spam():
-        return
 
     if event.author.id in ds.d["filter_exemptions"].get(int(event.guild_id), []):
         return
-
-    # Ensure caches exist
-    ds.d.setdefault("spam_cache", {})
-    ds.d.setdefault("spam_punish_cache", {})
-    ds.d.setdefault("spam_sustain_cache", {})
 
     ds.d["spam_cache"].setdefault(event.guild_id, {})
     ds.d["spam_punish_cache"].setdefault(event.guild_id, {})
@@ -88,6 +85,9 @@ async def botfunction(event: hikari.GuildMessageCreateEvent):
         if punish_time_diff < 10:
             return
 
+    if not guild.get.do_filter_spam():  # Ignore spam if its disabled, but still track it (for other modules)
+        return
+
     embed = hikari.Embed(
         title="❄️ Spam detected ❄️",
         description=(
@@ -97,6 +97,7 @@ async def botfunction(event: hikari.GuildMessageCreateEvent):
             "Please slow down and avoid sending multiple messages in a short period of time.\n"
             "You've been placed on a 30 second cooldown."
         ),
+        colour=0xff0000
     )
 
     # Record punishment time
@@ -115,3 +116,52 @@ async def botfunction(event: hikari.GuildMessageCreateEvent):
             "sustained_for": round(sustained_for, 2)
         }
     )
+
+@loader.listener(hikari.GuildMessageCreateEvent)
+async def botfunction(event: hikari.GuildMessageCreateEvent):
+    """
+    Checks for sending many repeated messages
+    """
+    if not event.is_human:
+        return
+
+    # Ignore short messages
+    if len(event.message.content) < 200:
+        return
+
+    msg_hash = hashlib.sha256(event.message.content.encode('utf-8')).hexdigest()
+    user_msgs_said = ds.d["spam_msg_repetition"].get(event.author.id)
+
+    if user_msgs_said is None:
+        user_msgs_said = TTLCache(maxsize=25, ttl=600)
+        ds.d["spam_msg_repetition"][event.author.id] = user_msgs_said
+
+    # Re-insert it each time so the TTL doesn't kill it while they might be spamming. 
+    times_said = user_msgs_said.pop(msg_hash, 0) + 1
+    user_msgs_said[msg_hash] = times_said
+
+    if times_said > 4:
+        current_time = event.message.created_at.timestamp()
+
+        # Record punishment time
+        ds.d["spam_punish_cache"][event.guild_id][event.author.id] = current_time
+
+        guild = dbguild(event.guild_id)
+        if not guild.get.do_filter_spam():  # Ignore spam if its disabled, but still track it (for other modules)
+            return
+
+        embed = hikari.Embed(
+            title="❄️ Spam detected ❄️",
+            description="You've sent this message a lot recently, be mindful that this is not allowed.",
+            colour=0xff0000
+        )
+
+        await automod.handle_guilty(
+            event,
+            alert_embed=embed,
+            automod_type=automod.automod_types.SPAM_FILTER,
+            whistleblower="Spam Filter",
+            automod_report={
+                "times_said": times_said,
+            }
+        )

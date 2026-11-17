@@ -24,6 +24,87 @@ class guild_leveling:
         self.guild_id = guild_id
         self.msg_score_value = 5  # How many points 1 msg is worth
 
+    async def handle_level_up(self, target_user_id:int, send_to_channel_id:int, old_lvl:int, new_lvl:int):
+        """
+        Handles the basic logic for when a user levels up in a guild, including sending the message to the server.
+        """
+        from library.database.guilds import dbguild
+        ua = user_activity(self.guild_id)
+        guild = dbguild(self.guild_id)
+
+        if new_lvl > old_lvl:
+            embed = hikari.Embed(
+                title="Level Up! ✨",
+                description=f"Congratulations <@{target_user_id}>,\nyou just leveled up to level {new_lvl}!",
+                colour=0xFFD700
+            )
+            leveling_perk = guild.leveling.get_guild_level_perk(new_lvl)
+            if leveling_perk is not None:
+                activity_perk = ua.get_role_perk(role_id=leveling_perk.role_id)
+
+                # If its an activity perk and a leveling perk, combine the two behaviors. Otherwise have them act separately.
+                is_activity_perk = (
+                    activity_perk is not None
+                    and
+                    ua.get_guild_enabled() is True
+                )
+                msgs_count = ua.get_msgs_count(target_user_id) if is_activity_perk else None
+
+                give_perks = True
+                if is_activity_perk and activity_perk.msgs_required >= msgs_count:
+                    embed.add_field(
+                        name="New Perks!",
+                        value=f"You've unlocked the perks that come with the role <@&{leveling_perk.role_id}>"
+                    )
+                    give_perks = False
+                elif is_activity_perk and not activity_perk.msgs_required >= msgs_count:
+                    give_perks = False
+                    msgs_needed = activity_perk.msgs_required - msgs_count
+                    if msgs_needed > 999:
+                        embed.add_field(
+                            name="You'll get there eventually!",
+                            value=f"You leveled up, but you're {msgs_needed} messages short of unlocking new perks!"
+                        )
+                    else:
+                        embed.add_field(
+                            name="Almost there!",
+                            value=f"You leveled up, but you're {msgs_needed} messages short of unlocking new perks!"
+                        )
+                elif not activity_perk:
+                    give_perks = True
+                    embed.add_field(
+                        name="New Perks!",
+                        value=f"You've unlocked the perks that come with the role <@&{leveling_perk.role_id}>"
+                    )
+
+                if give_perks:
+                    try:
+                        await botapp.rest.add_role_to_member(
+                            self.guild_id,
+                            target_user_id,
+                            leveling_perk.role_id,
+                            reason="User leveled up!"
+                        )
+                    except (hikari.ForbiddenError, hikari.UnauthorizedError, hikari.BadRequestError, hikari.NotFoundError):
+                        embed.add_field(
+                            name="Error adding perk!",
+                            value=f"We tried to add the perk role, but it seems we lack permission to do so, or the role does not exist anymore."
+                        )
+                        # Remove it so we don't spam discord with impossible requests.
+                        guild.leveling.rm_level_role(leveling_perk.role_id)
+
+            channel = guild.leveling.get_dedicated_channel()
+            if channel is not None:
+                await botapp.rest.create_message(
+                    channel,
+                    embed
+                )
+            else:
+                await botapp.rest.create_message(
+                    send_to_channel_id,
+                    embed
+                )
+
     def get_enabled(self):
         with get_session() as session:
             record = (
@@ -222,6 +303,7 @@ class guild_leveling:
                     guild_leveling_exp.exp.desc(),
                     guild_leveling_exp.user_id.asc()
                 )  # Two order-by's. Just in case two people are tied for EXP.
+                .limit(10)
                 .all()
             )
             return records
@@ -259,6 +341,16 @@ class guild_leveling:
                 .filter(guild_leveling_exp.user_id == user_id)
                 .one_or_none()
             )
+            if not record:
+                record = guild_leveling_exp(
+                    guild_id=self.guild_id,
+                    user_id=user_id,
+                    exp=0,
+                    level=0,
+                )
+                session.add(record)
+                session.commit()
+                session.refresh(record)
         return record
 
     def add_level_role(self, role_id:int, level_needed:int):
@@ -539,6 +631,8 @@ class user_activity:
 
                 leveling = guild_leveling(guild_id)
                 leveling_perk = leveling.get_guild_perk_by_role(eligable_perk.role_id)
+
+                # If its an activity perk and a leveling perk, combine the two behaviors. Otherwise have them act separately.
                 is_leveling_perk = (
                     leveling_perk is not None
                     and
@@ -804,6 +898,8 @@ class user_activity:
             if not ua.get_guild_enabled():
                 continue
             role_id = ua.get_guild_active_role()
+            if role_id is None:
+                continue  # Ignore it if there's no role to give
             try:
                 await botapp.rest.add_role_to_member(
                     guild=guild_id,

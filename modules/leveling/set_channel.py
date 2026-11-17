@@ -42,6 +42,7 @@ class command(
         await server_logs(ctx.guild_id).create_entry(
             hikari.Embed(
                 title="Leveling config changed",
-                description=f"{ctx.user.mention} Has just changed the leveling config to send all level-up notifications to {self.channel.mention}."
+                description=f"{ctx.user.mention} Has just changed the leveling config to send all level-up notifications to {self.channel.mention}.",
+                colour=0x00ff00
             )
         )

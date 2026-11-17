@@ -324,6 +324,7 @@ ds.d["filter_exemptions"] = {}  # People who are not looked at by the automod. A
 ds.d["spam_cache"] = TTLCache(10000, ttl=60)
 # Cache to track when users were last punished for spam, to avoid punishing them multiple times in a short period
 ds.d["spam_punish_cache"] = TTLCache(10000, ttl=30)
+ds.d["spam_sustain_cache"] = TTLCache(10000, ttl=15)
 ds.d["bad_word_list_cache"] = {}
 ds.d["rr_role_names_cache"] = {}
 ds.d["channel_users_talking"] = TTLCache(2000, 240)  # 2000 Channels
@@ -337,6 +338,7 @@ ds.d["activity_operator_map"] = {
     "LT": "<",
     "LTE": "<=",
 }
+ds.d["spam_msg_repetition"] = TTLCache(maxsize=1000, ttl=600)
 
 try:
     logging.info(f"OS Detected: {get_os_name()}")
@@ -349,7 +351,7 @@ try:
         asyncio.set_event_loop(loop)
 
     bm.benchmark("All pre-flight checks completed, initalization of bot commencing.")
-    botapp.run(shard_count=3 if prod_mode else 1)
+    botapp.run(shard_count=1 if not prod_mode else get.shard_count())
 except KeyboardInterrupt:
     print("Interrupt signal received, shutting down...")
     exit(0)

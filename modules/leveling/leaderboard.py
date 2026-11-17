@@ -42,6 +42,7 @@ class command(
                 colour=0xffd700
             )
         )
+
         if len(leaderboard) == 0:
             embed.add_field(
                 name=f"Nobody's Placed!",

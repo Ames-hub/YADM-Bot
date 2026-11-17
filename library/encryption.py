@@ -38,10 +38,12 @@ class encryption:
             err_msg = "Invalid token. The message may have been tampered with or you may be using the wrong private.key file."
             print(err_msg)
             logging.error(err_msg)
+            return False
         except ValueError:
             err_msg = "The message is empty or the key has been tampered with."
             print(err_msg)
             logging.error(err_msg)
+            return False
 
     def decrypt(self, encrypted_message):
         assert encrypted_message is not None, "The message is None."

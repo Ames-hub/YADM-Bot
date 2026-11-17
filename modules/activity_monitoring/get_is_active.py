@@ -33,7 +33,7 @@ class command(
 
         await ctx.respond(
             hikari.Embed(
-                title=f"User Activity - {ctx.user.display_name}",
+                title=f"User Activity - {self.target.display_name}",
                 description=(
                     f"{activity_text}\n"
                     f"This user has sent {msgs_count} messages in the last {activity_days_threshold} days!"

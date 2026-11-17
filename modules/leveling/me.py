@@ -31,4 +31,11 @@ class command(
             )
         )
 
+        leveling_enabled = guild.leveling.get_enabled()
+        if not leveling_enabled:
+            embed.add_field(
+                name="Leveling disabled",
+                value="These numbers will not change while the admins have leveling turned off."
+            )
+
         await ctx.respond(embed)

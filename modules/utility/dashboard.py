@@ -20,9 +20,9 @@ if hostname:
             await prechecks("dashboard", ctx)
             await ctx.respond(
                 hikari.Embed(
-                    title="Nodeus Dashboard",
+                    title=f"{get.bot_name().capitalize()} Dashboard",
                     description=(
-                        f"[Open Dashboard]({hostname})"
+                        f"[Open Bot Dashboard]({hostname})"
                     ),
                     color=0x5865F2
                 )

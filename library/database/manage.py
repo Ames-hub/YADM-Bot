@@ -304,6 +304,7 @@ class observation_entry(Base):
     # This stores if, during review, the decision of the Automod was confirmed to be correct.
     confirmed = Column(BOOLEAN, nullable=False, default=False)
     bad_message = Column(BOOLEAN, nullable=False, default=False)
+    deleted = Column(BOOLEAN, nullable=False, default=False)
 
 class user_web_session(Base):
     __tablename__ = "user_web_sessions"
@@ -440,7 +441,7 @@ def wait_for_db(url: str, retries: int = 30, delay: int = 2) -> bool:
 
     if not settings.get.force_use_sqlite() and settings.get.prod_mode():
         # If this is none, the rest are also likely None.
-        if not settings.get.db_host():
+        if settings.get.db_host() == None:
             error = (
                 "Error! No externally configured DB is set while on Production mode. "
                 "To fix this, please set a DB by running webui.py with --setup-db or enable force-use-sqlite in settings.json"

@@ -19,6 +19,18 @@ commands_list = [
         "--scan-activity-perks-now",
         "Checks which activity perks user's are eligable for, and gives them out if they've sent enough messages."
     ],
+    [
+        "--set-setting <key> <value>",
+        "Use this command to set a variable in the bot's settings."
+    ],
+    [
+        "--list-settings",
+        "Use this command to list all existing settings for the bot."
+    ],
+    [
+        "--convert-activity-to-exp",
+        "Take how many messages each user has sent, and give 5 exp for each message."
+    ]
 ]
 
 @loader.listener(hikari.MessageCreateEvent)

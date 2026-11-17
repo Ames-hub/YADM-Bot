@@ -20,6 +20,8 @@ class command(
     
     channel = lightbulb.channel("channel", "Which channel to purge", default=None)
     reason = lightbulb.string("reason", "Reason for purging messages", default="No reason provided.")
+    target_author = lightbulb.user("author", "Target who's messages we delete", default=None)
+    delete_amount = lightbulb.integer("amount", "How messages to delete?", min_value=0, default=None)  # None = do all
     purge_days = lightbulb.integer("days", "How many days worth of messages to purge?", min_value=0, max_value=14, default=0)
     purge_hours = lightbulb.integer("hours", "How many hours worth of messages to purge?", min_value=0, default=0)
     purge_minutes = lightbulb.integer("minutes", "How many minutes worth of messages to purge?", min_value=0, default=0)
@@ -76,7 +78,9 @@ class command(
             delete_after=delete_after,
             channel=self.channel,
             reason=self.reason,
-            author_id=ctx.user.id
+            author_id=ctx.user.id,
+            deletion_target=self.target_author,
+            delete_amount=self.delete_amount
         )
         embed = view.gen_embed()
         view_menu = view.init_view()

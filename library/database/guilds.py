@@ -2571,29 +2571,59 @@ class dbguild:
 
         return True
 
-    async def purge_messages(self, moderator_id:int, channel_id:int, after:datetime.datetime=None, messages_list:list=None, reason: str="No reason provided"):
-        if not after and not messages_list:
-            raise ValueError("Must provide at least 'after', or 'messages to purge' list")
-        elif messages_list and after:
-            raise ValueError("Cannot provide both 'after' and 'messages to purge' list")
+    # TODO: Figure out why the heck the purge command isn't deleting the right messages
+    async def purge_messages(
+            self, moderator_id: int,
+            channel_id: int,
+            after: datetime.datetime,
+            reason: str = "No reason provided",
+            deletion_target_id: int = None,
+            delete_amount: int = None  # None = delete all no limit
+        ):
+        
+        two_weeks = 1209600  # 14 days in seconds
+        if (datetime.datetime.now() - after).total_seconds() > two_weeks:
+            raise ValueError("Cannot bulk delete messages older than 14 days due to Discord limitations.")
 
-        if after:
-            two_weeks = 1209600  # 14 days in seconds
-            if (datetime.datetime.now() - after).total_seconds() > two_weeks:
-                raise ValueError("Cannot bulk delete messages older than 14 days due to Discord limitations.")
+        try:
+            fetched_messages = botapp.rest.fetch_messages(channel_id, after=after)
+        except (hikari.ForbiddenError, hikari.NotFoundError, hikari.UnauthorizedError):
+            return False
 
-        messages_list = []
-        if messages_list:
-            messages_list = messages_list
-        else:
-            try:
-                fetched_messages = botapp.rest.fetch_messages(channel_id, after=after)
-            except (hikari.ForbiddenError, hikari.NotFoundError, hikari.UnauthorizedError):
-                return False
-            async for message in fetched_messages:
+        messages_list: list[hikari.Message] = []
+        to_be_deleted_count = 0
+        async for message in fetched_messages:
+            messages_list.append(message)
+
+        for message in messages_list:
+            if delete_amount:
+                if to_be_deleted_count >= delete_amount:
+                    break
+
+            if message.author.is_bot or message.author.is_system:
+                continue
+
+            # If we're only deleting messages from one user, only add that user to the list.
+            # Otherwise add all messages.
+            if deletion_target_id:
+                if deletion_target_id == message.author.id:
+                    to_be_deleted_count += 1
+                    messages_list.append(message.id)
+            else:
+                to_be_deleted_count += 1
                 messages_list.append(message.id)
 
-        log_msg = f"{len(messages_list)} messages were purged from <#{channel_id}> by <@{moderator_id}>.\nReason: {reason}"
+        if not deletion_target_id:
+            log_msg = (
+                f"{len(messages_list)} messages were purged from "
+                f"<#{channel_id}> by <@{moderator_id}>.\nReason: {reason}"
+            )
+        else:
+            log_msg = (
+                f"{len(messages_list)} messages from <@{deletion_target_id}> were purged from "
+                f"<#{channel_id}> by <@{moderator_id}>.\nReason: {reason}"
+            )
+        
         await server_logs(self.guild_id).create_entry(
             hikari.Embed(
                 title="Messages Purged",

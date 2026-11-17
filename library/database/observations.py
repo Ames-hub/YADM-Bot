@@ -41,7 +41,8 @@ def add_entry(msg_id:int, channel_id:int, username:int, user_id:int, msg_content
                 channel_id=channel_id,
                 msg_content=msg_content,
                 bot_action=bot_action,
-                guild_id=guild_id
+                guild_id=guild_id,
+                deleted=False
             )
             session.add(record)
             session.commit()
@@ -60,3 +61,23 @@ def get_all_entries(review_flagged_only:bool=False):
         data = records.all()
 
     return data if data else None
+
+def get_entry(msg_id:int):
+    with get_session() as session:
+        records = (
+            session.query(observation_entry)
+            .filter(observation_entry.msg_id == msg_id)
+        )
+        data = records.one_or_none()
+    return data
+
+def mark_deleted(msg_id:int, value:bool):
+    with get_session() as session:
+        records = (
+            session.query(observation_entry)
+            .filter(observation_entry.msg_id == msg_id)
+        )
+        data = records.one_or_none()
+        data.deleted = value
+        session.commit()
+    return True
