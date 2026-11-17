@@ -105,6 +105,29 @@ class guild_leveling:
                     embed
                 )
 
+    def clear_exp(self, user_id:int):
+        with get_session() as session:
+            record = (
+                session.query(guild_leveling_exp)
+                .filter(guild_leveling_exp.guild_id == self.guild_id)
+                .filter(guild_leveling_exp.user_id == user_id)
+                .one_or_none()
+            )
+            if not record:
+                record = guild_leveling_exp(
+                    guild_id=self.guild_id,
+                    user_id=user_id,
+                    exp=0,
+                    level=0,
+                )
+                session.add(record)
+                session.commit()
+                return True
+            record.exp = 0
+            record.level = 0
+            session.commit()
+        return True
+
     def get_enabled(self):
         with get_session() as session:
             record = (

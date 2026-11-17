@@ -18,6 +18,7 @@ async def botfunction(event: hikari.MessageCreateEvent):
             leveling = guild_leveling(guild_id)
 
             for user_id, msg_count in guild.items():
+                leveling.clear_exp(user_id)
                 leveling.give_exp(user_id, 5 * msg_count)
 
         await event.message.respond(
